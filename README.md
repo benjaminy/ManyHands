@@ -1,14 +1,27 @@
 ManyHands
 =========
 
-Chore management for teams
+#### Chore management for teams
 
-As of late 2013 ManyHands doesn't exist yet in any substantial sense,
-but I'm writing down the idea in hope of getting to work on it some day.
+> ManyHands doesn't exist yet in any substantial sense (as of late
+> 2013), but I'm writing down the idea in hope of getting to work on it
+> some day.
 
 ManyHands will be a simple web app that helps small teams (families,
-sports teams, social clubs, bands) managed shared chores.  It's a sort
-of shared to-do, reminder kind of thing.
+sports teams, social clubs, bands, ...) managed shared chores.  It's a
+sort of shared to-do, reminder kind of thing.
+
+### Many Hands in 100 words
+
+As a ManyHands user, you will belong to any number of teams.  Each team
+has any number of tasks.  Each time you do a task, you simply click a
+button and the system records that you did it and shares that with your
+team.  You can then look at the history of any given task to see who has
+been doing it.  The plan is to keep it as simple as possible; no social
+media tie-ins or dancing bears.  The hope is that this simple tool will
+help people share the work of routine chores with less fuss and stress.
+
+## A bit more detail
 
 The motivation for the project is that there are lots of mundane tasks
 that teams of people have to do, and working out who's going to do what
