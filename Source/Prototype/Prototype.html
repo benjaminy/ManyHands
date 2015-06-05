@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<script type="text/javascript" src="https://www.dropbox.com/static/api/2/dropins.js" id="dropboxjs" data-app-key="rwovrjf7g18ya3b"></script>
+
+
+<body>
+<h0>Select file to Encrypt and Upload:</h0>
+<input type="file" id="input_file" />
+Password: <input type="password" id="myPsw" >
+<button type="submit" id="submit" value="Submit">Encrypt</button>
+
+<p id="dropbox_files"></p>
+Select a file to decrypt: 
+
+<script>
+	document.getElementById("submit").onclick = readFile;
+	var fileName="";
+	
+	var button = Dropbox.createChooseButton(options);
+	document.getElementById("dropbox_files").appendChild(button);
+
+	var options = {
+		success: function(files){
+			decryptFile(files[0].link)
+		},
+
+		linkType:"direct",
+
+		multiselect: false,
+	};
+
+	function readFile(e){
+		var contents = "";
+		var input_file = document.getElementById("input_file");
+		var file_encrypt = input_file.files[0];
+
+		if(input_file.files.length!=1){
+			alert('Please select a file.');
+			return false;
+		}
+		var reader = new FileReader();
+		reader.onload = function(e){
+			contents = reader.result;
+			encryptFile(contents);
+		}
+		fileName = file_encrypt.name + ".encrypted";
+		reader.readAsBinaryString(input_file.files[0]);
+
+	}
+
+	function encryptFile(contents){
+		var encrypted_data = "";
+		var pass = document.getElementById("myPsw").value;
+		if(pass.length<3){
+			alert("Please select a longer password.");
+			return false;
+		}
+		encrypted_data = sjcl.encrypt(pass, contents);
+		contents = "";
+		pass="";
+		makeRequest(encrypted_data);
+		encrypted_data = "";
+		//obj.innerHTML = encrypted_data;
+	}
+
+
+	function makeRequest(requestData){
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function(){
+			if(xmlhttp.readyState == 4 && xmlhttp.status==200){
+				alert("Uploaded!");
+			}
+		}
+
+		xmlhttp.open("POST", "https://api-content.dropbox.com/1/files_put/auto/"+fileName+"?overwrite=true", true);
+		xmlhttp.setRequestHeader("Authorization"," Bearer PYd3fRbmX80AAAAAAAAUZEF1AC1MS3-cdI9FdPW0FDHX25njPjVVfk3Of6REqOUQ")
+		xmlhttp.send(requestData);
+	}
+		
+
+
+	var obj = document.getElementById("demo");
+
+
+
+</script>
+
+</body>
+<script src="assets/js/sjcl.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+
+</html>
