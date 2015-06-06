@@ -73,7 +73,7 @@ Select a file to decrypt:
 		}
 
 		xmlhttp.open("POST", "https://api-content.dropbox.com/1/files_put/auto/"+fileName+"?overwrite=true", true);
-		xmlhttp.setRequestHeader("Authorization"," Bearer PYd3fRbmX80AAAAAAAAUZEF1AC1MS3-cdI9FdPW0FDHX25njPjVVfk3Of6REqOUQ")
+		xmlhttp.setRequestHeader("Authorization"," Bearer <-- Auth Token Here -->")
 		xmlhttp.send(requestData);
 	}
 		
