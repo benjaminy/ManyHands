@@ -9,26 +9,19 @@
 Password: <input type="password" id="myPsw" >
 <button type="submit" id="submit" value="Submit">Encrypt</button>
 
-<p id="dropbox_files"></p>
-Select a file to decrypt: 
+Decrypt Password: <input type="password" id="myPsw2">
+<button type="button" id="decrypt_file">Download/Decrypt</button>
+<p id="dropbox_file"></p>
 
 <script>
 	document.getElementById("submit").onclick = readFile;
 	var fileName="";
+
+	document.getElementById("decrypt_file").onclick = makeDownloadRequest;
+
+	var decrypted_text = document.getElementById("dropbox_file");
 	
-	var button = Dropbox.createChooseButton(options);
-	document.getElementById("dropbox_files").appendChild(button);
-
-	var options = {
-		success: function(files){
-			decryptFile(files[0].link)
-		},
-
-		linkType:"direct",
-
-		multiselect: false,
-	};
-
+	
 	function readFile(e){
 		var contents = "";
 		var input_file = document.getElementById("input_file");
@@ -51,6 +44,7 @@ Select a file to decrypt:
 	function encryptFile(contents){
 		var encrypted_data = "";
 		var pass = document.getElementById("myPsw").value;
+		var pass2 = document.getElementById("myPsw2").value;
 		if(pass.length<3){
 			alert("Please select a longer password.");
 			return false;
@@ -58,13 +52,13 @@ Select a file to decrypt:
 		encrypted_data = sjcl.encrypt(pass, contents);
 		contents = "";
 		pass="";
-		makeRequest(encrypted_data);
+		makeUploadRequest(encrypted_data);
 		encrypted_data = "";
 		//obj.innerHTML = encrypted_data;
 	}
 
 
-	function makeRequest(requestData){
+	function makeUploadRequest(requestData){
 		var xmlhttp = new XMLHttpRequest();
 		xmlhttp.onreadystatechange = function(){
 			if(xmlhttp.readyState == 4 && xmlhttp.status==200){
@@ -73,13 +67,33 @@ Select a file to decrypt:
 		}
 
 		xmlhttp.open("POST", "https://api-content.dropbox.com/1/files_put/auto/"+fileName+"?overwrite=true", true);
-		xmlhttp.setRequestHeader("Authorization"," Bearer <-- Auth Token Here -->")
+		xmlhttp.setRequestHeader("Authorization"," Bearer PYd3fRbmX80AAAAAAAAUZEF1AC1MS3-cdI9FdPW0FDHX25njPjVVfk3Of6REqOUQ");
 		xmlhttp.send(requestData);
 	}
+
+	function makeDownloadRequest(e){
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function(){
+			if(xmlhttp.readyState == 4 && xmlhttp.status==200){
+				alert("success!");
+				var file_blob = xmlhttp.responseText;
+				decryptFile(file_blob);
+			}
+		}
 		
+		xmlhttp.open("GET", "https://api-content.dropbox.com/1/files/auto/"+"TEST.encrypted", true);
+		xmlhttp.setRequestHeader("Authorization"," Bearer PYd3fRbmX80AAAAAAAAUZEF1AC1MS3-cdI9FdPW0FDHX25njPjVVfk3Of6REqOUQ");
+		xmlhttp.send(null);
+	}
 
+	function decryptFile(fileBlob){
+		var decrypt_pass = document.getElementById("myPsw2").value;
+		var decrypted_data = sjcl.decrypt(decrypt_pass, fileBlob);
+		decrypted_text.innerHTML = decrypted_data;
+		decrypt_pass ="";
+	}
 
-	var obj = document.getElementById("demo");
+	var obj = document.getElementById("decrypt_file");
 
 
 
