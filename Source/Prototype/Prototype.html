@@ -1,106 +1,28 @@
 <!DOCTYPE html>
 <html>
-<script type="text/javascript" src="https://www.dropbox.com/static/api/2/dropins.js" id="dropboxjs" data-app-key="rwovrjf7g18ya3b"></script>
-
 
 <body>
+<button type="button" id="dropbox_connect">Connect to Dropbox</button>
+
 <h0>Select file to Encrypt and Upload:</h0>
 <input type="file" id="input_file" />
 Password: <input type="password" id="myPsw" >
 <button type="submit" id="submit" value="Submit">Encrypt</button>
 
+
+
+<h0>Download and Decrypt file</h0>
 Decrypt Password: <input type="password" id="myPsw2">
 <button type="button" id="decrypt_file">Download/Decrypt</button>
 <p id="dropbox_file"></p>
 
 <script>
-	document.getElementById("submit").onclick = readFile;
-	var fileName="";
-
-	document.getElementById("decrypt_file").onclick = makeDownloadRequest;
-
-	var decrypted_text = document.getElementById("dropbox_file");
-	
-	
-	function readFile(e){
-		var contents = "";
-		var input_file = document.getElementById("input_file");
-		var file_encrypt = input_file.files[0];
-
-		if(input_file.files.length!=1){
-			alert('Please select a file.');
-			return false;
-		}
-		var reader = new FileReader();
-		reader.onload = function(e){
-			contents = reader.result;
-			encryptFile(contents);
-		}
-		fileName = file_encrypt.name + ".encrypted";
-		reader.readAsBinaryString(input_file.files[0]);
-
-	}
-
-	function encryptFile(contents){
-		var encrypted_data = "";
-		var pass = document.getElementById("myPsw").value;
-		var pass2 = document.getElementById("myPsw2").value;
-		if(pass.length<3){
-			alert("Please select a longer password.");
-			return false;
-		}
-		encrypted_data = sjcl.encrypt(pass, contents);
-		contents = "";
-		pass="";
-		makeUploadRequest(encrypted_data);
-		encrypted_data = "";
-		//obj.innerHTML = encrypted_data;
-	}
-
-
-	function makeUploadRequest(requestData){
-		var xmlhttp = new XMLHttpRequest();
-		xmlhttp.onreadystatechange = function(){
-			if(xmlhttp.readyState == 4 && xmlhttp.status==200){
-				alert("Uploaded!");
-			}
-		}
-
-		xmlhttp.open("POST", "https://api-content.dropbox.com/1/files_put/auto/"+fileName+"?overwrite=true", true);
-		xmlhttp.setRequestHeader("Authorization"," Bearer PYd3fRbmX80AAAAAAAAUZEF1AC1MS3-cdI9FdPW0FDHX25njPjVVfk3Of6REqOUQ");
-		xmlhttp.send(requestData);
-	}
-
-	function makeDownloadRequest(e){
-		var xmlhttp = new XMLHttpRequest();
-		xmlhttp.onreadystatechange = function(){
-			if(xmlhttp.readyState == 4 && xmlhttp.status==200){
-				alert("success!");
-				var file_blob = xmlhttp.responseText;
-				decryptFile(file_blob);
-			}
-		}
-		
-		xmlhttp.open("GET", "https://api-content.dropbox.com/1/files/auto/"+"TEST.encrypted", true);
-		xmlhttp.setRequestHeader("Authorization"," Bearer PYd3fRbmX80AAAAAAAAUZEF1AC1MS3-cdI9FdPW0FDHX25njPjVVfk3Of6REqOUQ");
-		xmlhttp.send(null);
-	}
-
-	function decryptFile(fileBlob){
-		var decrypt_pass = document.getElementById("myPsw2").value;
-		var decrypted_data = sjcl.decrypt(decrypt_pass, fileBlob);
-		decrypted_text.innerHTML = decrypted_data;
-		decrypt_pass ="";
-	}
-
-	var obj = document.getElementById("decrypt_file");
-
-
 
 </script>
 
 </body>
 <script src="assets/js/sjcl.js"></script>
+<script src="assets/js/main.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 
 </html>
