@@ -2,27 +2,31 @@
 <html>
 
 <body>
-<button type="button" id="dropbox_connect">Connect to Dropbox</button>
+<button type="button" id="dropbox_connect">Connect to GDrive</button>
 
 <h0>Select file to Encrypt and Upload:</h0>
 <input type="file" id="input_file" />
 Password: <input type="password" id="myPsw" >
 <button type="submit" id="submit" value="Submit">Encrypt</button>
-
-
+<p>
+<button type="button" id="download_key" value="DownloadKey">DownloadKey</button>
+</p>
 
 <h0>Download and Decrypt file</h0>
 Decrypt Password: <input type="password" id="myPsw2">
 <button type="button" id="decrypt_file">Download/Decrypt</button>
 <p id="dropbox_file"></p>
-
-<script>
-
-</script>
+<div id='authorize-div' style='display: none'>
+	<span>Authorize Access to DRIVE API</span>
+	<button id='authorize-button' onclick="handleAuthClick(event)">Authorize</button>
+</div>
+<button type="button" id="keyGenerate">Generate and Upload Keys</button>
 
 </body>
 <script src="assets/js/sjcl.js"></script>
 <script src="assets/js/main.js"></script>
+<script src="assets/js/forge.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script src="https://apis.google.com/js/client.js?onload=checkAuth"></script>
 
 </html>
