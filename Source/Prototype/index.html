@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+</head>
+<body>
+Existing User?
+<form method="post" action="/get_url" id="login_form">
+	<div>
+		<label>UserID: </label>
+		<input type="text" name="login_username" id="login_username"/>
+
+		<label>Password: </label>
+		<input type="password" name="pwd" id="decrypt_pass"/>
+
+		<input type="submit" value="Log in" id="id_submit"/>
+	</div>
+</form>
+
+<div id="authorize-div" style="display: none"></div>
+
+<p>
+	First time User?<br>
+	<button type="button" id="dropbox_connect">Connect to Dropbox</button>
+</p>
+
+<pre id="output"></pre>
+</body>
+<script>
+
+</script>
+<script src="assets/js/index.js"></script>
+</html>

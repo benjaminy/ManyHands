@@ -1,29 +1,52 @@
-var finalhandler = require('finalhandler')
-var http = require('http')
-var serveStatic = require('serve-static')
-var qs = require('querystring')
+var finalhandler = require('finalhandler');
+var http = require('http');
+var serveStatic = require('serve-static');
+var qs = require('querystring');
+var url = require('url');
 var sqlite3 = require('sqlite3').verbose();
 var db = new sqlite3.Database('ManyHands');
 
-var username = "";
+
 var serve = serveStatic('.', {"index": ['index.html','index.htm']})
 
 
 var server = http.createServer(function (req, res){
+    full_url = url.parse(req.url);
+    var requestBody = "";
+    var callback = function(err, result){
+        if(err)
+            res.writeHead(400, "NOK", {"Content-Type": 'text/html'})
+        else if(result === null){
+            res.writeHead(401, "NOK", {"Content-Type": 'text/html'})
+            res.end("Something went wrong.")
+        }
+        else{
+            res.writeHead(301, {'Location': 'http://localhost:8080/Prototype.html'});
+            res.end(result);
+        }
+    };
 
-    if(req.method=="POST"){
-        var body="";
+    if(full_url.pathname === "/get_url"){
+        userid = full_url.query;
+
+        return checkUser(userid, callback)
+
+    }
+
+    if(req.url === "/register"){
         req.on('data', function (chunk){
-            body += chunk.toString();
+            requestBody += chunk.toString();
         });
 
         req.on('end', function(){
-            var post = qs.parse(body);
+            var post = qs.parse(requestBody);
             res.writeHead(200, "OK", {'Content-Type': 'text/html'});
             res.end();
-            postReqCB(post);
-        });
+            createUser(post, callback);
+        })
+        
     }
+    
     else{
         var done = finalhandler(req, res)
         serve(req, res, done)
@@ -34,74 +57,44 @@ server.listen(8080);
 
 console.log("Server Running on 8080");
 
-function postReqCB(body){
-    if(body['username']){
-        username = body['username'];
-        checkUser(username);
+
+
+function createUser(data, callback){
+    if(!data['create_username'] || !data['publink']){
+        console.log("Username and/or link not entered.")
     }
-    else{
-        console.log("No username");
-    }
+    db.serialize(function(){
+        var stmt = db.prepare('INSERT INTO user VALUES (?,?)');
+        stmt.run(username, publink);
+        stmt.finalize();
+    })
+    callback();
 }
 
-function checkUser(username){
-    db.all("SELECT * from user where uid="+username,function(err, rows){
-        if(err) console.log(err.errno);
+
+
+
+function checkUser(body, callback){
+    var post = qs.parse(body);
+    var username = body;
+
+
+    var json = '';
+    db.all("SELECT uid, publink from user where uid="+username+"",function(err, rows){
+        if(err){ 
+            console.log("error: "+err);
+            callback(err, null);
+        }
+
         else if(rows.length === 0){
-            console.log("user does not exist. connect to dropbox");
+            callback(err, null);
+
         }
         else{
-            console.log("user exists");
+            json = JSON.stringify(rows);
+            callback(null, json);
         }
     })
 
 }
-
-// var sys = require("sys"),
-// my_http = require("http"),
-// path = require("path"),
-// url = require("url"),
-// filesys = require("fs");
-// serveStatic = require('serve-static')
-
-// my_http.createServer(function(request,response){
-//     var my_url = url.parse(request.url);
-//     var my_path = my_url.pathname;
-//     var full_path = path.join(process.cwd(),my_path);
-
-//     if(my_path == "/getURL"){
-//         getURL(response, my_url);
-//     }
-
-//     request.on("data", function(data){
-//         response.end('data event: '+data);
-//     });
-
-
-
-//     filesys.exists(full_path,function(exists){
-//         if(!exists){
-//             response.writeHeader(404, {"Content-Type": "text/plain"});  
-//             response.write("404 Not Found\n");  
-//             response.end();
-//         }
-//         else{
-//             filesys.readFile(full_path, "binary", function(err, file) {  
-//                  if(err) {  
-//                      response.writeHeader(500, {"Content-Type": "text/plain"});  
-//                      response.write(err + "\n");  
-//                      response.end();  
-                 
-//                  }  
-//                  else{
-//                     response.writeHeader(200);  
-//                     response.write(file, "binary");  
-//                     response.end();
-//                 }
-                      
-//             });
-//         }
-//     });
-// }).listen(8080);
-
 
