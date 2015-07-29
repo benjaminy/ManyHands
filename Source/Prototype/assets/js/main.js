@@ -1,13 +1,15 @@
-	var CLIENT_ID = '609410117719-2cpaht834f4kjbaivkt2v1s03to7s9r8.apps.googleusercontent.com';
-	var SCOPES = ["https://www.googleapis.com/auth/drive"];
-
+	var APP_KEY = "rwovrjf7g18ya3b";
 
 	//document.getElementById("submit").onclick = readFile;
 	var fileName="";
-	//document.getElementById("gdrive_connect").onclick = handleAuthClick;
+	if(document.getElementById("dropbox_connect") !== null){	
+		document.getElementById("dropbox_connect").onclick = handleAuthClick;
+	}
 	
-	//document.getElementById("getPublink").onclick = getPubLink;
-	document.getElementById("keyGenerate").onclick = initializeKeys;
+	if(document.getElementById("getPublink") !== null){
+		document.getElementById("getPublink").onclick = getPubLink;
+	}
+	//document.getElementById("keyGenerate").onclick = initializeKeys;
 	//document.getElementById("decrypt_file").onclick = makeDownloadRequest;
 	//document.getElementById("download_key").onclick = downloadKey;
 
@@ -19,85 +21,55 @@
 	var pbkdSalt = null;
 	var filename=null;
 	var sessionKey = null;
-	const boundary = '-------314159265358979323846';
-	const delimiter = "\r\n--" + boundary + "\r\n";
- 	const close_delim = "\r\n--" + boundary + "--";
+	var authDiv = document.getElementById('authorize-div');
+
 
 	window.onload = checkAuth;
 
 
 	function checkAuth(){
-		gapi.auth.authorize(
-		{
-			'client_id': CLIENT_ID,
-			'scope': SCOPES,
-			'immediate': true
-		}, handleAuthResult);
-	}
-
-	function handleAuthResult(authResult){
-		var authDiv = document.getElementById('authorize-div');
-		if(authResult && !authResult.error){
-			authDiv.style.display='none';
-			loadDriveApi();
+		if(!sessionStorage.getItem('access_token')){
+			authDiv.style.display='inline'	
 		}
 		else{
-			authDiv.style.display='inline';
+			access_token = localStorage.getItem('access_token')
 		}
+	}
+
+	function get_redirect_uri(){
+		return "http://localhost:8080/firstconnect.html";
 	}
 
 
 	function handleAuthClick(e){
-		gapi.auth.authorize(
-        	{client_id: CLIENT_ID, scope: SCOPES, immediate: false},
-        	handleAuthResult);
-        return false;
+        window.open('https://www.dropbox.com/1/oauth2/authorize?client_id='+encodeURIComponent(APP_KEY)+'&response_type=token&redirect_uri='+encodeURIComponent(get_redirect_uri()), "_self");
 	}
 
-	function loadDriveApi(){
-		gapi.client.load('drive','v2')
+	function parseqs(text){
+		var split = text.split('&');
+		var params = {};
+		for(var i=0; i<split.length; i++){
+			var kv = split[i].split('=',2);
+			params[kv[0]] = kv[1];
+		}
+		return params;
 	}
 
-	function listFiles(){
-		var request = gapi.client.drive.files.list({
-			'maxResults':10
-		});
+	if(window.location.hash){
 
-		request.execute(function(resp){
-			appendPre('Files:');
-			var files = resp.items;
-			if(files && files.length>0){
-				for(var i=0; i<files.length; i++){
-					var file = files[i];
-					appendPre(file.title+' ('+file.id+')');
-				}
-			}
-			else{
-				appendPre('No files found.');
-			}
-		});
-	}
+		var params = parseqs(window.location.hash.substring(1));
+		if(params.error){
+			document.write("Error "+params.error+": "+params.error_description.replace(/\+/g,' '));
+		}
+		else{
+			access_token = parseqs(window.location.hash.substring(1)).access_token;
+			window.location.hash = "";
+			localStorage.setItem('access_token', access_token);
+		}
+	}	
 
-	function appendPre(message){
-		var pre = document.getElementById('output');
-		var textContent = document.createTextNode(message+'\n');
-		pre.appendChild(textContent);
-	}
 
-	// if(window.location.hash){
 
-	// 	var params = parseqs(window.location.hash.substring(1));
-	// 	if(params.error){
-	// 		document.write("Error "+params.error+": "+params.error_description.replace(/\+/g,' '));
-	// 	}
-	// 	else{
-	// 		access_token = parseqs(window.location.hash.substring(1)).access_token;
-	// 		uid = parseqs(window.location.hash.substring(1)).uid;
-	// 		window.location.hash = "";
-	// 		localStorage.setItem('access_token', access_token);
-	// 		sessionStorage.setItem('uid', uid);
-	// 	}
-	// }	
 	
 	function readFile(e){
 		var contents = "";
@@ -148,32 +120,23 @@
 		var privKey = forge.pki.encryptRsaPrivateKey(keypair.privateKey, pbkd);
 
 		keyUploadRequest(salt1, "salt1");
-		// keyUploadRequest(salt2, "salt2");
-		// keyUploadRequest(pem, "pubKey");
-		// keyUploadRequest(privKey, "privKey");
+		keyUploadRequest(salt2, "salt2");
+		keyUploadRequest(pem, "pubKey");
+		keyUploadRequest(privKey, "privKey");
 	}
 
 
-	function keyUploadRequest(requestData, filename, callback){
-		var metadata = {
-			'title': filename
-		};
-
-		var uploadRequest = delimiter+ JSON.stringify(metadata)+delimiter+requestData+close_delim;
-
-		var request = gapi.client.request({
-			'path': '/upload/drive/v2/files',
-			'method':'POST',
-			'params':{'uploadType':'multipart'},
-			'body':uploadRequest
-		});
-		
-		if(!callback){
-			callback = function(file){
-				console.log(file)
-			};
+	function keyUploadRequest(requestData, filename){
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function(){
+			if(xmlhttp.readyState == 4 && xmlhttp.status==200){
+				alert("Uploaded keys");
+			}
 		}
-		request.execute(callback);
+
+		xmlhttp.open("POST", "https://api-content.dropbox.com/1/files_put/auto/"+filename+"?overwrite=true", true);
+		xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
+		xmlhttp.send(requestData);
 	}
 
 	function generateSessionKey(){
@@ -204,7 +167,6 @@
 	}
 
 	function downloadKey(){
-		console.log("downloading key");
 		makeDownloadRequest("privKey", keyCallBack);
 		makeDownloadRequest("salt1", salt1CallBack);
 		makeDownloadRequest("salt2", salt2CallBack);
@@ -215,7 +177,7 @@
 
 		xmlhttp.onreadystatechange = makeFooCB(publinkCallBack);
 
-		xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+"salt1",true);
+		xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/pubKey?short_url=false",true);
 		xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
 		xmlhttp.send(null);
 	}
@@ -232,10 +194,24 @@
 
 	}
 
+	function downloadFile(download_url, cb){
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = makeFooCB(cb);
+
+		var publicLink = download_url.replace("www.dropbox.com", "dl.dropboxusercontent.com");
+
+		xmlhttp.open("GET", publicLink, true);
+		xmlhttp.send(null)
+	}
+
 	function makeFooCB(cb){
 		return function(ev){
 			foo(this, cb);
 		}
+	}
+
+	function downloadFileCallBack(httpResponse){
+		console.log(httpResponse);
 	}
 
 	function keyCallBack(httpResponse){
@@ -243,8 +219,11 @@
 	}
 
 	function publinkCallBack(httpResponse){
-		publink = httpResponse;
-		console.log(publink);
+		var linkField = document.getElementById('hidden_input');
+		resp = JSON.parse(httpResponse);
+		publink = resp.url;
+		publink = publink.replace("www.dropbox.com", "dl.dropboxusercontent.com");
+		linkField.value = publink;
 	}
 
 	function salt2CallBack(httpResponse){
