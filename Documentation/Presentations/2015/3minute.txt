@@ -1,0 +1,49 @@
+SCORE 3 minute presentation.
+
+-Some statistic (freedom of speech/financial data)
+
+- The importance of privacy and security.
+	If you use the internet today, there is a very good chance that your information is in the hands of a third party. Be it hackers or the government.
+
+	Over the past few years there has been an increase in the number of cyber attacks and coupled with the Edward Snowden revealation, it paints a dire picture of the state of the internet. (when your private and personal information ends up on a hax0r website for sale, or the government can see every text you sent)
+
+
+-How to mitigate these issues
+	-Technology can be used to address this problem.
+
+	The current problem, while not easy to solve, is manageable. Using already existing crypto systems and protocols, it is possible to keep your private information safe from prying eyes and third parties.
+
+	One of these technologies that immediately comes to mind is end-to-end encryption.
+
+	-Closest system to it is imessages
+		End to End Encryption is an ecryption protocol where the sensitive data is only viewable by the sender and the reciepient.
+		Simple explanation:
+			A and B both have a private and public key pair.
+			Both public keys can be accessed by everyone. But the private key for each is kept safe and personal.
+			A encrypts a message with B's public key.
+			A sends this encrypted message to B using regular channels.
+			B receives this message.
+			B can decrypt this message using his own private key and him only.
+		Public-private key pairs can also be used for signing and verification.
+
+
+-Today google/dropbox can see all of your data
+	-Some big concerns with these things:
+		-Do no evil.
+			For all the corporate promises, you are still trusting them with important data. Google has access to your gmail data, drive data, docs data. They can look and any of these when they want.
+		-Big companies are still susceptible to attacks and data breaches.
+			SONY, AOL, eBay, etc. Choosing to put the security of your  credentials in their hands.
+
+
+-What we're trying to do is to have a google docs like system (collaborative document creation/editing) with security features 
+like end-to-end encryption.
+	
+
+
+
+If have more time:
+	-Public Key Cryptography
+	-Redundancy of data.
+	-Caching (version control)
+
+
