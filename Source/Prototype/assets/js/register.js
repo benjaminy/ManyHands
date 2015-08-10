@@ -14,6 +14,8 @@ var someCOUNT = 2;
 
 var regform = document.getElementById('regform');
 
+var userField = document.getElementById('username');
+
 function onWindowLoad(){
 
 	if(window.location.hash){
@@ -31,6 +33,7 @@ function onWindowLoad(){
 	
 
 regform.onsubmit = function(evt){
+	evt.preventDefault();
 	initializeKeys();
 }
 
@@ -112,17 +115,29 @@ regform.onsubmit = function(evt){
 		}
 
 		else if(this.filename === "topLevelDir"){
-			var linkfield = document.getElementById("topLevelDir")
-
-			linkfield.value = link;
+			onTopLevelDirRx(link);
 			return;
 		}
-	
 		publinkCount++;
 
 		if(publinkCount === someCOUNT){
 			onAllPublinkRx();
 		}
+	}
+
+	function onTopLevelDirRx(link){
+		var params = "uid="+encodeURIComponent(userField.value)+"&link="+encodeURIComponent(link);
+
+		var xmlhttp = new XMLHttpRequest();
+
+		xmlhttp.addEventListener('load', onRegisterComplete, false);
+
+		xmlhttp.open("POST", "register", false);
+		xmlhttp.send(params);
+	}
+
+	function onRegisterComplete(){
+		window.location.href = "Prototype.html";
 	}
 
 	function onAllPublinkRx(){
