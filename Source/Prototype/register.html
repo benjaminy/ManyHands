@@ -3,17 +3,17 @@
 <head>
 	<title></title>
 </head>
-<body>
+<body onload = "onWindowLoad()">
 Create a user_id.
-<form method="post"  id="regform" action="/register">
+<form method="post"  id="regform" >
 	<div>
 		<label>UserID: </label><br>
-		<input type="text" name="create_username"/>
+		<input type="text" name="create_username" id="username"/>
 
 		<label>Password: </label>
 		<input type="password" name="create_password" id="password"/>
 
-		<input type="hidden" name="publink" id="hidden_input"/>
+		<input type="hidden" name="topLevelDir" id="topLevelDir"/>
 
 		<input type="submit" value="Create User"/>
 	</div>
@@ -22,13 +22,14 @@ Create a user_id.
 <div>
 	<label>Public link </label>
 </div>
-<button type="button" id="getPublink">GetLink</button>
+<button type="button" id="getFolder">FolderLink</button>
 </body>
 
 <script>
 </script>
 
-<script src="assets/js/main.js">
+<script src="assets/js/register.js"></script>
+<script src="assets/js/forge.min.js"></script>
 	
 </script>
 

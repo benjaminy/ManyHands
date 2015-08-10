@@ -37,7 +37,7 @@
 	}
 
 	function get_redirect_uri(){
-		return "http://localhost:8080/firstconnect.html";
+		return "http://localhost:8080/Prototype.html";
 	}
 
 
@@ -177,7 +177,7 @@
 
 		xmlhttp.onreadystatechange = makeFooCB(publinkCallBack);
 
-		xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/pubKey?short_url=false",true);
+		xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+"pubKey",true);
 		xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
 		xmlhttp.send(null);
 	}
@@ -222,8 +222,8 @@
 		var linkField = document.getElementById('hidden_input');
 		resp = JSON.parse(httpResponse);
 		publink = resp.url;
-		publink = publink.replace("www.dropbox.com", "dl.dropboxusercontent.com");
 		linkField.value = publink;
+		//downloadFile(publink, downloadFileCallBack);
 	}
 
 	function salt2CallBack(httpResponse){

@@ -1,25 +1,6 @@
 	var APP_KEY = "rwovrjf7g18ya3b";
 
 	document.getElementById("dropbox_connect").onclick = handleAuthClick;
-	var loginform = document.getElementById("login_form");
-
-	var privKeyLink = "";
-	var username = "";
-	var decrypt_pass = "";
-
-	loginform.onsubmit = function(evt){
-		evt.preventDefault();
-
-		username = document.getElementById("login_username").value;
-		decrypt_pass = document.getElementById("decrypt_pass").value;
-
-		var xmlhttp = new XMLHttpRequest();
-
-		xmlhttp.onreadystatechange = makeFooCB(loginCallback);
-
-		xmlhttp.open("GET", "http://localhost:8080/get_url?"+username+"", true);
-		xmlhttp.send(null);
-	}
 
 	function handleAuthClick(e){
         window.open('https://www.dropbox.com/1/oauth2/authorize?client_id='+encodeURIComponent(APP_KEY)+'&response_type=token&redirect_uri='+encodeURIComponent(get_redirect_uri()), "_self");
@@ -37,15 +18,16 @@
 		makeDownloadRequest("salt2", salt2CallBack);
 	}
 
-	// function getPubLink(filename){
-	// 	var xmlhttp = new XMLHttpRequest();
+	function getPubLink(){
+		var xmlhttp = new XMLHttpRequest();
 
-	// 	xmlhttp.onreadystatechange = makeFooCB(publinkCallBack);
+		xmlhttp.onreadystatechange = makeFooCB(publinkCallBack);
 
-	// 	xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+filename+"?short_url=false",true);
-	// 	xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
-	// 	xmlhttp.send(null);
-	// }
+		xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/pubKey?short_url=false",true);
+		xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
+		xmlhttp.send(null);
+	}
+
 
 	function makeDownloadRequest(filename1, cb){
 		var xmlhttp = new XMLHttpRequest();
@@ -62,19 +44,11 @@
 		var xmlhttp = new XMLHttpRequest();
 		xmlhttp.onreadystatechange = makeFooCB(cb);
 
-		xmlhttp.open("GET", download_url, true);
+		var publicLink = download_url.replace("www.dropbox.com", "dl.dropboxusercontent.com");
+
+		xmlhttp.open("GET", publicLink, true);
 		xmlhttp.send(null)
 	}
-
-	function loginCallback(httpResponse){
-		console.log(httpResponse);
-		privKeyLink = httpResponse;
-		downloadFile(privKeyLink, privKeyDecrypt);
-
-	}
-
-	function privKeyDecrypt()
-
 
 	function foo(xhr, cb){
 		if(xhr.readyState == 4 && xhr.status==200){
@@ -84,6 +58,7 @@
 
 
 	function decryptFile(fileBlob){
+		var decrypt_pass = document.getElementById("decrypt_pass").value;
 		var decrypted_data = sjcl.decrypt(decrypt_pass, fileBlob);
 		decrypt_pass ="";
 	}
