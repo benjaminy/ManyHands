@@ -16,6 +16,8 @@ var regform = document.getElementById('regform');
 
 var userField = document.getElementById('username');
 
+var passField = document.getElementById('password');
+
 function onWindowLoad(){
 
 	if(window.location.hash){
@@ -40,7 +42,8 @@ regform.onsubmit = function(evt){
 
 	//Is there a way to make sure a certain function executes once this function completes?
 	function initializeKeys(){
-		var pass = document.getElementById('password').value;
+		var pass = passField.value;
+		var uid = userField.value;
 
 		var rsa = forge.pki.rsa;
 		
@@ -48,18 +51,23 @@ regform.onsubmit = function(evt){
 		
 		var pem = forge.pki.publicKeyToPem(keypair.publicKey);
 		
-		var salt1 = forge.random.getBytesSync(128);
+		var userSalt = forge.random.getBytesSync(128);
 
-		var pbkd = forge.pkcs5.pbkdf2(pass, salt1, 40, 16);
+		var pbkd = forge.pkcs5.pbkdf2(pass+""+uid, salt1, 40, 16);
+
 		//Concatenate password and uid
+
+		//http://cryptojs.altervista.org/secretkey/doc/doc_aes_forge.html
+
+		var encryptedAccessToken = forge.
 
 		var privKey = forge.pki.encryptRsaPrivateKey(keypair.privateKey, pbkd);
 
 		uploadCount = 0;
-		keyUploadRequest(salt1, "salt1");
+		keyUploadRequest(userSalt, "userSalt");
 		keyUploadRequest(pem, "pubKey");
 		keyUploadRequest(privKey, "privKey");
-		keyUploadRequest(localStorage.getItem("access_token"), "access_token");
+		keyUploadRequest(encryptedAccessToken, "encryptedAccessToken");
 		//upload encrypted access token
 		//call get public link
 	}
