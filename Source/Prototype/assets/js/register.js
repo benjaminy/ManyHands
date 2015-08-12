@@ -12,11 +12,15 @@ var FILECOUNT = 4;
 
 var someCOUNT = 2;
 
+var publinkCount=0;
+
 var regform = document.getElementById('regform');
 
 var userField = document.getElementById('username');
 
 var passField = document.getElementById('password');
+
+window.onload = onWindowLoad;
 
 function onWindowLoad(){
 
@@ -26,10 +30,25 @@ function onWindowLoad(){
 				document.write("Error "+params.error+": "+params.error_description.replace(/\+/g,' '));
 		}
 		else{
-			access_token = parseqs(window.location.hash.substring(1)).access_token;
-			localStorage.setItem('access_token', access_token);
+			if(!localStorage.getItem('access_token')){
+				access_token = parseqs(window.location.hash.substring(1)).access_token;
+				localStorage.setItem('access_token', access_token);
+			}
+			else{
+				access_token = localStorage.getItem('access_token');
+			}
 		}
 	}
+}
+
+function parseqs(text){
+	var split = text.split('&');
+	var params = {};
+	for(var i=0; i<split.length; i++){
+		var kv = split[i].split('=',2);
+		params[kv[0]] = kv[1];
+	}
+	return params;
 }
 
 	
@@ -42,6 +61,7 @@ regform.onsubmit = function(evt){
 
 	//Is there a way to make sure a certain function executes once this function completes?
 	function initializeKeys(){
+		
 		var pass = passField.value;
 		var uid = userField.value;
 
@@ -53,13 +73,13 @@ regform.onsubmit = function(evt){
 		
 		var userSalt = forge.random.getBytesSync(128);
 
-		var pbkd = forge.pkcs5.pbkdf2(pass+""+uid, salt1, 40, 16);
+		var pbkd = forge.pkcs5.pbkdf2(pass+""+uid, userSalt, 40, 16);
 
 		//Concatenate password and uid
 
 		//http://cryptojs.altervista.org/secretkey/doc/doc_aes_forge.html
 
-		var encryptedAccessToken = forge.
+		// var encryptedAccessToken = forge.
 
 		var privKey = forge.pki.encryptRsaPrivateKey(keypair.privateKey, pbkd);
 
@@ -67,14 +87,14 @@ regform.onsubmit = function(evt){
 		keyUploadRequest(userSalt, "userSalt");
 		keyUploadRequest(pem, "pubKey");
 		keyUploadRequest(privKey, "privKey");
-		keyUploadRequest(encryptedAccessToken, "encryptedAccessToken");
+		keyUploadRequest("blah", "encryptedAccessToken");
 		//upload encrypted access token
-		//call get public link
 	}
 
 	function onFileUpload(){
 		if(this.foo === "topLevelDir"){
 			getPubLink("topLevelDir");
+			publinkCount++;
 			return;
 		}
 		uploadCount++;
@@ -83,12 +103,13 @@ regform.onsubmit = function(evt){
 		}
 	}
 
-	function onAllUploadsCompelte(){
+	function onAllUploadsComplete(){
 		getPubLink("pubKey");
-		getPubLink("access_token")
+		getPubLink("encryptedAccessToken");
 	}
 
 	function keyUploadRequest(requestData, filename){
+
 		var xmlhttp = new XMLHttpRequest();
 		xmlhttp.foo = filename;
 		xmlhttp.addEventListener("load", onFileUpload, false)
@@ -100,25 +121,27 @@ regform.onsubmit = function(evt){
 
 
 	function getPubLink(filename){
+
 		var xmlhttp = new XMLHttpRequest();
 
 		xmlhttp.filename = filename;
 		xmlhttp.addEventListener("load", publinkCallBack, false);
 
-		xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+filename"+?short_url=false",true);
+		xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+filename+"?short_url=false",true);
 		xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
 		xmlhttp.send(null);
 	}
 
 	function publinkCallBack(){
-		var link = JSON.parse(this.responseText);
-		link = link.replace("www.dropbox.com", "dl.dropboxusercontent.com");
+		var resp = JSON.parse(this.responseText);
+		link = resp.url.replace("www.dropbox.com", "dl.dropboxusercontent.com");
+	
 
 		if(this.filename === "pubKey"){
 			publicKeyLink = link;
 		}
 
-		else if(this.filename === "access_token"){
+		else if(this.filename === "encryptedAccessToken"){
 			accessTokenLink = link;
 		}
 
