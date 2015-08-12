@@ -11,25 +11,57 @@ var serve = serveStatic('.', {"index": ['index.html','index.htm']})
 
 var server = http.createServer(function (req, res){
 
-    if(req.method=="POST"){
-        var body="";
+
+    if(req.url === "/register"){
+        var body = "";
+
         req.on('data', function (chunk){
             body += chunk.toString();
         });
 
         var callback = function(err, result){
             if(err)
-                res.writeHead(400, "NOK", {"Content-Type": 'text/html'})
+                res.writeHead(400, "NOK", {"Content-Type": "text/html"})
             res.writeHead(200, "OK", {"Content-Type": 'text/html'});
-            res.end(result);
+            res.end(result)
         };
 
         req.on('end', function(){
-            return postReqCB(body, callback);            
+            return registerReqCB(body, callback);
         });
-
-
+        //If the req url is "register", parse the posted params and add them to central server.
     }
+
+    else if(req.url === "login"){
+        //If the req url is "login", parse the posted params and get link from CS.
+        //Go to public link to TLD
+        //Get file
+        //Parse file. 
+        //Get link to access_token
+        //download encrypted access token
+        //decrypt access token with password posted.
+    }
+
+    // if(req.method=="POST"){
+    //     var body="";
+    //     req.on('data', function (chunk){
+    //         body += chunk.toString();
+    //     });
+
+    //     var callback = function(err, result){
+    //         if(err)
+    //             res.writeHead(400, "NOK", {"Content-Type": 'text/html'})
+    //         res.writeHead(200, "OK", {"Content-Type": 'text/html'});
+    //         res.end(result);
+    //     };
+
+    //     req.on('end', function(){
+    //         return postReqCB(body, callback);            
+    //     });
+
+
+
+    // }
     else{
         var done = finalhandler(req, res)
         serve(req, res, done)
@@ -64,6 +96,18 @@ function postReqCB(body, callback){
     }
 }
 
+function registerReqCB(body, callback){
+    var postParams = qs.parse(body);
+
+    var username = postParams['uid'];
+    var tldLink = postParams['link'];
+
+    createUser(username, publink);
+
+
+}
+
+
 function createUser(username, publink, callback){
     db.serialize(function(){
         var stmt = db.prepare('INSERT INTO user VALUES (?,?)');
@@ -73,6 +117,9 @@ function createUser(username, publink, callback){
     callback();
 }
 
+function checkUserCB(err, dbResp){
+    console.log(dbResp);
+}
 
 function checkUser(username, callback){
     var json = '';
