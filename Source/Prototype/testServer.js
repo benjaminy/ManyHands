@@ -10,6 +10,7 @@ var serve = serveStatic('.', {"index": ['index.html','index.htm']})
 
 
 var server = http.createServer(function (req, res){
+    //look at dmcc_server line 170
 
 
     if(req.url === "/register"){
@@ -19,20 +20,23 @@ var server = http.createServer(function (req, res){
             body += chunk.toString();
         });
 
-        var callback = function(err, result){
-            if(err)
-                res.writeHead(400, "NOK", {"Content-Type": "text/html"})
-            res.writeHead(200, "OK", {"Content-Type": 'text/html'});
-            res.end(result)
-        };
-
         req.on('end', function(){
-            return registerReqCB(body, callback);
+            registerReqCB(body, res);
         });
         //If the req url is "register", parse the posted params and add them to central server.
     }
 
-    else if(req.url === "login"){
+    else if(req.url === "/login"){
+        var body = "";
+
+        req.on('data', function (chunk){
+            body += chunk.toString();
+        });
+
+        req.on('end', function(){
+            loginReqCB(body, res);
+        });
+
         //If the req url is "login", parse the posted params and get link from CS.
         //Go to public link to TLD
         //Get file
@@ -42,26 +46,6 @@ var server = http.createServer(function (req, res){
         //decrypt access token with password posted.
     }
 
-    // if(req.method=="POST"){
-    //     var body="";
-    //     req.on('data', function (chunk){
-    //         body += chunk.toString();
-    //     });
-
-    //     var callback = function(err, result){
-    //         if(err)
-    //             res.writeHead(400, "NOK", {"Content-Type": 'text/html'})
-    //         res.writeHead(200, "OK", {"Content-Type": 'text/html'});
-    //         res.end(result);
-    //     };
-
-    //     req.on('end', function(){
-    //         return postReqCB(body, callback);            
-    //     });
-
-
-
-    // }
     else{
         var done = finalhandler(req, res)
         serve(req, res, done)
@@ -72,49 +56,66 @@ server.listen(8080);
 
 console.log("Server Running on 8080");
 
-function postReqCB(body, callback){
-    var post = qs.parse(body);
-    var username = "";
-    var publink = "";
+function loginReqCB(body, res){
+    var postParams = qs.parse(body);
 
-    if(post['login_username']){
-        if(!post['pwd']){
-            return false;
-        }
-        username = post['login_username'];
-        console.log("username: ", username);
-        checkUser(username, callback)
-    }
-    else if(post['create_username']){
-        username = post['create_username'];
-        publink = post['publink']
-        createUser(username, publink)
-        console.log(post);
-    }
-    else{
-        console.log("Something went terribly awry");
-    }
+    var username = postParams['uid'];
+
+
+    getTLDLink(username, res);
 }
 
-function registerReqCB(body, callback){
+function registerReqCB(body, res){
     var postParams = qs.parse(body);
 
     var username = postParams['uid'];
     var tldLink = postParams['link'];
 
-    createUser(username, publink);
+    createUser(username, tldLink, res);
 
+}
+
+function getTLDLink(username, res){
+    db.each("SELECT publink FROM user WHERE uid="+username+"",
+        function (err, row){
+            if (err){
+                res.writeHead(400, "NOK", {"Content-Type": "text/html"});
+                res.end("Something went terribly awry!");
+                console.log("Database error: ", err)
+            }
+            else{
+                onTLDLink(row, res);
+            }
+        }
+    );
+}
+
+function onTLDLink(row, res){
+    var dbRow = JSON.stringify(row);
+    res.writeHead(200, "OK", {"Content-Type": "text/html"});
+    res.end(dbRow);
 
 }
 
 
-function createUser(username, publink, callback){
-    db.serialize(function(){
-        var stmt = db.prepare('INSERT INTO user VALUES (?,?)');
-        stmt.run(username, publink);
-        stmt.finalize();
-    })
-    callback();
+function createUser(username, publink, res){
+    db.run('INSERT INTO user VALUES (?,?)', username, publink, 
+        function (err){
+            onUserInserted(err, res);
+        });
+
+}
+
+function onUserInserted(err, res){
+    if(err === null){
+        console.log("Successfully registered");
+        res.writeHead(200, "OK", {"Content-Type": 'text/html'});     
+    }
+    else{
+        console.log("err: ", err);
+        res.writeHead(400, "NOK", {"Content-Type": "text/html"})
+    }
+    res.end("");   
 }
 
 function checkUserCB(err, dbResp){
@@ -140,4 +141,3 @@ function checkUser(username, callback){
     })
 
 }
-
