@@ -59,119 +59,131 @@ regform.onsubmit = function(evt){
 }
 
 
-	//Is there a way to make sure a certain function executes once this function completes?
-	function initializeKeys(){
-		
-		var pass = passField.value;
-		var uid = userField.value;
-
-		var rsa = forge.pki.rsa;
-		
-		var keypair = rsa.generateKeyPair({bits: 128, e: 0x10001});
-		
-		var pem = forge.pki.publicKeyToPem(keypair.publicKey);
-		
-		var userSalt = forge.random.getBytesSync(128);
-
-		var pbkd = forge.pkcs5.pbkdf2(pass+""+uid, userSalt, 40, 16);
-
-		//Concatenate password and uid
-
-		//http://cryptojs.altervista.org/secretkey/doc/doc_aes_forge.html
-
-		// var encryptedAccessToken = forge.
-
-		var privKey = forge.pki.encryptRsaPrivateKey(keypair.privateKey, pbkd);
-
-		uploadCount = 0;
-		keyUploadRequest(userSalt, "userSalt");
-		keyUploadRequest(pem, "pubKey");
-		keyUploadRequest(privKey, "privKey");
-		keyUploadRequest("blah", "encryptedAccessToken");
-		//upload encrypted access token
-	}
-
-	function onFileUpload(){
-		if(this.foo === "topLevelDir"){
-			getPubLink("topLevelDir");
-			publinkCount++;
-			return;
-		}
-		uploadCount++;
-		if (uploadCount === FILECOUNT){
-			onAllUploadsComplete();
-		}
-	}
-
-	function onAllUploadsComplete(){
-		getPubLink("pubKey");
-		getPubLink("encryptedAccessToken");
-	}
-
-	function keyUploadRequest(requestData, filename){
-
-		var xmlhttp = new XMLHttpRequest();
-		xmlhttp.foo = filename;
-		xmlhttp.addEventListener("load", onFileUpload, false)
-
-		xmlhttp.open("POST", "https://api-content.dropbox.com/1/files_put/auto/"+filename+"?overwrite=true", true);
-		xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
-		xmlhttp.send(requestData);
-	}
+//Implement reauthorization flow.
 
 
-	function getPubLink(filename){
-
-		var xmlhttp = new XMLHttpRequest();
-
-		xmlhttp.filename = filename;
-		xmlhttp.addEventListener("load", publinkCallBack, false);
-
-		xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+filename+"?short_url=false",true);
-		xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
-		xmlhttp.send(null);
-	}
-
-	function publinkCallBack(){
-		var resp = JSON.parse(this.responseText);
-		link = resp.url.replace("www.dropbox.com", "dl.dropboxusercontent.com");
+function initializeKeys(){
 	
+	var pass = passField.value;
+	var uid = userField.value;
+	var iv = forge.random.getBytesSync(16);
+	localStorage.setItem("iv", iv);
+	//unencrypted accesstoken
+	var uAccessToken = forge.util.createBuffer(access_token);
 
-		if(this.filename === "pubKey"){
-			publicKeyLink = link;
-		}
+	var rsa = forge.pki.rsa;
+	
+	var keypair = rsa.generateKeyPair({bits: 128, e: 0x10001});
+	
+	var pem = forge.pki.publicKeyToPem(keypair.publicKey);
+	
+	var userSalt = forge.random.getBytesSync(128);
 
-		else if(this.filename === "encryptedAccessToken"){
-			accessTokenLink = link;
-		}
+	var combo = pass.concat(uid);
 
-		else if(this.filename === "topLevelDir"){
-			onTopLevelDirRx(link);
-			return;
-		}
+	var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
+
+	//Concatenate password and uid
+
+	//http://cryptojs.altervista.org/secretkey/doc/doc_aes_forge.html
+
+	
+	var accessTokenCipher = forge.aes.startEncrypting(pbkd, iv);
+	accessTokenCipher.update(uAccessToken);
+	var status = accessTokenCipher.finish();
+	var encryptedAccessToken = accessTokenCipher.output.data;
+
+	var privKey = forge.pki.encryptRsaPrivateKey(keypair.privateKey, pbkd);
+
+	uploadCount = 0;
+	keyUploadRequest(userSalt, "userSalt");
+	keyUploadRequest(pem, "pubKey");
+	keyUploadRequest(privKey, "privKey");
+	keyUploadRequest(encryptedAccessToken, "encryptedAccessToken");
+	//upload encrypted access token
+}
+
+function onFileUpload(){
+	if(this.foo === "topLevelDir"){
+		getPubLink("topLevelDir");
 		publinkCount++;
+		return;
+	}
+	uploadCount++;
+	if (uploadCount === FILECOUNT){
+		onAllUploadsComplete();
+	}
+}
 
-		if(publinkCount === someCOUNT){
-			onAllPublinkRx();
-		}
+function onAllUploadsComplete(){
+	getPubLink("pubKey");
+	getPubLink("encryptedAccessToken");
+}
+
+function keyUploadRequest(requestData, filename){
+
+	var xmlhttp = new XMLHttpRequest();
+	xmlhttp.foo = filename;
+	xmlhttp.addEventListener("load", onFileUpload, false)
+
+	xmlhttp.open("POST", "https://api-content.dropbox.com/1/files_put/auto/"+filename+"?overwrite=true", true);
+	xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
+	xmlhttp.send(requestData);
+}
+
+
+function getPubLink(filename){
+
+	var xmlhttp = new XMLHttpRequest();
+
+	xmlhttp.filename = filename;
+	xmlhttp.addEventListener("load", publinkCallBack, false);
+
+	xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+filename+"?short_url=false",true);
+	xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
+	xmlhttp.send(null);
+}
+
+function publinkCallBack(){
+	var resp = JSON.parse(this.responseText);
+	link = resp.url.replace("www.dropbox.com", "dl.dropboxusercontent.com");
+
+
+	if(this.filename === "pubKey"){
+		publicKeyLink = link;
 	}
 
-	function onTopLevelDirRx(link){
-		var params = "uid="+encodeURIComponent(userField.value)+"&link="+encodeURIComponent(link);
-
-		var xmlhttp = new XMLHttpRequest();
-
-		xmlhttp.addEventListener('load', onRegisterComplete, false);
-
-		xmlhttp.open("POST", "register", false);
-		xmlhttp.send(params);
+	else if(this.filename === "encryptedAccessToken"){
+		accessTokenLink = link;
 	}
 
-	function onRegisterComplete(){
-		window.location.href = "Prototype.html";
+	else if(this.filename === "topLevelDir"){
+		onTopLevelDirRx(link);
+		return;
 	}
+	publinkCount++;
 
-	function onAllPublinkRx(){
-		var topLevelContents = publicKeyLink+"\n"+accessTokenLink;
-		keyUploadRequest(topLevelContents, "topLevelDir")
+	if(publinkCount === someCOUNT){
+		onAllPublinkRx();
 	}
+}
+
+function onTopLevelDirRx(link){
+	var params = "uid="+encodeURIComponent(userField.value)+"&link="+encodeURIComponent(link);
+
+	var xmlhttp = new XMLHttpRequest();
+
+	xmlhttp.addEventListener('load', onRegisterComplete, false);
+
+	xmlhttp.open("POST", "register", true);
+	xmlhttp.send(params);
+}
+
+function onRegisterComplete(){
+	window.location.href = "Prototype.html";
+}
+
+function onAllPublinkRx(){
+	var topLevelContents = publicKeyLink+"\n"+accessTokenLink;
+	keyUploadRequest(topLevelContents, "topLevelDir")
+}
