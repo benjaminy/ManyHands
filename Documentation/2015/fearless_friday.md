@@ -31,5 +31,5 @@ DBI/DOJ oppose end-to-end encryption
 
 Crypto wars from the 1990s
 
-![Funny Cartoon](./aes_act_3_scene_02_agreement_1100.png)
+<img src="./aes_act_3_scene_02_agreement_1100.png" alt="Funny cartoon" width="100px">
 
