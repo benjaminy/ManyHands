@@ -96,16 +96,16 @@ How does this allow us to do online banking securely?
 - User (really user's browser) randomly invents a symmetric key (called a session key)
 - Use the bank's public key to encrypt the session key
 
-Certificates
+### Certificates
 
 Bank, DigiCert
 
-End-to-end encryption
+## End-to-end encryption
+
+LastPass, Apple iMessages
 
 DBI/DOJ oppose end-to-end encryption
 
 Crypto wars from the 1990s
 
-
-Encoding
 
