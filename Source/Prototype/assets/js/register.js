@@ -4,13 +4,11 @@ var publink = "";
 
 var uploadCount;
 
-var publicKeyLink;
-
-var accessTokenLink;
+var publicKeyLink, userSaltLink, accessTokenLink;
 
 var FILECOUNT = 4;
 
-var someCOUNT = 2;
+var someCOUNT = 3;
 
 var publinkCount=0;
 
@@ -36,6 +34,7 @@ function onWindowLoad(){
 			}
 			else{
 				access_token = localStorage.getItem('access_token');
+				console.log("Access Token: ", access_token);
 			}
 		}
 	}
@@ -66,10 +65,11 @@ function initializeKeys(){
 	
 	var pass = passField.value;
 	var uid = userField.value;
-	var iv = forge.random.getBytesSync(16);
-	localStorage.setItem("iv", iv);
+	//var iv = forge.random.getBytesSync(16);
+	var iv = "0000000000000000"
+
 	//unencrypted accesstoken
-	var uAccessToken = forge.util.createBuffer(access_token);
+	var uAccessToken = forge.util.createBuffer("accessToken: "+access_token);
 
 	var rsa = forge.pki.rsa;
 	
@@ -87,7 +87,6 @@ function initializeKeys(){
 
 	//http://cryptojs.altervista.org/secretkey/doc/doc_aes_forge.html
 
-	
 	var accessTokenCipher = forge.aes.startEncrypting(pbkd, iv);
 	accessTokenCipher.update(uAccessToken);
 	var status = accessTokenCipher.finish();
@@ -116,6 +115,7 @@ function onFileUpload(){
 }
 
 function onAllUploadsComplete(){
+	getPubLink("userSalt");
 	getPubLink("pubKey");
 	getPubLink("encryptedAccessToken");
 }
@@ -153,6 +153,10 @@ function publinkCallBack(){
 		publicKeyLink = link;
 	}
 
+	else if(this.filename === "userSalt"){
+		userSaltLink = link;
+	}
+
 	else if(this.filename === "encryptedAccessToken"){
 		accessTokenLink = link;
 	}
@@ -184,6 +188,6 @@ function onRegisterComplete(){
 }
 
 function onAllPublinkRx(){
-	var topLevelContents = publicKeyLink+"\n"+accessTokenLink;
+	var topLevelContents = publicKeyLink+"\n"+accessTokenLink+"\n"+userSaltLink;
 	keyUploadRequest(topLevelContents, "topLevelDir")
 }
