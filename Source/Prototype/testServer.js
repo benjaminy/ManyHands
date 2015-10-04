@@ -9,10 +9,7 @@ var db = new sqlite3.Database('ManyHands');
 var serve = serveStatic('.', {"index": ['index.html','index.htm']})
 
 
-var server = http.createServer(function (req, res){
-    //look at dmcc_server line 170
-
-
+function serveDynamic(req, res){
     if(req.url === "/register"){
         var body = "";
 
@@ -45,11 +42,15 @@ var server = http.createServer(function (req, res){
         //download encrypted access token
         //decrypt access token with password posted.
     }
-
     else{
-        var done = finalhandler(req, res)
-        serve(req, res, done)
+        finalhandler(req, res);
     }
+}
+
+var server = http.createServer(function (req, res){
+    //look at dmcc_server line 170
+     
+        serve(req, res, function(){ serveDynamic(req, res)});
 });
 
 server.listen(8080);
@@ -76,7 +77,7 @@ function registerReqCB(body, res){
 }
 
 function getTLDLink(username, res){
-    db.each("SELECT publink FROM user WHERE uid="+username+"",
+    db.each("SELECT publink FROM user WHERE uid='"+username+"'",
         function (err, row){
             if (err){
                 res.writeHead(400, "NOK", {"Content-Type": "text/html"});
