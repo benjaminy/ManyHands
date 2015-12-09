@@ -132,7 +132,7 @@ function getTeamList(){
 //Parse team list
 function onTeamListRx(){
 	var response = JSON.parse(this.responseText);
-	// var team_list = [];
+	var team_list = [];
 	var list = response['entries'];
 	
 	for(var i = 0; i<list.length; i++){
@@ -257,24 +257,49 @@ function onTeamFolderCreate(){
 
 	makeUserTeamKey(team_salt, team_name);
 
+}
 
-	//Need unencrypted team salt & private key to make teamKey
-	// makeTeammateKey(team_salt);
+function initializeEncryptedDB(team_name){
+	var data = forge.util.createBuffer("Team data created \n";
+	var iv = "0000000000000000"
+
+	var userTeamKey = localStorage.getItem(team_name+'_userTeamKey')
+
+	var data_cipher = forge.aes.startEncrypting(userTeamKey, iv);
+
+	data_cipher.update(data);
+
+	var status = data_cipher.finish();
+
+	var encrypted_data = data_cipher.output.data;
+
+	fileUploadRequest(encrypted_data, team_name+'/data', onTeamDataUpload);
+}
+
+
+function onTeamDataUpload(){
+	var resp = JSON.parse(this.responseText);
+	var path = resp['path'];
+
+	getPubLink(path, updateTeamKeyLinks, onTeamLinksDataRx)
+}
+
+function onTeamLinksDataRx(){
+	var resp = this.responseText
+	var link_update = resp.concat("Data: "+this.publink+"\n");
+
+	fileUploadRequest(link_update, selected_team+"/links", onTeammateLinksUpdate);
+
+
 }
 
 function makeUserTeamKey(team_salt, team_name){
 	var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
 
-	// var iv = "0000000000000000";
-
-	// var privKey = forge.pki.decryptRsaPrivateKey(encrypted_privkey, pbkd);
-
 	var userTeamKey = forge.pkcs5.pbkdf2(encrypted_privkey, team_salt, 40, 16);
-
-	var 
-
-
 	localStorage.setItem(team_name+'_userTeamKey', userTeamKey);
+
+	initializeEncryptedDB(team_name);
 
 }
 
@@ -430,19 +455,19 @@ function getTeammateKeyPublink(){
 		var path = resp['path'];
 		var team_name = path.split('/')[1]
 
-		getPubLink(path, updateTeamKeyLinks);
+		getPubLink(path, updateTeamKeyLinks, onTeammateLinksRx);
 	} 
 }
 
 function updateTeamKeyLinks(){
 	if(this.status == 200){
 		var resp = JSON.parse(this.responseText);
-		var teammateKey_publink = resp.url.replace("www.dropbox.com", "dl.dropboxcontent.com");
+		var publink = resp.url.replace("www.dropbox.com", "dl.dropboxcontent.com");
 
 		var xmlhttp = new XMLHttpRequest();
-		xmlhttp.teammateKey_publink = teammateKey_publink;
+		xmlhttp.publink = publink;
 
-		xmlhttp.addEventListener('load', onTeammateLinksRx, false);
+		xmlhttp.addEventListener('load', this.callback, false);
 
 		xmlhttp.open('GET', "https://content.dropboxapi.com/1/files/auto/"+selected_team+"/links", true);
 		xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
@@ -453,7 +478,7 @@ function updateTeamKeyLinks(){
 
 function onTeammateLinksRx(){
 	var resp = this.responseText
-	var link_update = resp.concat(selected_user+": "+this.teammateKey_publink+"\n");
+	var link_update = resp.concat(selected_user+": "+this.publink+"\n");
 
 	fileUploadRequest(link_update, selected_team+"/links", onTeammateLinksUpdate);
 
@@ -492,10 +517,11 @@ function readFile(e){
 
 }
 
-function getPubLink(path, cb){
+function getPubLink(path, cb, cb2){
 	var xmlhttp = new XMLHttpRequest();
 
 	xmlhttp.addEventListener('load', cb, false);
+	xmlhttp.callback = cb2;
 
 	xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+path,true);
 	xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
