@@ -2,7 +2,7 @@ var APP_KEY = "rwovrjf7g18ya3b";
 
 document.getElementById("dropbox_connect").onclick = handleAuthClick;
 var login_form = document.getElementById("login_form");
-var submitButton = document.getElementById("submit_button");
+var submit_button = document.getElementById("submit_button");
 
 var encryptedToken;
 var userSalt;
@@ -20,7 +20,7 @@ function get_redirect_uri(){
 	return "http://localhost:8080/register.html";
 }
 
-submitButton.onclick = function (evt){
+submit_button.onclick = function (evt){
 	evt.preventDefault();
 	onLoginSubmit();
 }
@@ -95,21 +95,21 @@ function downloadLinks(links, every_cb, all_cb){
 }
 
 function onFileRx(xhr){
-	console.log("xhr link: ", xhr.link);
 	if(xhr.link.name === "accessTokenLink"){
 		encryptedToken = xhr.responseText;
 	}
 
 	if(xhr.link.name === "userSaltLink"){
 		userSalt = xhr.responseText;
+		sessionStorage.setItem('user_salt', userSalt);
 	}
 
 }
 
 function onAllFileRx(){
 	var combo = pass.concat(uid);
-	console.log("Combo: ", combo);
-	console.log("Salt: ", userSalt);
+
+	sessionStorage.setItem('combo', combo);
 
 	var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
 
@@ -119,23 +119,25 @@ function onAllFileRx(){
  	var new_buffer = forge.util.createBuffer(encryptedToken);   
    	accessToken.update(new_buffer);  
    	var status = accessToken.finish();
-   	console.log("Status ", status);  
    	var plaintext = accessToken.output.data;
-   	console.log("ptext: ", plaintext);
+
    	if(plaintext.indexOf("accessToken: ") === 0){
    		console.log("success");
    		var split = plaintext.split('accessToken: ')
    		var token = split[1];
    		sessionStorage.setItem('combo', combo);
+   		sessionStorage.setItem('userSalt', userSalt)
    		onLoginSuccess(token);
    	}
    	else{
-   		console.log("Something went terribly awry with decryptio");
+   		console.log("Something went terribly awry with decryption");
    	}
 }
 
+
 function onLoginSuccess(token){
-	window.location.href = "Prototype.html#"+token;
+	sessionStorage.setItem('access_token', token);
+	window.location.href = "Prototype.html";
 }
 
 function downloadEncryptedToken(link){
@@ -148,6 +150,14 @@ function downloadEncryptedToken(link){
 }
 
 
+function downloadFile(download_url, cb){
+	var xmlhttp = new XMLHttpRequest();
+	xmlhttp.onreadystatechange = makeFooCB(cb);
+
+	xmlhttp.open("GET", publicLink, true);
+	xmlhttp.send(null)
+}
+
 function makeDownloadRequest(filename1, cb){
 	var xmlhttp = new XMLHttpRequest();
 	//filename = filename1;
@@ -157,14 +167,6 @@ function makeDownloadRequest(filename1, cb){
 	xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
 	xmlhttp.send(null);
 
-}
-
-function downloadFile(download_url, cb){
-	var xmlhttp = new XMLHttpRequest();
-	xmlhttp.onreadystatechange = makeFooCB(cb);
-
-	xmlhttp.open("GET", publicLink, true);
-	xmlhttp.send(null)
 }
 
 function foo(xhr, cb){

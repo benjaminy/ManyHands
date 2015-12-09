@@ -12,27 +12,31 @@ Team Name: <input type='text' id='team_name' />
 Password: <input type="password" id="myPsw" >
 <button type="submit" id="submit" value="Submit">Encrypt</button>
 <p>
-<button type="button" id="download_key" value="DownloadKey">DownloadKey</button>
+<button type="button" id="v2_call" >create v2 link</button>
 </p>
 
-<h0>Download and Decrypt file</h0>
-Decrypt Password: <input type="password" id="myPsw2">
-<button type="button" id="decrypt_file">Download/Decrypt</button>
-<p id="dropbox_file"></p>
-<div id='authorize-div' style='display: none'>
-	<span>Authorize Access to Dropbox API</span>
-	<button id='authorize-button' onclick="handleAuthClick(event)">Authorize</button>
+<h0>Teams: </h0>
+<select id='team_list'></select>
+
+<div id='team_selected'>
+Selected Team: <br>
 </div>
-<button type="button" id="keyGenerate">Generate and Upload Keys</button><br>
 
+<div id='teammate_list'></div>
 
+Add user to selected team <br>
+UserName: <input type='text' id='teammate_name' >
+<button type='submit' id='teammate_add'>Add User</button><br>
 
-<button type="button" id="getPrivKey">GetPrivateKey</button><br>
-
+<div id='user_selected'>
+Selected User: <br>
+</div>
+<br>
+Upload data to selected teamfolder:
+<textarea id='text_data' rows='5' cols='50'>Data goes here</textarea>
 
 
 </body>
-<script src="assets/js/sjcl.js"></script>
 <script src="assets/js/main.js"></script>
 <script src="assets/js/forge.min.js"></script>
 

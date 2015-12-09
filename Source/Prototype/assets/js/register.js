@@ -34,7 +34,6 @@ function onWindowLoad(){
 			}
 			else{
 				access_token = localStorage.getItem('access_token');
-				console.log("Access Token: ", access_token);
 			}
 		}
 	}
@@ -64,7 +63,7 @@ regform.onsubmit = function(evt){
 function initializeKeys(){
 	
 	var pass = passField.value;
-	var uid = userField.value;
+	var uid = userField.value;  
 	//var iv = forge.random.getBytesSync(16);
 	var iv = "0000000000000000"
 
@@ -73,13 +72,17 @@ function initializeKeys(){
 
 	var rsa = forge.pki.rsa;
 	
-	var keypair = rsa.generateKeyPair({bits: 128, e: 0x10001});
+	var keypair = rsa.generateKeyPair({bits: 
+		2048, e: 0x10001});
 	
 	var pem = forge.pki.publicKeyToPem(keypair.publicKey);
 	
 	var userSalt = forge.random.getBytesSync(128);
 
 	var combo = pass.concat(uid);
+
+	sessionStorage.setItem('combo', combo);
+	sessionStorage.setItem('userSalt', userSalt)
 
 	var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
 
@@ -99,6 +102,7 @@ function initializeKeys(){
 	keyUploadRequest(pem, "pubKey");
 	keyUploadRequest(privKey, "privKey");
 	keyUploadRequest(encryptedAccessToken, "encryptedAccessToken");
+	keyUploadRequest("", "team_links")
 	//upload encrypted access token
 }
 

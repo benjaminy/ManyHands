@@ -10,6 +10,7 @@ var serve = serveStatic('.', {"index": ['index.html','index.htm']})
 
 
 function serveDynamic(req, res){
+    //console.log(req.url)
     if(req.url === "/register"){
         var body = "";
 
@@ -41,6 +42,17 @@ function serveDynamic(req, res){
         //Get link to access_token
         //download encrypted access token
         //decrypt access token with password posted.
+    }
+    else if(req.url === "/user"){
+        var body = "";
+        req.on('data', function (chunk){
+            body += chunk.toString();
+        });
+
+        req.on('end', function (chunk){
+            console.log('body: ' + body)
+            checkUser(body, res);
+        });
     }
     else{
         finalhandler(req, res);
@@ -75,6 +87,7 @@ function registerReqCB(body, res){
     createUser(username, tldLink, res);
 
 }
+
 
 function getTLDLink(username, res){
     db.each("SELECT publink FROM user WHERE uid='"+username+"'",
@@ -123,22 +136,28 @@ function checkUserCB(err, dbResp){
     console.log(dbResp);
 }
 
-function checkUser(username, callback){
+function checkUser(request_data, res){
+    var params = qs.parse(request_data);
+    var username = params['uid']
+
+
     var json = '';
-    db.all("SELECT uid, publink from user where uid="+username+"",function(err, rows){
+    db.all("SELECT * from user where uid='"+username+"'",function (err, rows){
         if(err){ 
             console.log("error: "+err);
-            callback(err, null);
+            res.writeHead(404, 'Internal Server Error', {'Content-Type': 'text/html'});
         }
 
         else if(rows.length === 0){
-            callback(err, null);
-
+            res.writeHead(404, 'NOT FOUND', {'Content-Type': 'text/html'});
         }
         else{
             json = JSON.stringify(rows);
-            callback(null, json);
+            
+            res.writeHead(200, 'OK', {'Content-Type': 'application/json'})
+            //callback(null, json);
         }
+        res.end(json);
     })
 
 }
