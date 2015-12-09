@@ -26,8 +26,6 @@ team_list.onchange = handleTeamSelect;
 
 var username_field = document.getElementById('teammate_name');
 
-
-
 // var encryptedPrivKey = localStorage.getItem('encrypted_privkey');
 var userSalt = sessionStorage.getItem('userSalt');
 
@@ -165,42 +163,46 @@ function handleTeamSelect(evt){
 
 	body.innerHTML = "Selected Team: "+ selected_team+"<br>";
 
-	getTeammateList(selected_team);
 	getTeamData(selected_team);
 }
 
 function getTeamData(team_name){
 	var xmlhttp = new XMLHttpRequest();
-
+	xmlhttp.team_name = team_name;
 	xmlhttp.addEventListener('load', onTeamDataRx, false)
 
-	xmlhttp.open()
-}
-
-function getTeammateList(selected_team){
-	var xmlhttp = new XMLHttpRequest();
-
-	xmlhttp.addEventListener('load', onTeammateListRx, false);
-
-	xmlhttp.open('GET', 'https://api.dropboxapi.com/1/metadata/auto/'+selected_team+'/Keys/', true);
+	xmlhttp.open('GET', "https://content.dropboxapi.com/1/files/auto/"+team_name+"/data", true);
 	xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
 	xmlhttp.send(null);
 }
+function onTeamDataRx(){
+	var encrypted_data = this.responseText;
+	text_field.value = encrypted_data;
+	var team_name = this.team_name;
+	var userTeamKey = localStorage.getItem(team_name+'_userTeamKey');
 
-function onTeammateListRx(){
-	var resp = JSON.parse(this.responseText);
-	var folder_contents = resp['contents'];
-	var teammate_list = [];
-	for(var i = 0; i< folder_contents.length; i++){
-		var path = folder_contents[i]['path'];
-		teammate_list.push(path.split('/')[3]);
-	}
-		
+	var iv = "0000000000000000";
+	var data = forge.aes.startDecrypting(userTeamKey, iv);
+ 	var new_buffer = forge.util.createBuffer(encrypted_data);   
+   	data.update(new_buffer);  
+   	var status = data.finish();
+   	var plain_data = data.output.data;
+
+   	var data = JSON.parse(plain_data);
+
+   	text_field.value = data['data'];
+
+   	populateTeammateList(data)
+}
+
+function populateTeammateList(data){
+	member_list = data['team_members'];
+
 	var list = document.createElement('ul');
 
-	for(var i = 0; i < teammate_list.length; i++){
+	for(var i = 0; i < member_list.length; i++){
 		var item = document.createElement('li');
-		item.appendChild(document.createTextNode(teammate_list[i]));
+		item.appendChild(document.createTextNode(mumber_list[i]));
 		list.appendChild(item);
 	}
 
@@ -234,6 +236,7 @@ function onTeamFolderCreate(){
 	var folder_metadata = JSON.parse(this.responseText);
 	var path = folder_metadata.path;
 	var team_name = path.split('/')[1];
+	console.log('Folder created: ' + team_name);
 
 	var team_salt = forge.random.getBytesSync(128);
 
@@ -260,7 +263,8 @@ function onTeamFolderCreate(){
 }
 
 function initializeEncryptedDB(team_name){
-	var data = forge.util.createBuffer("Team data created \n";
+	var team_data = JSON.stringify({'team_members': [], 'data': 25});
+	var data = forge.util.createBuffer(team_data);
 	var iv = "0000000000000000"
 
 	var userTeamKey = localStorage.getItem(team_name+'_userTeamKey')
@@ -287,9 +291,10 @@ function onTeamDataUpload(){
 function onTeamLinksDataRx(){
 	var resp = this.responseText
 	var link_update = resp.concat("Data: "+this.publink+"\n");
+	var path = this.path;
+	var team_name = path.split('/')[1]
 
-	fileUploadRequest(link_update, selected_team+"/links", onTeammateLinksUpdate);
-
+	fileUploadRequest(link_update, team_name+"/links", onTeammateLinksUpdate);
 
 }
 
@@ -298,6 +303,8 @@ function makeUserTeamKey(team_salt, team_name){
 
 	var userTeamKey = forge.pkcs5.pbkdf2(encrypted_privkey, team_salt, 40, 16);
 	localStorage.setItem(team_name+'_userTeamKey', userTeamKey);
+
+	console.log("userTeamKey created: "+ team_name);
 
 	initializeEncryptedDB(team_name);
 
@@ -466,6 +473,7 @@ function updateTeamKeyLinks(){
 
 		var xmlhttp = new XMLHttpRequest();
 		xmlhttp.publink = publink;
+		xmlhttp.path = this.path;
 
 		xmlhttp.addEventListener('load', this.callback, false);
 
@@ -481,7 +489,6 @@ function onTeammateLinksRx(){
 	var link_update = resp.concat(selected_user+": "+this.publink+"\n");
 
 	fileUploadRequest(link_update, selected_team+"/links", onTeammateLinksUpdate);
-
 }
 
 function onTeammateLinksUpdate(){
@@ -522,6 +529,7 @@ function getPubLink(path, cb, cb2){
 
 	xmlhttp.addEventListener('load', cb, false);
 	xmlhttp.callback = cb2;
+	xmlhttp.path = path;
 
 	xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+path,true);
 	xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
