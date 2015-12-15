@@ -4,11 +4,11 @@ var publink = "";
 
 var uploadCount;
 
-var publicKeyLink, userSaltLink, accessTokenLink;
+var publicKeyLink, userSaltLink, accessTokenLink, teamFileLink;
 
 var FILECOUNT = 4;
 
-var someCOUNT = 3;
+var someCOUNT = 4;
 
 var publinkCount=0;
 
@@ -28,13 +28,7 @@ function onWindowLoad(){
 				document.write("Error "+params.error+": "+params.error_description.replace(/\+/g,' '));
 		}
 		else{
-			if(!localStorage.getItem('access_token')){
-				access_token = parseqs(window.location.hash.substring(1)).access_token;
-				localStorage.setItem('access_token', access_token);
-			}
-			else{
-				access_token = localStorage.getItem('access_token');
-			}
+			access_token = parseqs(window.location.hash.substring(1)).access_token;
 		}
 	}
 }
@@ -122,6 +116,7 @@ function onAllUploadsComplete(){
 	getPubLink("userSalt");
 	getPubLink("pubKey");
 	getPubLink("encryptedAccessToken");
+	getPubLink("team_links");
 }
 
 function keyUploadRequest(requestData, filename){
@@ -165,10 +160,15 @@ function publinkCallBack(){
 		accessTokenLink = link;
 	}
 
+	else if(this.filename === "team_links"){
+		teamFileLink = link;
+	}
+
 	else if(this.filename === "topLevelDir"){
 		onTopLevelDirRx(link);
 		return;
 	}
+
 	publinkCount++;
 
 	if(publinkCount === someCOUNT){
@@ -192,6 +192,6 @@ function onRegisterComplete(){
 }
 
 function onAllPublinkRx(){
-	var topLevelContents = publicKeyLink+"\n"+accessTokenLink+"\n"+userSaltLink;
+	var topLevelContents = publicKeyLink+"\n"+accessTokenLink+"\n"+userSaltLink+"\n"+teamFileLink+"\n";
 	keyUploadRequest(topLevelContents, "topLevelDir")
 }
