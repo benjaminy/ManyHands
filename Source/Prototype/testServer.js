@@ -50,7 +50,6 @@ function serveDynamic(req, res){
         });
 
         req.on('end', function (chunk){
-            console.log('body: ' + body)
             checkUser(body, res);
         });
     }
