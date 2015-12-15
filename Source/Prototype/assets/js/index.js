@@ -126,7 +126,8 @@ function onAllFileRx(){
    		var split = plaintext.split('accessToken: ')
    		var token = split[1];
    		sessionStorage.setItem('combo', combo);
-   		sessionStorage.setItem('userSalt', userSalt)
+   		sessionStorage.setItem('userSalt', userSalt);
+   		sessionStorage.setItem('self_user', uid);
    		onLoginSuccess(token);
    	}
    	else{
