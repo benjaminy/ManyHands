@@ -6,6 +6,7 @@ Create Team? <br>
 Team Name: <input type='text' id='team_name' />
 <button type='submit' id='team_create'>Create Team</button><br>
 
+<p id="logged_user" alig="right"></p>
 
 <h0>Select file to Encrypt and Upload:</h0>
 <input type="file" id="input_file" />
@@ -21,20 +22,24 @@ Password: <input type="password" id="myPsw" >
 <div id='team_selected'>
 Selected Team: <br>
 </div>
+<p>
+<div id='teammate_list'></div><br>
 
-<div id='teammate_list'></div>
+<p>
+<button type="button" id="get_teammate_db">Get teammate's copy</button>
+</p>
 
 Add user to selected team <br>
 UserName: <input type='text' id='teammate_name' >
 <button type='submit' id='teammate_add'>Add User</button><br>
-
+<br>
 <div id='user_selected'>
 Selected User: <br>
 </div>
 <br>
 Upload data to selected teamfolder:
 <textarea id='text_data' rows='5' cols='50'>Data goes here</textarea>
-
+<button type='submit' id='save_data'>Save Changes</button>
 
 </body>
 <script src="assets/js/main.js"></script>
