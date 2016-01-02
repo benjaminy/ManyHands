@@ -15,6 +15,7 @@ var access_token = "";
 var combo = "";
 var selected_team_data;
 var self_user;
+var teammate_TLDLinks;
 
 document.getElementById("team_create").onclick = handleTeamCreate;
 document.getElementById('teammate_add').onclick = handleTeammateAdd;
@@ -30,7 +31,7 @@ team_list.onchange = handleTeamSelect;
 
 var username_field = document.getElementById('teammate_name');
 
-// var encryptedPrivKey = localStorage.getItem('encrypted_privkey');
+// var encryptedPrivKey = sessionStorage.getItem('encrypted_privkey');
 var userSalt = sessionStorage.getItem('userSalt');
 
 window.onload = checkAuth;
@@ -62,19 +63,6 @@ function parseqs(text){
 	}
 	return params;
 }
-
-// if(window.location.hash){
-
-// 	var params = parseqs(window.location.hash.substring(1));
-// 	if(params.error){
-// 		document.write("Error "+params.error+": "+params.error_description.replace(/\+/g,' '));
-// 	}
-// 	else{
-// 		access_token = parseqs(window.location.hash.substring(1)).access_token;
-// 		window.location.hash = "";
-// 		sessionStorage.setItem('access_token', access_token);
-// 	}
-// }
 
 
 
@@ -110,9 +98,9 @@ function getPrivKey(){
 
 function onPrivKeyRx(){
 	encrypted_privkey = this.responseText;
-	sessionStorage.setItem('encrypted_privkey', encrypted_privkey);
+	// sessionStorage.setItem('encrypted_privkey', encrypted_privkey);
 	// var pbkd = forge.pkcs5.pbkdf2(sessionStorage.getItem('combo'), userSalt, 40, 16);
-	// privKey = forge.pki.decryptRsaPrivateKey(enc_priv_key, pbkd);	
+	// var privKey = forge.pki.decryptRsaPrivateKey(encrypted_privkey, pbkd);	
 }
 
 function get_redirect_uri(){
@@ -121,7 +109,7 @@ function get_redirect_uri(){
 
 function handleTeammateAdd(evt){
 	var username = username_field.value;
-	checkUserDB(username);
+	checkUserDB(username, onUserStatusRx);
 
 }
 
@@ -130,12 +118,13 @@ function handleSaveData(evt){
 }
 
 function saveData(){
+	selected_team_data['data'] = text_field.value;
 	var team_data = JSON.stringify(selected_team_data);
 
 	var data = forge.util.createBuffer(team_data);
 	var iv = "0000000000000000"
 
-	var userTeamKey = localStorage.getItem(selected_team+'_userTeamKey')
+	var userTeamKey = sessionStorage.getItem(selected_team+'_userTeamKey')
 	console.log('userteamkey: ', userTeamKey);
 	var data_cipher = forge.aes.startEncrypting(userTeamKey, iv);
 
@@ -241,17 +230,17 @@ function onTeamDataRx(){
 	var encrypted_data = this.responseText;
 	text_field.value = encrypted_data;
 	var team_name = selected_team;
-	if(!localStorage.getItem(team_name+'_userTeamKey')){
+	if(!sessionStorage.getItem(team_name+'_userTeamKey')){
 		console.log("userTeamKey Not found")
 		var team_salt = sessionStorage.getItem(team_name+'_salt');
 		var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
 
 		var userTeamKey = forge.pkcs5.pbkdf2(encrypted_privkey, team_salt, 40, 16);
-		localStorage.setItem(team_name+'_userTeamKey', userTeamKey);
+		sessionStorage.setItem(team_name+'_userTeamKey', userTeamKey);
 	}
 
 	else{
-		var userTeamKey = localStorage.getItem(team_name+'_userTeamKey');	
+		var userTeamKey = sessionStorage.getItem(team_name+'_userTeamKey');	
 	}
 	console.log(userTeamKey)
 	var iv = "0000000000000000";
@@ -282,7 +271,7 @@ function populateTeammateList(data){
 
 	var list = document.createElement('ul');
 
-	for(var i = 0; i < member_list.length; i++){
+	for(var i = 1; i < member_list.length; i++){
 		var item = document.createElement('li');
 		item.appendChild(document.createTextNode(member_list[i]));
 		list.appendChild(item);
@@ -291,11 +280,113 @@ function populateTeammateList(data){
 	teammate_list.appendChild(list);
 }
 
+//Get teammate publink from CS, get their team_links, find same team, look for self_user in team_name/links
 function getTeammateDB(){
 	var teammate_uid = member_list[1];
+	checkUserDB(teammate_uid, onTLDLinkRx)
 
 }
 
+function onTLDLinkRx(){
+	var json = JSON.parse(this.responseText);
+	var TLDLink = json[0].publink;
+	console.log('TLDLINK', TLDLink);
+
+	downloadFile(TLDLink, onTLDFileRx)
+}
+
+function onTLDFileRx(){
+	var resp = this.responseText;
+	teammate_TLDLinks = resp.split('\n');
+	console.log('teammate_tldlinks', teammate_TLDLinks)
+
+	var teamlinks_publink = teammate_TLDLinks[3];
+
+	console.log('teamlinks_publink', teamlinks_publink);
+	downloadFile(teamlinks_publink, onTeammateTeamlinksRx);
+
+}
+
+function onTeammateTeamlinksRx(){
+	var resp = this.responseText;
+	var teammate_teamlinks = resp.split('\n')
+	console.log("selected team: ", selected_team);
+	
+	for(var i = 0; i < teammate_teamlinks.length; i++){
+		var team_info = teammate_teamlinks[i];
+		console.log(team_info.indexOf(selected_team));
+		if (team_info.indexOf(selected_team)>=0){
+			var teammate_teampublink = team_info.split(selected_team+": ")[1];
+			console.log(teammate_teampublink);
+			console.log("Getting self key from teammate");
+			downloadFile(teammate_teampublink, onTeammateTeamKeyLinksRx);
+		}
+	}
+}
+
+function onTeammateTeamKeyLinksRx(){
+	var resp = this.responseText;
+	console.log(resp);
+	var teammate_links = resp.split('\n');
+	var data = {key: null, data: null};
+	for(var i = 0; i < teammate_links.length; i++){
+		var temp = teammate_links[i];
+
+		if(temp.indexOf(self_user) >= 0){
+			var self_teammatekeylink = temp.split(self_user+': ')[1];
+			console.log('data', data);
+			downloadFile(self_teammatekeylink, onTeammateDataKeyRx, data);
+		}
+		else if(temp.indexOf('Data: ' >= 0)){
+			var teammateData_link = temp.split('Data: ')[1];
+			console.log('data', data);
+			downloadFile(teammateData_link, onTeammateDataRx, data);
+			console.log("Nothing")
+		}			
+	}
+}
+
+function onTeammateDataRx(){
+	this.param.data = this.responseText;
+	decryptTeammateData(this.param);
+}
+
+function onTeammateDataKeyRx(){
+	var encrypted_teammateDataKey = this.responseText;
+	var combo = sessionStorage.getItem('combo');
+	console.log('combo', combo);
+	console.log('salt', userSalt);
+	var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
+	console.log('pbkd', pbkd);
+	console.log('pbkd type', typeof(pbkd));
+	console.log('enc_key', encrypted_privkey)
+	var encrypted_keyinfo = forge.pki.encryptedPrivateKeyFromPem(encrypted_privkey)
+
+	console.log('foo', encrypted_keyinfo);
+	var decrypted_privKey = forge.pki.decryptRsaPrivateKey(encrypted_privkey, pbkd);
+
+	var encoded_decrypted_teammateDataKey = decrypted_privKey.decrypt(encrypted_teammateDataKey);
+	var decoded_decrypted_teammateDataKey = atob(encoded_decrypted_teammateDataKey);
+	console.log(decoded_decrypted_teammateDataKey);
+	this.param.key = decoded_decrypted_teammateDataKey;
+
+
+	decryptTeammateData(this.param);
+}
+
+function decryptTeammateData(param){
+	if(param.key === null || param.data === null){
+		return
+	}
+	console.log(param);
+	var iv = "0000000000000000";
+	var data = forge.aes.startDecrypting(param.key, iv);
+ 	var new_buffer = forge.util.createBuffer(param.data);   
+   	data.update(new_buffer);  
+   	var status = data.finish();
+   	var plain_data = data.output.data;
+   	console.log(plain_data);
+}
 
 function handleTeamCreate(e){
 	var team_name = document.getElementById('team_name').value;
@@ -351,11 +442,11 @@ function onTeamFolderCreate(){
 }
 
 function initializeEncryptedDB(team_name){
-	var team_data = JSON.stringify({'team_members': ['none'], 'data': 25});
+	var team_data = JSON.stringify({'team_members': [self_user], 'data': 25});
 	var data = forge.util.createBuffer(team_data);
 	var iv = "0000000000000000"
 
-	var userTeamKey = localStorage.getItem(team_name+'_userTeamKey')
+	var userTeamKey = sessionStorage.getItem(team_name+'_userTeamKey')
 
 	var data_cipher = forge.aes.startEncrypting(userTeamKey, iv);
 
@@ -373,7 +464,7 @@ function onTeamDataInitialize(){
 	var resp = JSON.parse(this.responseText);
 	var path = resp['path'];
 
-	getPubLink(path, updateTeamKeyLinks, onTeamLinksDataRx)
+	getPubLink(path, updateTeamKeyLinks, onTeamDataLinkRx)
 }
 
 function onTeamDataUpload(){
@@ -382,7 +473,7 @@ function onTeamDataUpload(){
 	}
 }
 
-function onTeamLinksDataRx(){
+function onTeamDataLinkRx(){
 	var resp = this.responseText
 	var link_update = resp.concat("Data: "+this.publink+"\n");
 	var path = this.path;
@@ -401,7 +492,7 @@ function makeUserTeamKey(team_salt, team_name){
 	var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
 
 	var userTeamKey = forge.pkcs5.pbkdf2(encrypted_privkey, team_salt, 40, 16);
-	localStorage.setItem(team_name+'_userTeamKey', userTeamKey);
+	sessionStorage.setItem(team_name+'_userTeamKey', userTeamKey);
 
 	console.log("userTeamKey created: "+ team_name);
 
@@ -444,7 +535,7 @@ function getTeamDirPublink(){
 
 function onTeamDirPublinkRx(){
 	var resp = JSON.parse(this.responseText);
-	var team_publink = resp.url.replace("www.dropbox.com", "dl.dropboxcontent.com");
+	var team_publink = resp.url.replace("www.dropbox.com", "dl.dropboxusercontent.com");
 
 	var xmlhttp = new XMLHttpRequest();
 	xmlhttp.team_publink = team_publink;
@@ -481,7 +572,7 @@ function onTeamLinksRx(){
 	var list_string = team_links_list.toString();
 
 	var links_string = list_string.replace(/,/g, '\n');
-	
+
 	fileUploadRequest(links_string, "/team_links", onTeamLinksUpdate);
 	
 }
@@ -508,11 +599,11 @@ function makeDownloadRequest(filename, cb){
 }
 
 
-function checkUserDB(teammate_name){
+function checkUserDB(teammate_name, cb){
 	var xmlhttp = new XMLHttpRequest();
 	var post_data = "uid="+encodeURIComponent(teammate_name);
 
-	xmlhttp.addEventListener('load', onUserStatusRx, false);
+	xmlhttp.addEventListener('load', cb, false);
 	// xmlhttp.teammate_name = teammate_name;
 
 	xmlhttp.open('POST', 'user', true);
@@ -532,6 +623,7 @@ function onUserStatusRx(){
 		body.innerHTML = "Selected User: "+resp[0]['uid']+"<br>";
 		
 		var user_publink = resp[0]['publink']
+		console.log('onuserstatusrx');
 		downloadFile(user_publink,  userPublinkCB);
 		// var team_name = resp[0]['uid']
 	}
@@ -542,7 +634,9 @@ function onUserStatusRx(){
 
 function userPublinkCB(){
 	var resp = this.responseText;
+	console.log('resp', resp);  
 	var user_pubKeylink = resp.split('\n')[0]
+	console.log("userPublinkCB")
 	downloadFile(user_pubKeylink, userPubKeyCB);
 }
 
@@ -556,7 +650,7 @@ function userPubKeyCB(){
 
 //https://github.com/digitalbazaar/forge/issues/274
 function makeTeammateKey(teammate_pubkey){
-	var userTeamKey = localStorage.getItem(selected_team+"_userTeamKey");
+	var userTeamKey = sessionStorage.getItem(selected_team+"_userTeamKey");
 	var encoded_teamkey = btoa(userTeamKey);
 
 	var encrypted_userTeamKey = teammate_pubkey.encrypt(encoded_teamkey);
@@ -584,7 +678,7 @@ function getTeammateKeyPublink(){
 function updateTeamKeyLinks(){
 	if(this.status == 200){
 		var resp = JSON.parse(this.responseText);
-		var publink = resp.url.replace("www.dropbox.com", "dl.dropboxcontent.com");
+		var publink = resp.url.replace("www.dropbox.com", "dl.dropboxusercontent.com");
 
 		var xmlhttp = new XMLHttpRequest();
 		xmlhttp.publink = publink;
@@ -619,9 +713,15 @@ function updateMemberData(){
 }
 
 
-function downloadFile(download_url, cb){
+function downloadFile(download_url, cb, param){
 	var xmlhttp = new XMLHttpRequest();
+	if(!(typeof(param) === 'undefined')){
+		xmlhttp.param = param;
+	}
+
 	xmlhttp.addEventListener('load', cb, false);
+
+	console.log('download url', download_url)
 
 	xmlhttp.open("GET", download_url, true);
 	xmlhttp.send(null)
@@ -653,7 +753,7 @@ function getPubLink(path, cb, cb2){
 	xmlhttp.callback = cb2;
 	xmlhttp.path = path;
 
-	xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+path,true);
+	xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+path+"?short_url=false",true);
 	xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
 	xmlhttp.send(null);
 }
