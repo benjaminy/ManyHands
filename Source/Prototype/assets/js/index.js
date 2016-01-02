@@ -128,6 +128,7 @@ function onAllFileRx(){
    		sessionStorage.setItem('combo', combo);
    		sessionStorage.setItem('userSalt', userSalt);
    		sessionStorage.setItem('self_user', uid);
+		sessionStorage.setItem('access_token', token);
    		onLoginSuccess(token);
    	}
    	else{
@@ -137,7 +138,6 @@ function onAllFileRx(){
 
 
 function onLoginSuccess(token){
-	sessionStorage.setItem('access_token', token);
 	window.location.href = "Prototype.html";
 }
 
