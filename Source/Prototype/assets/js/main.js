@@ -230,18 +230,13 @@ function onTeamDataRx(){
 	var encrypted_data = this.responseText;
 	text_field.value = encrypted_data;
 	var team_name = selected_team;
-	if(!sessionStorage.getItem(team_name+'_userTeamKey')){
-		console.log("userTeamKey Not found")
-		var team_salt = sessionStorage.getItem(team_name+'_salt');
-		var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
+	
+	var team_salt = sessionStorage.getItem(team_name+'_salt');
+	var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
 
-		var userTeamKey = forge.pkcs5.pbkdf2(encrypted_privkey, team_salt, 40, 16);
-		sessionStorage.setItem(team_name+'_userTeamKey', userTeamKey);
-	}
+	var userTeamKey = forge.pkcs5.pbkdf2(encrypted_privkey, team_salt, 40, 16);
+	sessionStorage.setItem(team_name+'_userTeamKey', userTeamKey);
 
-	else{
-		var userTeamKey = sessionStorage.getItem(team_name+'_userTeamKey');	
-	}
 	console.log(userTeamKey)
 	var iv = "0000000000000000";
 	var data = forge.aes.startDecrypting(userTeamKey, iv);
@@ -367,7 +362,7 @@ function onTeammateDataKeyRx(){
 
 	var encoded_decrypted_teammateDataKey = decrypted_privKey.decrypt(encrypted_teammateDataKey);
 	var decoded_decrypted_teammateDataKey = atob(encoded_decrypted_teammateDataKey);
-	console.log(decoded_decrypted_teammateDataKey);
+	console.log("decoded_decrypted_teammatedatakey", decoded_decrypted_teammateDataKey);
 	this.param.key = decoded_decrypted_teammateDataKey;
 
 
