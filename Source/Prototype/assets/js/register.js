@@ -90,6 +90,12 @@ function initializeKeys(){
 	var encryptedAccessToken = accessTokenCipher.output.data;
 
 	var privKey = forge.pki.encryptRsaPrivateKey(keypair.privateKey, pbkd);
+	console.log('privKey', privKey);
+	console.log('type of privkey', typeof(privKey));
+	console.log('pbkd', pbkd);
+	console.log('type of pbkd', typeof(pbkd));
+	var decrypted = forge.pki.decryptRsaPrivateKey(privKey, pbkd);
+	console.log('decrypted privkey', decrypted);
 
 	uploadCount = 0;
 	keyUploadRequest(userSalt, "userSalt");
