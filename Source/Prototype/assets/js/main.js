@@ -324,7 +324,7 @@ function onTeammateTeamKeyLinksRx(){
 	console.log(resp);
 	var teammate_links = resp.split('\n');
 	var data = {key: null, data: null};
-	for(var i = 0; i < teammate_links.length; i++){
+	for(var i = 0; i < (teammate_links.length-1); i++){
 		var temp = teammate_links[i];
 
 		if(temp.indexOf(self_user) >= 0){
@@ -337,7 +337,7 @@ function onTeammateTeamKeyLinksRx(){
 			console.log('data', data);
 			downloadFile(teammateData_link, onTeammateDataRx, data);
 			console.log("Nothing")
-		}			
+		}		
 	}
 }
 
@@ -437,7 +437,7 @@ function onTeamFolderCreate(){
 }
 
 function initializeEncryptedDB(team_name){
-	var team_data = JSON.stringify({'team_members': [self_user], 'data': 25});
+	var team_data = JSON.stringify({'team_members': [self_user], 'data': [{'000':'First Task'}]});
 	var data = forge.util.createBuffer(team_data);
 	var iv = "0000000000000000"
 
@@ -619,7 +619,7 @@ function onUserStatusRx(){
 		
 		var user_publink = resp[0]['publink']
 		console.log('onuserstatusrx');
-		downloadFile(user_publink,  userPublinkCB);
+		(user_publink,  userPublinkCB);
 		// var team_name = resp[0]['uid']
 	}
 	else{
@@ -722,25 +722,6 @@ function downloadFile(download_url, cb, param){
 	xmlhttp.send(null)
 }
 
-function readFile(e){
-	var contents = "";
-	var input_file = document.getElementById("input_file");
-	var file_encrypt = input_file.files[0];
-
-	if(input_file.files.length!=1){
-		alert('Please select a file.');
-		return false;
-	}
-	var reader = new FileReader();
-	reader.onload = function(e){
-		contents = reader.result;
-		encryptFile(contents);
-	}
-	fileName = file_encrypt.name;
-	reader.readAsBinaryString(input_file.files[0]);
-
-}
-
 function getPubLink(path, cb, cb2){
 	var xmlhttp = new XMLHttpRequest();
 
@@ -751,8 +732,4 @@ function getPubLink(path, cb, cb2){
 	xmlhttp.open("POST", "https://api.dropbox.com/1/shares/auto/"+path+"?short_url=false",true);
 	xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
 	xmlhttp.send(null);
-}
-
-function downloadFileCallBack(httpResponse){
-	console.log(httpResponse);
 }
