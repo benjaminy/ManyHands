@@ -5,7 +5,6 @@ var APP_KEY = "rwovrjf7g18ya3b";
 //Add teammates:
 	//Create keys for teammate.
 
-//document.getElementById("submit").onclick = readFile;
 var fileName="";
 // var team_select 
 var selected_team;
@@ -14,13 +13,13 @@ var encrypted_privkey;
 var access_token = "";
 var combo = "";
 var selected_team_data;
+var selected_team_tasks = [];
 var self_user;
 var teammate_TLDLinks;
 
 document.getElementById("team_create").onclick = handleTeamCreate;
 document.getElementById('teammate_add').onclick = handleTeammateAdd;
 document.getElementById('save_data').onclick = handleSaveData;
-document.getElementById('v2_call').onclick = makeV2Call;
 document.getElementById('get_teammate_db').onclick = getTeammateDB;
 
 var text_field = document.getElementById('text_data');
@@ -31,28 +30,9 @@ team_list.onchange = handleTeamSelect;
 
 var username_field = document.getElementById('teammate_name');
 
-// var encryptedPrivKey = sessionStorage.getItem('encrypted_privkey');
 var userSalt = sessionStorage.getItem('userSalt');
 
 window.onload = checkAuth;
-
-
-function makeV2Call(){
-	var xmlhttp = new XMLHttpRequest();
-	var data = {path: ""}
-	var requestData = JSON.stringify(data);
-
-	console.log(requestData);
-
-	xmlhttp.addEventListener('load', function(){
-		console.log(this.responseText)}, false);
-
-	xmlhttp.open('POST', 'https://api.dropboxapi.com/2/sharing/get_shared_links', true);
-	xmlhttp.setRequestHeader('Authorization', ' Bearer '+access_token);
-	xmlhttp.setRequestHeader('Content-Type', ' application/json ');
-	xmlhttp.send(requestData)
-
-}
 
 function parseqs(text){
 	var split = text.split('&');
@@ -118,7 +98,6 @@ function handleSaveData(evt){
 }
 
 function saveData(){
-	selected_team_data['data'] = text_field.value;
 	var team_data = JSON.stringify(selected_team_data);
 
 	var data = forge.util.createBuffer(team_data);
@@ -228,7 +207,6 @@ function onTeamSaltRx(){
 
 function onTeamDataRx(){
 	var encrypted_data = this.responseText;
-	text_field.value = encrypted_data;
 	var team_name = selected_team;
 	
 	var team_salt = sessionStorage.getItem(team_name+'_salt');
@@ -248,13 +226,61 @@ function onTeamDataRx(){
    	var data = JSON.parse(plain_data);
 
    	selected_team_data = data;
+
+   	sessionStorage.setItem(team_name+'_data', selected_team_data);
    	
    	console.log(selected_team_data);
 
-   	text_field.value = data['data'];
+   	// text_field.value = data['data'];
 
 
    	populateTeammateList(selected_team_data);
+   	parseData(data['data']);
+}
+
+function parseData(data_array){
+	for(var i=0; i<data_array.length; i++){
+		for(var key in data_array[i]){
+			if(key === "ADD"){
+				var task_name = data_array[i][key];
+				var task = {"Pending": task_name};
+
+				selected_team_tasks.push(task);
+			}
+		}
+	}
+	showTasks();
+}
+
+function showTasks(){
+	var task_list = document.getElementById('task_data');
+	task_list.innerHTML = "";
+
+	var pending_node = document.createTextNode("Pending");
+	var completed_node = document.createTextNode("Completed")
+
+	var completed_list = document.createElement('ul');
+	var pending_list = document.createElement('ul');
+
+	for(var i = 0; i < selected_team_tasks.length; i++){
+		var item = document.createElement('li');
+		for(var key in selected_team_tasks[i]){
+			console.log(key)
+			if(key === "Pending"){
+				item.appendChild(document.createTextNode(selected_team_tasks[i][key]));
+				pending_list.appendChild(item);
+			}
+			else if(key === "Completed"){
+				item.appendChild(document.createTextNode(selected_team_tasks[i][key]));
+				completed_list.appendChild(item)
+			}
+		}
+	}
+	task_list.appendChild(pending_node);
+	task_list.appendChild(pending_list);
+	task_list.appendChild(completed_node);
+	task_list.appendChild(completed_list);
+	// text_field.value = selected_team_tasks
 }
 
 
@@ -437,7 +463,7 @@ function onTeamFolderCreate(){
 }
 
 function initializeEncryptedDB(team_name){
-	var team_data = JSON.stringify({'team_members': [self_user], 'data': [{'000':'First Task'}]});
+	var team_data = JSON.stringify({'team_members': [self_user], 'data': [{'ADD': 'First Task'}]});
 	var data = forge.util.createBuffer(team_data);
 	var iv = "0000000000000000"
 
@@ -507,7 +533,7 @@ function fileUploadRequest(requestData, path, callback){
 }
 
 function teamSaltCallback(){
-	// 
+	return; 
 }
 
 function getTeamDirPublink(){
@@ -577,7 +603,7 @@ function onTeamLinksUpdate(){
 		console.log('Team links updated');
 	}
 	else{
-
+		console.log("Something went wrong")
 	}
 }
 
