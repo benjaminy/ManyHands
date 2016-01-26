@@ -20,7 +20,9 @@ var teammate_TLDLinks;
 document.getElementById("team_create").onclick = handleTeamCreate;
 document.getElementById('teammate_add').onclick = handleTeammateAdd;
 document.getElementById('save_data').onclick = handleSaveData;
+document.getElementById('add_data_btn').onclick = addToTasks;
 document.getElementById('get_teammate_db').onclick = getTeammateDB;
+
 
 var text_field = document.getElementById('text_data');
 
@@ -44,7 +46,15 @@ function parseqs(text){
 	return params;
 }
 
+function addToTasks(){
+	console.log(task_to_add);
+	var task_to_add = document.getElementById('add_value').value;
 
+	selected_team_tasks.push({"Pending": task_to_add});
+	selected_team_data['data'].push({"ADD": task_to_add});
+
+	showTasks();
+}
 
 function checkAuth(evt){
 	if(!sessionStorage.getItem('access_token')){
@@ -161,6 +171,9 @@ function populateTeamSelect(list){
 function handleTeamSelect(evt){
 	selected_team = team_list.options[team_list.selectedIndex].text;
 	var body = document.getElementById('team_selected');
+	selected_team_tasks.length = 0;
+	selected_team_data = null;
+
 
 	body.innerHTML = "";
 
@@ -244,6 +257,12 @@ function parseData(data_array){
 			if(key === "ADD"){
 				var task_name = data_array[i][key];
 				var task = {"Pending": task_name};
+
+				selected_team_tasks.push(task);
+			}
+			else if(key === "COMPLETE"){
+				var task_name = data_array[i][key];
+				var task = {"Completed": task_name};
 
 				selected_team_tasks.push(task);
 			}
@@ -645,7 +664,7 @@ function onUserStatusRx(){
 		
 		var user_publink = resp[0]['publink']
 		console.log('onuserstatusrx');
-		(user_publink,  userPublinkCB);
+		downloadFile(user_publink,  userPublinkCB);
 		// var team_name = resp[0]['uid']
 	}
 	else{
@@ -728,6 +747,7 @@ function onTeammateLinksUpdate(){
 
 function updateMemberData(){
 	// console.log(selected_team_data);
+	selected_team_data['data'].push({'ADD_TEAMMATE': selected_user});
 	selected_team_data['team_members'].push(selected_user);
 	console.log("team_data updated");
 	saveData();
