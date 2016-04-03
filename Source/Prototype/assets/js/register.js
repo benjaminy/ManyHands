@@ -4,7 +4,7 @@ var publink = "";
 
 var uploadCount;
 
-var publicKeyLink, userSaltLink, accessTokenLink, teamFileLink;
+var publicKeyLink, userSaltLink, accessTokenLink, teamFileLink, pem;
 
 var FILECOUNT = 4;
 
@@ -69,7 +69,7 @@ function initializeKeys(){
 	var keypair = rsa.generateKeyPair({bits: 
 		2048, e: 0x10001});
 	
-	var pem = forge.pki.publicKeyToPem(keypair.publicKey);
+	pem = forge.pki.publicKeyToPem(keypair.publicKey);
 	
 	var userSalt = forge.random.getBytesSync(128);
 
@@ -94,8 +94,7 @@ function initializeKeys(){
 	console.log('type of privkey', typeof(privKey));
 	console.log('pbkd', pbkd);
 	console.log('type of pbkd', typeof(pbkd));
-	var decrypted = forge.pki.decryptRsaPrivateKey(privKey, pbkd);
-	console.log('decrypted privkey', decrypted);
+
 
 	uploadCount = 0;
 	keyUploadRequest(userSalt, "userSalt");
@@ -183,7 +182,7 @@ function publinkCallBack(){
 }
 
 function onTopLevelDirRx(link){
-	var params = "uid="+encodeURIComponent(userField.value)+"&link="+encodeURIComponent(link);
+	var params = "uid="+encodeURIComponent(userField.value)+"&link="+encodeURIComponent(link)+"&pubkey="+encodeURIComponent(pem);
 
 	var xmlhttp = new XMLHttpRequest();
 
