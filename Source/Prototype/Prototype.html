@@ -6,28 +6,28 @@ Create Team? <br>
 Team Name: <input type='text' id='team_name' />
 <button type='submit' id='team_create'>Create Team</button><br>
 
-<p id="logged_user" alig="right"></p>
-
-<h0>Select file to Encrypt and Upload:</h0>
-<input type="file" id="input_file" />
-Password: <input type="password" id="myPsw" >
-<button type="submit" id="submit" value="Submit">Encrypt</button>
-<p>
-<button type="button" id="v2_call" >create v2 link</button>
-</p>
+<p id="logged_user" align="right"></p>
 
 <h0>Teams: </h0>
-<select id='team_list'></select>
+<select id='team_list' size="3"></select>
 
 <div id='team_selected'>
 Selected Team: <br>
 </div>
 <p>
 <div id='teammate_list'></div><br>
-
 <p>
 <button type="button" id="get_teammate_db">Get teammate's copy</button>
 </p>
+
+<div id='task_data'>Tasks</div><br>
+<div id='done_btn' style="display:none">
+	<button type='submit' id='mark_done'>Mark as done</button><br>
+</div>
+
+Add Task: <input type='text' id='add_value'>
+<button type='submit' id='add_data_btn'>Add</button> <br>
+<button type='submit' id='save_data'>Save Changes</button>
 
 Add user to selected team <br>
 UserName: <input type='text' id='teammate_name' >
@@ -38,10 +38,6 @@ Selected User: <br>
 </div>
 <br>
 
-<div id='task_data'>Tasks</div><br>
-ADD: <input type='text' id='add_value'>
-<button type='submit' id='add_data_btn'>ADD</button> <br>
-<button type='submit' id='save_data'>Save Changes</button>
 
 </body>
 <script src="assets/js/main.js"></script>
