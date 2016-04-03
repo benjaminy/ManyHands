@@ -16,19 +16,23 @@ var selected_team_data;
 var selected_team_tasks = [];
 var self_user;
 var teammate_TLDLinks;
+var data_version;
+var changes_made = false;
 
 document.getElementById("team_create").onclick = handleTeamCreate;
 document.getElementById('teammate_add').onclick = handleTeammateAdd;
 document.getElementById('save_data').onclick = handleSaveData;
 document.getElementById('add_data_btn').onclick = addToTasks;
 document.getElementById('get_teammate_db').onclick = getTeammateDB;
+document.getElementById('done_btn').onclick = handleTaskDone;
 
 
 var text_field = document.getElementById('text_data');
+var task_list = document.getElementById('task_data');
 
-var team_list = document.getElementById("team_list")
+var team_list = document.getElementById("team_list");
 team_list.onchange = handleTeamSelect;
-
+task_list.onchange = handleTaskSelect;
 
 var username_field = document.getElementById('teammate_name');
 
@@ -53,6 +57,44 @@ function addToTasks(){
 	selected_team_tasks.push({"Pending": task_to_add});
 	selected_team_data['data'].push({"ADD": task_to_add});
 
+	changes_made = true;
+
+	showTasks();
+}
+
+function handleTaskSelect(evt){
+	var done_btn = document.getElementById('done_btn');	
+	var pending_boxes = document.getElementsByName("pending_boxes");
+
+	for(var i = 0; pending_boxes[i]; i++){
+		done_btn.style.display = 'none';
+		if(pending_boxes[i].checked){
+			console.log(pending_boxes[i].value + " checked");
+			done_btn.style.display = 'block';
+			break;
+		}
+	}
+}
+
+function handleTaskDone(evt){
+	var pending_boxes = document.getElementsByName("pending_boxes");
+	console.log("Tasks before: ", selected_team_tasks);
+	for(var i = 0; i < pending_boxes.length; i++){
+		if(pending_boxes[i].checked){	
+			var task_to_remove = pending_boxes[i].value;
+			selected_team_data['data'].push({"COMPLETE": task_to_remove});
+
+			for(var j = 0; j < selected_team_tasks.length; j++){
+				console.log(selected_team_tasks[j]["Pending"]);
+				if(selected_team_tasks[j]["Pending"] && selected_team_tasks[j]["Pending"] === task_to_remove){
+					console.log("Spliced!")
+					selected_team_tasks.splice(j, 1);
+				}
+			}
+			selected_team_tasks.push({"Completed": task_to_remove});
+		}
+	}
+	console.log("Tasks after: ", selected_team_tasks);
 	showTasks();
 }
 
@@ -108,22 +150,26 @@ function handleSaveData(evt){
 }
 
 function saveData(){
-	var team_data = JSON.stringify(selected_team_data);
+	if(changes_made = true){
+		selected_team_data['data'][3]['VERSION']++;
+		var team_data = JSON.stringify(selected_team_data);
 
-	var data = forge.util.createBuffer(team_data);
-	var iv = "0000000000000000"
+		var data = forge.util.createBuffer(team_data);
+		var iv = "0000000000000000"
 
-	var userTeamKey = sessionStorage.getItem(selected_team+'_userTeamKey')
-	console.log('userteamkey: ', userTeamKey);
-	var data_cipher = forge.aes.startEncrypting(userTeamKey, iv);
+		var userTeamKey = sessionStorage.getItem(selected_team+'_userTeamKey')
+		console.log('userteamkey: ', userTeamKey);
+		var data_cipher = forge.aes.startEncrypting(userTeamKey, iv);
 
-	data_cipher.update(data);
+		data_cipher.update(data);
 
-	var status = data_cipher.finish();
+		var status = data_cipher.finish();
 
-	var encrypted_data = data_cipher.output.data;
+		var encrypted_data = data_cipher.output.data;
 
-	fileUploadRequest(encrypted_data, selected_team+'/data', onTeamDataUpload);
+		updateTeamVersion(selected_team_data['data'][1]['TEAM_UID'], selected_team_data['data'][3]['VERSION']);
+		fileUploadRequest(encrypted_data, selected_team+'/data', onTeamDataUpload);
+	}
 }
 
 //Get list of teams
@@ -164,6 +210,10 @@ function populateTeamSelect(list){
 		var option = document.createElement("option");
 		option.text = list[i];
 		team_list.appendChild(option)
+	}
+	if(team_list.options.length >= 1){
+		team_list.options.selectedIndex = 0;
+		handleTeamSelect();
 	}
 	//team_select.innerHTML(data);
 }
@@ -247,73 +297,95 @@ function onTeamDataRx(){
    	// text_field.value = data['data'];
 
 
-   	populateTeammateList(selected_team_data);
+   	//populateTeammateList(selected_team_data);
    	parseData(data['data']);
 }
 
 function parseData(data_array){
+	var teammate_list = [];
+	console.log(data_array);
 	for(var i=0; i<data_array.length; i++){
 		for(var key in data_array[i]){
+			var value = data_array[i][key];
 			if(key === "ADD"){
-				var task_name = data_array[i][key];
-				var task = {"Pending": task_name};
+				var task = {"Pending": value};
 
 				selected_team_tasks.push(task);
 			}
 			else if(key === "COMPLETE"){
-				var task_name = data_array[i][key];
-				var task = {"Completed": task_name};
-
+				var task = {"Completed": value};
+				for(var j = 0; j < selected_team_tasks.length; j++){
+					if(selected_team_tasks[j]["Pending"] && selected_team_tasks[j]["Pending"] === value){
+						selected_team_tasks.splice(j, 1)
+					}
+				}
 				selected_team_tasks.push(task);
+			}
+			//Will be an object with "{username: teammate_uuid}"
+			else if(key === "OWNER" || key === "ADD_TEAMMATE"){
+				teammate_list.push(value);
+			}
+			else if(key === "VERSION"){
+				data_version = value;
 			}
 		}
 	}
+	populateTeammateList(teammate_list);
+	console.log(selected_team_tasks);
 	showTasks();
 }
 
 function showTasks(){
-	var task_list = document.getElementById('task_data');
 	task_list.innerHTML = "";
 
 	var pending_node = document.createTextNode("Pending");
 	var completed_node = document.createTextNode("Completed")
 
-	var completed_list = document.createElement('ul');
-	var pending_list = document.createElement('ul');
+	task_list.appendChild(pending_node);
+	task_list.appendChild(document.createElement("br"));
+
+	var completed_list = document.createElement("ul");
 
 	for(var i = 0; i < selected_team_tasks.length; i++){
-		var item = document.createElement('li');
 		for(var key in selected_team_tasks[i]){
-			console.log(key)
 			if(key === "Pending"){
-				item.appendChild(document.createTextNode(selected_team_tasks[i][key]));
-				pending_list.appendChild(item);
+				var checkbox = document.createElement("input");
+				var pair = selected_team_tasks[i][key];
+				checkbox.type = "checkbox";
+				checkbox.name = pair;
+				checkbox.value = pair;
+				checkbox.name = "pending_boxes";
+				task_list.appendChild(checkbox);
+
+				var label = document.createElement('label')
+				label.htmlFor = pair;
+				label.appendChild(document.createTextNode(pair));
+
+				task_list.appendChild(label);
+				task_list.appendChild(document.createElement("br"));
 			}
 			else if(key === "Completed"){
+				var item = document.createElement('li');
 				item.appendChild(document.createTextNode(selected_team_tasks[i][key]));
-				completed_list.appendChild(item)
+				completed_list.appendChild(item);
 			}
 		}
+
+		task_list.appendChild(completed_node);
+		task_list.appendChild(completed_list);
 	}
-	task_list.appendChild(pending_node);
-	task_list.appendChild(pending_list);
-	task_list.appendChild(completed_node);
-	task_list.appendChild(completed_list);
-	// text_field.value = selected_team_tasks
 }
 
 
 function populateTeammateList(data){
-	member_list = data['team_members'];
-
 	var teammate_list = document.getElementById('teammate_list')
 	teammate_list.innerHTML = "";
 
 	var list = document.createElement('ul');
-
-	for(var i = 1; i < member_list.length; i++){
+	console.log("populateTeammateList: " + data);
+	for(var i = 1; i < data.length; i++){
 		var item = document.createElement('li');
-		item.appendChild(document.createTextNode(member_list[i]));
+		item.appendChild(document.createTextNode(data[i]));
 		list.appendChild(item);
 	}
 
@@ -481,8 +553,20 @@ function onTeamFolderCreate(){
 
 }
 
+function guid() {
+  function s4() {
+    return Math.floor((1 + Math.random()) * 0x10000)
+      .toString(16)
+      .substring(1);
+  }
+  return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+    s4() + '-' + s4() + s4() + s4();
+}
+
 function initializeEncryptedDB(team_name){
-	var team_data = JSON.stringify({'team_members': [self_user], 'data': [{'ADD': 'First Task'}]});
+	var team_uuid = guid();
+	console.log(team_uuid);
+	var team_data = JSON.stringify({'data': [{'CREATED': team_name}, {'TEAM_UID': team_uuid}, {'OWNER': self_user}, {'VERSION': '1'}]});
 	var data = forge.util.createBuffer(team_data);
 	var iv = "0000000000000000"
 
@@ -496,9 +580,26 @@ function initializeEncryptedDB(team_name){
 
 	var encrypted_data = data_cipher.output.data;
 
+	updateTeamVersion(team_uuid, 1);
+	console.log('Uploading encrypted data');
 	fileUploadRequest(encrypted_data, team_name+'/data', onTeamDataInitialize);
 }
 
+function updateTeamVersion(team_uuid, version_number){
+	var params = "team_uuid="+encodeURIComponent(team_uuid)+"&version_number="+encodeURIComponent(version_number)+"&user="+encodeURIComponent(self_user);
+
+	var xmlhttp = new XMLHttpRequest();
+
+	xmlhttp.addEventListener('load', onVersionUpdate, false);
+
+	xmlhttp.open("POST", "/teamversion", true);
+	xmlhttp.send(params);
+}
+
+function onVersionUpdate(){
+	console.log(this);
+	return;
+}
 
 function onTeamDataInitialize(){
 	var resp = JSON.parse(this.responseText);
@@ -525,6 +626,7 @@ function onTeamDataLinkRx(){
 
 function onTeamDataLinkUpdate(){
 	console.log("Team data link updated")
+
 }
 
 //Create User Key for team data
@@ -628,7 +730,6 @@ function onTeamLinksUpdate(){
 
 function makeDownloadRequest(filename, cb){
 	var xmlhttp = new XMLHttpRequest();
-	//filename = filename1;
 	xmlhttp.addEventListener('load', cb, false);
 
 	xmlhttp.open("GET", "https://content.dropboxapi.com/2/files/download", true);
@@ -637,7 +738,6 @@ function makeDownloadRequest(filename, cb){
 	xmlhttp.send(null);
 
 }
-
 
 function checkUserDB(teammate_name, cb){
 	var xmlhttp = new XMLHttpRequest();
@@ -679,6 +779,7 @@ function userPublinkCB(){
 	console.log("userPublinkCB")
 	downloadFile(user_pubKeylink, userPubKeyCB);
 }
+
 
 function userPubKeyCB(){
 	var pem = this.responseText;
@@ -737,19 +838,16 @@ function onTeammateLinksRx(){
 	var resp = this.responseText
 	var link_update = resp.concat(selected_user+": "+this.publink+"\n");
 
-	fileUploadRequest(link_update, selected_team+"/links", onTeammateLinksUpdate);
+	fileUploadRequest(link_update, selected_team+"/links", updateMemberData);
 }
 
-function onTeammateLinksUpdate(){
-	// console.log(this.responseText);
-	updateMemberData();
-}
 
 function updateMemberData(){
 	// console.log(selected_team_data);
 	selected_team_data['data'].push({'ADD_TEAMMATE': selected_user});
-	selected_team_data['team_members'].push(selected_user);
 	console.log("team_data updated");
+	changes_made = true;
+
 	saveData();
 }
 
