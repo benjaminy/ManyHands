@@ -53,6 +53,16 @@ function serveDynamic(req, res){
             checkUser(body, res);
         });
     }
+    else if(req.url === "/teamversion"){
+        var body = "";
+        req.on('data', function(chunk){
+            body += chunk.toString();
+        });
+
+        req.on('end', function(chunk){
+            updateTeamVersion(body, res);
+        });
+    }
     else{
         finalhandler(req, res);
     }
@@ -82,11 +92,110 @@ function registerReqCB(body, res){
 
     var username = postParams['uid'];
     var tldLink = postParams['link'];
+    var pubkey = postParams['pubkey'];
 
-    createUser(username, tldLink, res);
+    createUser(username, tldLink, pubkey, res);
 
 }
 
+function updateTeamVersion(body, res){
+    var postParams = qs.parse(body);
+    
+    var team_uuid = postParams['team_uuid'];
+    var version_number = postParams['version_number'];
+    var updating_user = postParams['user'];
+    var last_update = postParams['last_update'];
+    var pubkey;
+    console.log("team_update: ", team_uuid, version_number, updating_user, last_update);
+
+    db.each("SELECT pubkey FROM user WHERE uid='"+updating_user+"'",
+        function(err, row){
+            if(err){
+                console.log("err: ", err);
+            }
+            else{
+                pubkey = row['pubkey'];
+                db.run("INSERT OR IGNORE INTO team_table VALUES(?, ?, ?)", team_uuid, version_number, pubkey,
+                    function(err){
+                        if(!err){
+                            db.each("SELECT * FROM team_table WHERE team_uuid='"+team_uuid+"'",
+                                function(err, row){
+                                    if (err){
+                                        console.log("error: ", err)
+                                        onTeamVersionUpdate(err, res, "ERR")
+                                    }
+                                    else{
+                                        var updated_user = row['user'];
+                                        if(version_number > row['revision']){
+                                            db.run("UPDATE team_table SET revision='"+version_number+"', user='"+pubkey+"' WHERE team_uuid='"+team_uuid+"'",
+                                                function (error){
+                                                    if(error){
+                                                        console.log("UPDATE ERROR: ", error);
+                                                    }
+                                                    else{
+                                                        console.log(team_uuid+" Updated by "+ updating_user);
+                                                        onTeamVersionUpdate(err, res, "ServerUpdated", updated_user, updating_user, last_update);
+                                                    }
+                                                });
+                                        }
+                                        else if(version_number == row['revision']){
+                                            onTeamVersionUpdate(err, res, "UserAlreadyUpdated", updated_user, updating_user, last_update);
+                                        }
+                                        else if(version_number < row['revision']){
+                                            onTeamVersionUpdate(err, res, "NeedsUpdate", updated_user, updating_user, last_update);
+                                        }
+                                    }
+                                }
+                            );
+                        }
+                        else{
+                            console.log("error: ", err);
+                        }
+                    });
+            }
+        })
+}
+
+function onTeamVersionUpdate(err, res, updated, updated_user, updating_user, last_update){
+    var resp;   
+    db.all("SELECT uid FROM user WHERE pubkey='"+updated_user+"'",
+        function (error, rows){
+            if(error){
+                console.log("ERROR: ", err)
+                resp = "Something went terribly awry";
+                res.writeHead(400, "Bad Request", {"Content-Type": "text/html"});
+                res.end(resp);
+            }
+            else{
+                resp = rows[0]['uid'];
+                if(err){
+                    console.log("err: ", err);
+                    res.writeHead(400, "Bad Request", {"Content-Type": "text/html"});
+                }
+                else if(updated === "UserAlreadyUpdated"){
+                    if(resp == last_update){
+                        res.writeHead(201, "Already Updated", {"Content-Type": "text/html"});
+                        // res.end("User has updated version!")
+                    }
+                    else{
+                        res.writeHead(202, "Server has later version", {"Content-Type": "text/html"});
+                        // res.end(resp);
+                    }
+                }
+                else if(updated === "NeedsUpdate"){
+                    res.writeHead(202, "Server has later version", {"Content-Type": "text/html"});
+                }
+                else if(updated === "ServerUpdated"){
+                    res.writeHead(200, "Revision updated")
+                }
+                else{
+                    res.writeHead(500, "Internal Server Error");
+                }
+                res.end(resp);
+            }
+
+        });   
+}
 
 function getTLDLink(username, res){
     db.each("SELECT publink FROM user WHERE uid='"+username+"'",
@@ -111,8 +220,8 @@ function onTLDLink(row, res){
 }
 
 
-function createUser(username, publink, res){
-    db.run('INSERT INTO user VALUES (?,?)', username, publink, 
+function createUser(username, publink, pubkey, res){
+    db.run('INSERT INTO user VALUES (?,?,?)', username, publink, pubkey, 
         function (err){
             onUserInserted(err, res);
         });
