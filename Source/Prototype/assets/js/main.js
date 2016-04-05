@@ -14,17 +14,22 @@ var access_token = "";
 var combo = "";
 var selected_team_data;
 var selected_team_tasks = [];
+var selected_team_members = [];
 var self_user;
 var teammate_TLDLinks;
 var data_version;
 var changes_made = false;
+var invite_flag = false;
+var sync_data = false;
+var teammate_teamData;
 
 document.getElementById("team_create").onclick = handleTeamCreate;
 document.getElementById('teammate_add').onclick = handleTeammateAdd;
 document.getElementById('save_data').onclick = handleSaveData;
 document.getElementById('add_data_btn').onclick = addToTasks;
-document.getElementById('get_teammate_db').onclick = getTeammateDB;
+// document.getElementById('get_teammate_db').onclick = getTeammateDB;
 document.getElementById('done_btn').onclick = handleTaskDone;
+document.getElementById('invited').onclick = onInvitationRx;
 
 
 var text_field = document.getElementById('text_data');
@@ -51,8 +56,8 @@ function parseqs(text){
 }
 
 function addToTasks(){
-	console.log(task_to_add);
 	var task_to_add = document.getElementById('add_value').value;
+	document.getElementById('add_value').value = "";
 
 	selected_team_tasks.push({"Pending": task_to_add});
 	selected_team_data['data'].push({"ADD": task_to_add});
@@ -69,7 +74,6 @@ function handleTaskSelect(evt){
 	for(var i = 0; pending_boxes[i]; i++){
 		done_btn.style.display = 'none';
 		if(pending_boxes[i].checked){
-			console.log(pending_boxes[i].value + " checked");
 			done_btn.style.display = 'block';
 			break;
 		}
@@ -78,14 +82,12 @@ function handleTaskSelect(evt){
 
 function handleTaskDone(evt){
 	var pending_boxes = document.getElementsByName("pending_boxes");
-	console.log("Tasks before: ", selected_team_tasks);
 	for(var i = 0; i < pending_boxes.length; i++){
 		if(pending_boxes[i].checked){	
 			var task_to_remove = pending_boxes[i].value;
 			selected_team_data['data'].push({"COMPLETE": task_to_remove});
 
 			for(var j = 0; j < selected_team_tasks.length; j++){
-				console.log(selected_team_tasks[j]["Pending"]);
 				if(selected_team_tasks[j]["Pending"] && selected_team_tasks[j]["Pending"] === task_to_remove){
 					console.log("Spliced!")
 					selected_team_tasks.splice(j, 1);
@@ -94,7 +96,7 @@ function handleTaskDone(evt){
 			selected_team_tasks.push({"Completed": task_to_remove});
 		}
 	}
-	console.log("Tasks after: ", selected_team_tasks);
+	changes_made = true;
 	showTasks();
 }
 
@@ -149,16 +151,19 @@ function handleSaveData(evt){
 	saveData();
 }
 
-function saveData(){
+function saveData(syncing){
+	console.log("selected_team_data: ", selected_team_data);
 	if(changes_made = true){
-		selected_team_data['data'][3]['VERSION']++;
+		if(!syncing){
+			selected_team_data['data'][3]['VERSION']++;
+			selected_team_data['data'][4]['LAST_UPDATE'] = self_user;		
+		}
 		var team_data = JSON.stringify(selected_team_data);
 
 		var data = forge.util.createBuffer(team_data);
 		var iv = "0000000000000000"
 
 		var userTeamKey = sessionStorage.getItem(selected_team+'_userTeamKey')
-		console.log('userteamkey: ', userTeamKey);
 		var data_cipher = forge.aes.startEncrypting(userTeamKey, iv);
 
 		data_cipher.update(data);
@@ -166,10 +171,12 @@ function saveData(){
 		var status = data_cipher.finish();
 
 		var encrypted_data = data_cipher.output.data;
-
-		updateTeamVersion(selected_team_data['data'][1]['TEAM_UID'], selected_team_data['data'][3]['VERSION']);
+		if(!syncing){
+			updateTeamVersion(selected_team_data['data'][1]['TEAM_UID'], selected_team_data['data'][3]['VERSION'], selected_team_data['data'][4]['LAST_UPDATE']);
+		}
 		fileUploadRequest(encrypted_data, selected_team+'/data', onTeamDataUpload);
 	}
+	// document.location.reload();
 }
 
 //Get list of teams
@@ -212,8 +219,8 @@ function populateTeamSelect(list){
 		team_list.appendChild(option)
 	}
 	if(team_list.options.length >= 1){
-		team_list.options.selectedIndex = 0;
-		handleTeamSelect();
+		// team_list.options.selectedIndex = 0;
+		// handleTeamSelect();
 	}
 	//team_select.innerHTML(data);
 }
@@ -278,32 +285,38 @@ function onTeamDataRx(){
 	var userTeamKey = forge.pkcs5.pbkdf2(encrypted_privkey, team_salt, 40, 16);
 	sessionStorage.setItem(team_name+'_userTeamKey', userTeamKey);
 
-	console.log(userTeamKey)
 	var iv = "0000000000000000";
 	var data = forge.aes.startDecrypting(userTeamKey, iv);
  	var new_buffer = forge.util.createBuffer(encrypted_data);   
    	data.update(new_buffer);  
    	var status = data.finish();
    	var plain_data = data.output.data;
-   	console.log(plain_data);
+
    	var data = JSON.parse(plain_data);
 
    	selected_team_data = data;
-
-   	sessionStorage.setItem(team_name+'_data', selected_team_data);
    	
-   	console.log(selected_team_data);
 
    	// text_field.value = data['data'];
 
 
    	//populateTeammateList(selected_team_data);
    	parseData(data['data']);
+   	checkDataVersion(selected_team_data);
+}
+
+function checkDataVersion(team_data){
+	console.log("Checking Data version")
+	var team_uid = team_data['data'][1]['TEAM_UID'];
+	var version = team_data['data'][3]['VERSION'];
+	var last_update = team_data['data'][4]['LAST_UPDATE'];
+
+	updateTeamVersion(team_uid, version, last_update);
+
 }
 
 function parseData(data_array){
 	var teammate_list = [];
-	console.log(data_array);
 	for(var i=0; i<data_array.length; i++){
 		for(var key in data_array[i]){
 			var value = data_array[i][key];
@@ -328,10 +341,18 @@ function parseData(data_array){
 			else if(key === "VERSION"){
 				data_version = value;
 			}
+			else if(key === "CREATED"){
+				var teamid = value;
+			}
 		}
 	}
 	populateTeammateList(teammate_list);
-	console.log(selected_team_tasks);
+	selected_team_members = teammate_list;
+	console.log("Parse data member list: ", teammate_list);
+	if(invite_flag){
+		createTeamFolder(teamid);
+	}
+
 	showTasks();
 }
 
@@ -341,10 +362,10 @@ function showTasks(){
 	var pending_node = document.createTextNode("Pending");
 	var completed_node = document.createTextNode("Completed")
 
+	var completed_list = document.createElement("ul");
+	
 	task_list.appendChild(pending_node);
 	task_list.appendChild(document.createElement("br"));
-
-	var completed_list = document.createElement("ul");
 
 	for(var i = 0; i < selected_team_tasks.length; i++){
 		for(var key in selected_team_tasks[i]){
@@ -352,7 +373,7 @@ function showTasks(){
 				var checkbox = document.createElement("input");
 				var pair = selected_team_tasks[i][key];
 				checkbox.type = "checkbox";
-				checkbox.name = pair;
+				checkbox.id = pair;
 				checkbox.value = pair;
 				checkbox.name = "pending_boxes";
 				task_list.appendChild(checkbox);
@@ -383,7 +404,7 @@ function populateTeammateList(data){
 
 	var list = document.createElement('ul');
 	console.log("populateTeammateList: " + data);
-	for(var i = 1; i < data.length; i++){
+	for(var i = 0; i < data.length; i++){
 		var item = document.createElement('li');
 		item.appendChild(document.createTextNode(data[i]));
 		list.appendChild(item);
@@ -393,16 +414,16 @@ function populateTeammateList(data){
 }
 
 //Get teammate publink from CS, get their team_links, find same team, look for self_user in team_name/links
-function getTeammateDB(){
-	var teammate_uid = member_list[1];
+function getTeammateDB(teammate_uid){
+	// var teammate_uid = selected_team_members[0];
 	checkUserDB(teammate_uid, onTLDLinkRx)
 
 }
 
 function onTLDLinkRx(){
+	console.log("TLD LINKS", this.responseText);
 	var json = JSON.parse(this.responseText);
 	var TLDLink = json[0].publink;
-	console.log('TLDLINK', TLDLink);
 
 	downloadFile(TLDLink, onTLDFileRx)
 }
@@ -410,8 +431,7 @@ function onTLDLinkRx(){
 function onTLDFileRx(){
 	var resp = this.responseText;
 	teammate_TLDLinks = resp.split('\n');
-	console.log('teammate_tldlinks', teammate_TLDLinks)
-
+	
 	var teamlinks_publink = teammate_TLDLinks[3];
 
 	console.log('teamlinks_publink', teamlinks_publink);
@@ -429,8 +449,8 @@ function onTeammateTeamlinksRx(){
 		console.log(team_info.indexOf(selected_team));
 		if (team_info.indexOf(selected_team)>=0){
 			var teammate_teampublink = team_info.split(selected_team+": ")[1];
-			console.log(teammate_teampublink);
-			console.log("Getting self key from teammate");
+
+			console.log("Getting self key and data from teammate");
 			downloadFile(teammate_teampublink, onTeammateTeamKeyLinksRx);
 		}
 	}
@@ -438,7 +458,6 @@ function onTeammateTeamlinksRx(){
 
 function onTeammateTeamKeyLinksRx(){
 	var resp = this.responseText;
-	console.log(resp);
 	var teammate_links = resp.split('\n');
 	var data = {key: null, data: null};
 	for(var i = 0; i < (teammate_links.length-1); i++){
@@ -446,40 +465,33 @@ function onTeammateTeamKeyLinksRx(){
 
 		if(temp.indexOf(self_user) >= 0){
 			var self_teammatekeylink = temp.split(self_user+': ')[1];
-			console.log('data', data);
 			downloadFile(self_teammatekeylink, onTeammateDataKeyRx, data);
 		}
 		else if(temp.indexOf('Data: ' >= 0)){
 			var teammateData_link = temp.split('Data: ')[1];
-			console.log('data', data);
 			downloadFile(teammateData_link, onTeammateDataRx, data);
-			console.log("Nothing")
 		}		
 	}
 }
 
 function onTeammateDataRx(){
 	this.param.data = this.responseText;
+	console.log("Got encrypted data from teammate");
 	decryptTeammateData(this.param);
 }
 
 function onTeammateDataKeyRx(){
 	var encrypted_teammateDataKey = this.responseText;
 	var combo = sessionStorage.getItem('combo');
-	console.log('combo', combo);
-	console.log('salt', userSalt);
 	var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
-	console.log('pbkd', pbkd);
-	console.log('pbkd type', typeof(pbkd));
-	console.log('enc_key', encrypted_privkey)
+	console.log("Got encrypted key from teammate");
 	var encrypted_keyinfo = forge.pki.encryptedPrivateKeyFromPem(encrypted_privkey)
 
-	console.log('foo', encrypted_keyinfo);
 	var decrypted_privKey = forge.pki.decryptRsaPrivateKey(encrypted_privkey, pbkd);
 
 	var encoded_decrypted_teammateDataKey = decrypted_privKey.decrypt(encrypted_teammateDataKey);
 	var decoded_decrypted_teammateDataKey = atob(encoded_decrypted_teammateDataKey);
-	console.log("decoded_decrypted_teammatedatakey", decoded_decrypted_teammateDataKey);
+
 	this.param.key = decoded_decrypted_teammateDataKey;
 
 
@@ -487,17 +499,31 @@ function onTeammateDataKeyRx(){
 }
 
 function decryptTeammateData(param){
+	console.log("Param: ", param);
 	if(param.key === null || param.data === null){
 		return
 	}
-	console.log(param);
+
 	var iv = "0000000000000000";
 	var data = forge.aes.startDecrypting(param.key, iv);
  	var new_buffer = forge.util.createBuffer(param.data);   
    	data.update(new_buffer);  
    	var status = data.finish();
    	var plain_data = data.output.data;
-   	console.log(plain_data);
+   	teammate_teamData = JSON.parse(plain_data);
+
+   	selected_team = teammate_teamData['data'][0]["CREATED"]
+   	selected_team_data = teammate_teamData;
+	parseData(selected_team_data['data']);
+   	// if(invite_flag){
+   	// 	console.log("Creating team directories");
+   	// 	createTeamFolder(selected_team);
+   	// }
+   	if(sync_data){
+   		console.log("Syncing with teammate's database");
+   		// changes_made = true;
+   		saveData(true);
+   	}
 }
 
 function handleTeamCreate(e){
@@ -524,32 +550,37 @@ function createTeamFolder(team_name){
 //Create and upload team salt
 function onTeamFolderCreate(){
 	//Once folder is created make salt and upload it to the folder.
-	var folder_metadata = JSON.parse(this.responseText);
-	var path = folder_metadata.path;
-	var team_name = path.split('/')[1];
-	console.log('Folder created: ' + team_name);
+	if(this.status === 200){
+		var folder_metadata = JSON.parse(this.responseText);
+		var path = folder_metadata.path;
+		var team_name = path.split('/')[1];
+		console.log('Folder created: ' + team_name);
 
-	var team_salt = forge.random.getBytesSync(128);
+		var team_salt = forge.random.getBytesSync(128);
 
-	var uteam_salt = forge.util.createBuffer("team_salt: "+team_salt);
+		var uteam_salt = forge.util.createBuffer("team_salt: "+team_salt);
 
-	var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
+		var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
 
 
-	var iv = "0000000000000000";
+		var iv = "0000000000000000";
 
-	var team_salt_cipher = forge.aes.startEncrypting(pbkd, iv);
-	team_salt_cipher.update(uteam_salt);
-	var status = team_salt_cipher.finish();
+		var team_salt_cipher = forge.aes.startEncrypting(pbkd, iv);
+		team_salt_cipher.update(uteam_salt);
+		var status = team_salt_cipher.finish();
 
-	var encrypted_team_salt = team_salt_cipher.output.data;
+		var encrypted_team_salt = team_salt_cipher.output.data;
 
-	fileUploadRequest(encrypted_team_salt, team_name+"/team_salt", teamSaltCallback);
-	fileUploadRequest("", team_name+"/links", getTeamDirPublink);
+		fileUploadRequest(encrypted_team_salt, team_name+"/team_salt", teamSaltCallback);
+		fileUploadRequest("", team_name+"/links", getTeamDirPublink);
 
-	sessionStorage.setItem(team_name+"_salt", team_salt);
+		sessionStorage.setItem(team_name+"_salt", team_salt);
 
-	makeUserTeamKey(team_salt, team_name);
+		makeUserTeamKey(team_salt, team_name);
+	}
+	else if(this.status === 403){
+		console.log("this folder already exists");
+	}
 
 }
 
@@ -564,9 +595,29 @@ function guid() {
 }
 
 function initializeEncryptedDB(team_name){
-	var team_uuid = guid();
-	console.log(team_uuid);
-	var team_data = JSON.stringify({'data': [{'CREATED': team_name}, {'TEAM_UID': team_uuid}, {'OWNER': self_user}, {'VERSION': '1'}]});
+	var team_uuid;
+	var team_data;
+	var version_number;
+	var last_update
+	var raw_data;
+
+	if(invite_flag){
+		raw_data = teammate_teamData
+		team_data = JSON.stringify(raw_data);
+		version_number = teammate_teamData['data'][3]['VERSION']
+		team_uuid = teammate_teamData['data'][1]['TEAM_UID']
+		last_update = teammate_teamData['data'][4]['LAST_UPDATE']
+	}
+	else{
+		team_uuid = guid()
+		raw_data = {'data': [{'CREATED': team_name}, {'TEAM_UID': team_uuid}, {'OWNER': self_user}, {'VERSION': '1'}, {'LAST_UPDATE': self_user}]}
+		team_data = JSON.stringify(raw_data);
+		version_number = 1;
+	}
+
+	console.log("Initializing database... ");
+
+	selected_team_data = raw_data;
 	var data = forge.util.createBuffer(team_data);
 	var iv = "0000000000000000"
 
@@ -579,14 +630,15 @@ function initializeEncryptedDB(team_name){
 	var status = data_cipher.finish();
 
 	var encrypted_data = data_cipher.output.data;
-
-	updateTeamVersion(team_uuid, 1);
+	updateTeamVersion(team_uuid, version_number, last_update);
 	console.log('Uploading encrypted data');
+	
 	fileUploadRequest(encrypted_data, team_name+'/data', onTeamDataInitialize);
 }
 
-function updateTeamVersion(team_uuid, version_number){
-	var params = "team_uuid="+encodeURIComponent(team_uuid)+"&version_number="+encodeURIComponent(version_number)+"&user="+encodeURIComponent(self_user);
+function updateTeamVersion(team_uuid, version_number, last_update){
+	console.log("Checking version with server...");
+	var params = "team_uuid="+encodeURIComponent(team_uuid)+"&version_number="+encodeURIComponent(version_number)+"&user="+encodeURIComponent(self_user)+"&last_update="+encodeURIComponent(last_update);
 
 	var xmlhttp = new XMLHttpRequest();
 
@@ -597,8 +649,26 @@ function updateTeamVersion(team_uuid, version_number){
 }
 
 function onVersionUpdate(){
-	console.log(this);
-	return;
+	changes_made = false;
+	if(this.status === 200){
+		console.log("Version on server is updated!")
+	}
+	else if(this.status === 201){
+		console.log("Already have the latest version")
+	}
+	else if(this.status === 202){
+		console.log("syncing...");
+		var updated_user = this.responseText;
+		console.log(selected_team_data['data']);
+		if(updated_user == selected_team_data['data'][4]['LAST_UPDATE']){
+			console.log("Already have latest version!");
+		}
+		else{
+			sync_data = true;
+			getTeammateDB(updated_user);
+		}
+	}
+	//return;
 }
 
 function onTeamDataInitialize(){
@@ -609,9 +679,10 @@ function onTeamDataInitialize(){
 }
 
 function onTeamDataUpload(){
-	if(this.status == 200){
-		console.log("data file uploaded")
+	if(this.status === 200){
+		console.log("Encrypted Data uploaded...")
 	}
+	showTasks();
 }
 
 function onTeamDataLinkRx(){
@@ -626,17 +697,30 @@ function onTeamDataLinkRx(){
 
 function onTeamDataLinkUpdate(){
 	console.log("Team data link updated")
+	console.log("INVITE FLAG: ", invite_flag)
+	if(invite_flag){
+		console.log("selected_team_members: ", selected_team_members);
+		for(var i = 0; i < selected_team_members.length; i++){
+			console.log("Member: ", selected_team_members[i]);
+			if(selected_team_members[i] != self_user){
+				checkUserDB(selected_team_members[i], onUserStatusRx);
+			}
+		}
+	}
+	else{
+		//document.location.reload(true);
+	}
 
 }
 
 //Create User Key for team data
 function makeUserTeamKey(team_salt, team_name){
+	console.log("Creating key for database....");
 	var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
 
 	var userTeamKey = forge.pkcs5.pbkdf2(encrypted_privkey, team_salt, 40, 16);
 	sessionStorage.setItem(team_name+'_userTeamKey', userTeamKey);
 
-	console.log("userTeamKey created: "+ team_name);
 
 	initializeEncryptedDB(team_name);
 
@@ -696,14 +780,11 @@ function onTeamLinksRx(){
 
 	var team_links_list = resp.split('\n');
 
-	console.log(team_links_list);
 
 	for(var i = 0; i < team_links_list.length; i++){
 		var team_info = team_links_list[i];
-		console.log(team_info.indexOf(this.team_name));
 		if (team_info.indexOf(this.team_name)>=0){
 			team_links_list.splice(i, 1);
-			console.log(team_links_list);
 		}
 	}
 
@@ -722,15 +803,20 @@ function onTeamLinksRx(){
 function onTeamLinksUpdate(){
 	if (this.status == 200){
 		console.log('Team links updated');
+		alert("Updated!");
 	}
 	else{
 		console.log("Something went wrong")
 	}
+	// document.location.reload(true);
 }
 
-function makeDownloadRequest(filename, cb){
+function makeDownloadRequest(filename, cb, param){
 	var xmlhttp = new XMLHttpRequest();
 	xmlhttp.addEventListener('load', cb, false);
+	if(param){
+		xmlhttp.param = param;
+	}
 
 	xmlhttp.open("GET", "https://content.dropboxapi.com/2/files/download", true);
 	xmlhttp.setRequestHeader("Authorization"," Bearer "+access_token);
@@ -745,7 +831,7 @@ function checkUserDB(teammate_name, cb){
 
 	xmlhttp.addEventListener('load', cb, false);
 	// xmlhttp.teammate_name = teammate_name;
-
+	console.log("Getting user status from Server...");
 	xmlhttp.open('POST', 'user', true);
 	xmlhttp.send(post_data)
 }
@@ -763,7 +849,6 @@ function onUserStatusRx(){
 		body.innerHTML = "Selected User: "+resp[0]['uid']+"<br>";
 		
 		var user_publink = resp[0]['publink']
-		console.log('onuserstatusrx');
 		downloadFile(user_publink,  userPublinkCB);
 		// var team_name = resp[0]['uid']
 	}
@@ -774,9 +859,7 @@ function onUserStatusRx(){
 
 function userPublinkCB(){
 	var resp = this.responseText;
-	console.log('resp', resp);  
 	var user_pubKeylink = resp.split('\n')[0]
-	console.log("userPublinkCB")
 	downloadFile(user_pubKeylink, userPubKeyCB);
 }
 
@@ -784,13 +867,40 @@ function userPublinkCB(){
 function userPubKeyCB(){
 	var pem = this.responseText;
 	var teammate_pubKey = forge.pki.publicKeyFromPem(pem);
-
+	if(!invite_flag){
+		makeTeammateInvite(teammate_pubKey);
+	}
+	console.log("MakeTeammateKey")
 	makeTeammateKey(teammate_pubKey);
+}
 
+function makeTeammateInvite(teammate_pubkey){
+	makeDownloadRequest("/team_links", teammateInviteCB, teammate_pubkey);
+}
+
+function teammateInviteCB(){
+	var teammate_pubkey = this.param;
+	var team_list = this.responseText.split('\n');
+
+	for(var i = 0; i < team_list.length; i++){
+		var team_info = team_list[i];
+		if (team_info.indexOf(selected_team)>=0){
+			var team_publink = team_info.split(selected_team+": ")[1];
+		}
+	}
+	console.log("team_link: ", team_publink);
+	alert("Email this link: \n"+ team_publink);
+}
+
+function onInvitationRx(evt){
+	var link = prompt("Please enter the link here: ", "");
+	invite_flag = true;
+	downloadFile(link, onTeammateTeamKeyLinksRx);
 }
 
 //https://github.com/digitalbazaar/forge/issues/274
 function makeTeammateKey(teammate_pubkey){
+	console.log("Making teamkey for teammate");
 	var userTeamKey = sessionStorage.getItem(selected_team+"_userTeamKey");
 	var encoded_teamkey = btoa(userTeamKey);
 
@@ -838,16 +948,23 @@ function onTeammateLinksRx(){
 	var resp = this.responseText
 	var link_update = resp.concat(selected_user+": "+this.publink+"\n");
 
+
 	fileUploadRequest(link_update, selected_team+"/links", updateMemberData);
 }
 
 
 function updateMemberData(){
-	// console.log(selected_team_data);
-	selected_team_data['data'].push({'ADD_TEAMMATE': selected_user});
+	// console.log(selected_team_data)
+	if(!invite_flag){
+		selected_team_data['data'].push({'ADD_TEAMMATE': selected_user});
+		changes_made = true;
+	}
+	else if(invite_flag){
+		console.log("Key created for teammate.")
+	}
 	console.log("team_data updated");
-	changes_made = true;
-
+	selected_user = "";
+	invite_flag = false;
 	saveData();
 }
 
@@ -860,7 +977,6 @@ function downloadFile(download_url, cb, param){
 
 	xmlhttp.addEventListener('load', cb, false);
 
-	console.log('download url', download_url)
 
 	xmlhttp.open("GET", download_url, true);
 	xmlhttp.send(null)
