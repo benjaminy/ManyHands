@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
 <body>
 Create Team? <br>
 Team Name: <input type='text' id='team_name' />
@@ -17,7 +17,7 @@ Selected Team: <br>
 <p>
 <div id='teammate_list'></div><br>
 <p>
-<button type="button" id="get_teammate_db">Get teammate's copy</button>
+<button type="button" id="get_teammate_db">Get latest version</button>
 </p>
 
 <div id='task_data'>Tasks</div><br>
@@ -32,17 +32,21 @@ Add Task: <input type='text' id='add_value'>
 Add user to selected team <br>
 UserName: <input type='text' id='teammate_name' >
 <button type='submit' id='teammate_add'>Add User</button><br>
-<br>
 <div id='user_selected'>
 Selected User: <br>
 </div>
+<div id='invite_link'></div>
 <br>
+Have an invitation link? <br>
+<button type='submit' id="invited">Click here</button>
 
 
 </body>
 <script src="assets/js/main.js"></script>
 <script src="assets/js/db.js"></script>
 <script src="assets/js/forge.min.js"></script>
+
+
 
 
 
