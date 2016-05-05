@@ -4,13 +4,11 @@ var publink = "";
 
 var uploadCount;
 
-var publicKeyLink;
-
-var accessTokenLink;
+var publicKeyLink, userSaltLink, accessTokenLink, teamFileLink, pem;
 
 var FILECOUNT = 4;
 
-var someCOUNT = 2;
+var someCOUNT = 4;
 
 var publinkCount=0;
 
@@ -30,13 +28,7 @@ function onWindowLoad(){
 				document.write("Error "+params.error+": "+params.error_description.replace(/\+/g,' '));
 		}
 		else{
-			if(!localStorage.getItem('access_token')){
-				access_token = parseqs(window.location.hash.substring(1)).access_token;
-				localStorage.setItem('access_token', access_token);
-			}
-			else{
-				access_token = localStorage.getItem('access_token');
-			}
+			access_token = parseqs(window.location.hash.substring(1)).access_token;
 		}
 	}
 }
@@ -65,21 +57,26 @@ regform.onsubmit = function(evt){
 function initializeKeys(){
 	
 	var pass = passField.value;
-	var uid = userField.value;
-	var iv = forge.random.getBytesSync(16);
-	localStorage.setItem("iv", iv);
+	var uid = userField.value;  
+	//var iv = forge.random.getBytesSync(16);
+	var iv = "0000000000000000"
+
 	//unencrypted accesstoken
-	var uAccessToken = forge.util.createBuffer(access_token);
+	var uAccessToken = forge.util.createBuffer("accessToken: "+access_token);
 
 	var rsa = forge.pki.rsa;
 	
-	var keypair = rsa.generateKeyPair({bits: 128, e: 0x10001});
+	var keypair = rsa.generateKeyPair({bits: 
+		2048, e: 0x10001});
 	
-	var pem = forge.pki.publicKeyToPem(keypair.publicKey);
+	pem = forge.pki.publicKeyToPem(keypair.publicKey);
 	
 	var userSalt = forge.random.getBytesSync(128);
 
 	var combo = pass.concat(uid);
+
+	sessionStorage.setItem('combo', combo);
+	sessionStorage.setItem('userSalt', userSalt)
 
 	var pbkd = forge.pkcs5.pbkdf2(combo, userSalt, 40, 16);
 
@@ -87,19 +84,24 @@ function initializeKeys(){
 
 	//http://cryptojs.altervista.org/secretkey/doc/doc_aes_forge.html
 
-	
 	var accessTokenCipher = forge.aes.startEncrypting(pbkd, iv);
 	accessTokenCipher.update(uAccessToken);
 	var status = accessTokenCipher.finish();
 	var encryptedAccessToken = accessTokenCipher.output.data;
 
 	var privKey = forge.pki.encryptRsaPrivateKey(keypair.privateKey, pbkd);
+	console.log('privKey', privKey);
+	console.log('type of privkey', typeof(privKey));
+	console.log('pbkd', pbkd);
+	console.log('type of pbkd', typeof(pbkd));
+
 
 	uploadCount = 0;
 	keyUploadRequest(userSalt, "userSalt");
 	keyUploadRequest(pem, "pubKey");
 	keyUploadRequest(privKey, "privKey");
 	keyUploadRequest(encryptedAccessToken, "encryptedAccessToken");
+	keyUploadRequest("", "team_links")
 	//upload encrypted access token
 }
 
@@ -116,8 +118,10 @@ function onFileUpload(){
 }
 
 function onAllUploadsComplete(){
+	getPubLink("userSalt");
 	getPubLink("pubKey");
 	getPubLink("encryptedAccessToken");
+	getPubLink("team_links");
 }
 
 function keyUploadRequest(requestData, filename){
@@ -153,14 +157,23 @@ function publinkCallBack(){
 		publicKeyLink = link;
 	}
 
+	else if(this.filename === "userSalt"){
+		userSaltLink = link;
+	}
+
 	else if(this.filename === "encryptedAccessToken"){
 		accessTokenLink = link;
+	}
+
+	else if(this.filename === "team_links"){
+		teamFileLink = link;
 	}
 
 	else if(this.filename === "topLevelDir"){
 		onTopLevelDirRx(link);
 		return;
 	}
+
 	publinkCount++;
 
 	if(publinkCount === someCOUNT){
@@ -169,7 +182,7 @@ function publinkCallBack(){
 }
 
 function onTopLevelDirRx(link){
-	var params = "uid="+encodeURIComponent(userField.value)+"&link="+encodeURIComponent(link);
+	var params = "uid="+encodeURIComponent(userField.value)+"&link="+encodeURIComponent(link)+"&pubkey="+encodeURIComponent(pem);
 
 	var xmlhttp = new XMLHttpRequest();
 
@@ -184,6 +197,6 @@ function onRegisterComplete(){
 }
 
 function onAllPublinkRx(){
-	var topLevelContents = publicKeyLink+"\n"+accessTokenLink;
+	var topLevelContents = publicKeyLink+"\n"+accessTokenLink+"\n"+userSaltLink+"\n"+teamFileLink+"\n";
 	keyUploadRequest(topLevelContents, "topLevelDir")
 }

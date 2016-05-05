@@ -1,7 +1,14 @@
 <!DOCTYPE html>
 <html>
+<nav>
+	<div class="nav-wrapper teal">
+		<a href="#" class="brand-logo center">ManyHands</a>
+	</div>
+</nav>
 <head>
-	<title></title>
+	<link type="text/css" rel="stylesheet" href="css/materialize.min.css" media="screen,projection"/>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 </head>
 <body>
 Create a user_id.
@@ -13,14 +20,10 @@ Create a user_id.
 		<label>Password: </label>
 		<input type="password" name="create_password" id="password"/>
 
-		<input type="submit" value="Create User"/>
+		<button class="btn waves-effect waves-light" type="submit" name="action" id="submit_button">Submit</button>
 	</div>
 <form>
 
-<div>
-	<label>Public link </label>
-</div>
-<button type="button" id="getFolder">FolderLink</button>
 </body>
 
 <script>
@@ -28,6 +31,8 @@ Create a user_id.
 
 <script src="assets/js/register.js"></script>
 <script src="assets/js/forge.min.js"></script>
+<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+<script src="assets/js/materialize.min.js"></script>
 	
 </script>
 
