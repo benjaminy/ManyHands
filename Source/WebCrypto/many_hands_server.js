@@ -144,7 +144,7 @@ function runServer()
 {
     var p = parseArgs();
 
-    var serveFiles = serveStatic( path.join( dir, 'Source', 'Promises' ),
+    var serveFiles = serveStatic( path.join( dir, 'Source', 'WebCrypto' ),
                                   { 'index': [ 'index.html', 'index.htm' ] } );
 
     var server = http.createServer(

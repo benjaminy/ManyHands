@@ -22,8 +22,7 @@ var log = console.log.bind( console );
 
 function serveDynamic( req, res )
 {
-    log( "Dynamic? ", req.url, req.method );
-    // log( "Dynamic? ", req );
+    log( "Dynamic", req.url, req.method );
     if( req.method == 'POST' )
     {
         var data = '';
@@ -53,6 +52,7 @@ function serveDynamic( req, res )
                     log( "mkdir error", err );
                     res.writeHead( 404 );
                     res.end( 'mkdir error' );
+                    return
                 }
                 fs.writeFile( path.join( fdir, filename ), data, 'utf8', function( err )
                 {
@@ -61,12 +61,10 @@ function serveDynamic( req, res )
                         log( "write error", err );
                         res.writeHead( 404 );
                         res.end( 'Mystery error' );
+                        return;
                     }
-                    else
-                    {
-                        res.writeHead( 200 );
-                        res.end( 'YAY' );
-                    }
+                    res.writeHead( 200 );
+                    res.end( 'YAY' );
                 } );
             } );
         } );
