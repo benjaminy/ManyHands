@@ -11,8 +11,8 @@ var path         = require( 'path' );
 var mkdirp       = require( 'mkdirp' );
 
 var DEFAULT_PORT = 8080;
-var DEFAULT_DIR  = ".";
-var dir;
+var DEFAULT_DIR  = '.';
+var root_dir     = null;
 
 var CORS_HEADERS = [ [ 'Access-Control-Allow-Origin', '*' ],
                      [ 'Access-Control-Allow-Headers',
@@ -20,54 +20,50 @@ var CORS_HEADERS = [ [ 'Access-Control-Allow-Origin', '*' ],
 
 var log = console.log.bind( console );
 
+function writeFile( pathname, contents, resp )
+{
+    var dirs = pathname.split( '/' );
+    // assert( dirs.length >= 2 )
+    // assert( dirs[0] == '' )
+    var filename = dirs[ dirs.length - 1 ];
+    var fdir = path.join( root_dir,
+        dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
+    mkdirp( fdir, function( err )
+    {
+        if( err )
+        {
+            log( 'Simple File Server: mkdir error', err );
+            res.writeHead( 500 );
+            return;
+        }
+        fs.writeFile( path.join( fdir, filename ), data, 'utf8', function( err )
+        {
+            if( err )
+            {
+                log( 'Simple File Server: write error', err );
+                res.writeHead( 500 );
+                return;
+            }
+            log( 'Simple File Server: Wrote file', pathname );
+            res.writeHead( 200 ).end();
+        } );
+    } );
+}
+
 function serveDynamic( req, res )
 {
-    log( "Dynamic", req.url, req.method );
+    log( 'Simple File Server: Dynamic ', req.url, req.method );
     if( req.method == 'POST' )
     {
-        var data = '';
-
+        var body = [];
         req.setEncoding( 'utf8' );
-
-        req.addListener( 'data', function( dataChunk )
-        {
-            data += dataChunk;
-        } );
-
+        req.addListener( 'data', function( chunk ) { body.push( chunk ); } );
         req.addListener( 'end', function()
         {
-            var pathname = url.parse( req.url ).pathname;
-            log( "PATH ", pathname );
-            dirs = pathname.split( '/' );
-            // assert( dirs.length >= 2 )
-            // assert( dirs[0] == '' )
-            var filename = dirs[ dirs.length - 1 ];
-            dirs = dirs.slice( 1, dirs.length - 1 );
-            var fdir = path.join( dir, dirs.join( path.sep ) );
-            log( "YAY? ", fdir );
-            mkdirp( fdir, function( err )
-            {
-                if( err )
-                {
-                    log( "mkdir error", err );
-                    res.writeHead( 404 );
-                    res.end( 'mkdir error' );
-                    return
-                }
-                fs.writeFile( path.join( fdir, filename ), data, 'utf8', function( err )
-                {
-                    if( err )
-                    {
-                        log( "write error", err );
-                        res.writeHead( 404 );
-                        res.end( 'Mystery error' );
-                        return;
-                    }
-                    res.writeHead( 200 );
-                    res.end( 'YAY' );
-                } );
-            } );
+            var body_str = Buffer.concat( body ).toString();
+            writeFile( url.parse( req.url ).pathname, body_str, res );
         } );
+
         return;
     }
     return finalhandler( req, res )();
@@ -77,7 +73,7 @@ function runServer()
 {
     var p = parseArgs();
 
-    var serveFiles = serveStatic( dir, { 'index': [ 'index.html', 'index.htm' ] } );
+    var serveFiles = serveStatic( root_dir, { 'index': [ 'index.html', 'index.htm' ] } );
 
     var server = http.createServer(
         function( req, res ) {
@@ -88,20 +84,19 @@ function runServer()
             serveFiles( req, res, function() { serveDynamic( req, res ) } );
         } );
     server.listen( p );
-    log( "Simple File Server - Serving directory",dir,"on port",p );
+    log( 'Simple File Server: Serving directory', root_dir, 'on port', p );
 }
 
 function parseArgs()
 {
-    dir = null;
     var p = null;
     for( i = 2; i < process.argv.length; i++ )
     {
         var x = parseInt( process.argv[i] );
         if( isNaN( x ) )
         {
-            if( !dir )
-                dir = process.argv[i];
+            if( !root_dir )
+                root_dir = process.argv[i];
         }
         else
         {
@@ -109,8 +104,8 @@ function parseArgs()
                 p = x;
         }
     }
-    if( !dir )
-        dir = DEFAULT_DIR;
+    if( !root_dir )
+        root_dir = DEFAULT_DIR;
     if( !p )
         p = DEFAULT_PORT;
     return p;

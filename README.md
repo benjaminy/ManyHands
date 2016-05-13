@@ -13,13 +13,13 @@ sort of shared to-do, reminder kind of thing.
 
 ### Many Hands in 100 words
 
-As a ManyHands user, you will belong to any number of teams.  Each team
-has any number of tasks.  Each time you do a task, you simply click a
-button and the system records that you did it and shares that with your
-team.  You can then look at the history of any given task to see who has
-been doing it.  The plan is to keep it as simple as possible; no social
-media tie-ins or dancing bears.  The hope is that this simple tool will
-help people share the work of routine chores with less fuss and stress.
+As a ManyHands user, you belong to any number of teams.  Each team has
+any number of tasks.  Each time you do a task, you simply click a button
+and the system records that you did it and shares that with your team.
+You can then look at the history of any given task to see who has been
+doing it.  The plan is to keep it as simple as possible; no social media
+tie-ins or dancing bears.  The hope is that this simple tool will help
+people share the work of routine chores with less fuss and stress.
 
 ## A bit more detail
 
@@ -65,9 +65,8 @@ let slide.
 ### Emphatic non-goal: chore-doing enforcement
 
 We assume that everyone on the team is basically committed to the
-harmonious functioning of the group.  We have no interest in creating a
-system that somehow tries to verify that someone did what they claim to
-have done.
+harmonious functioning of the group.  It is _not_ a goal for the system
+that it verifies that someone did what they claim to have done.
 
 ## Technical Ideas
 
@@ -81,16 +80,16 @@ There are two non-trivial technical issues with implementing ManyHands:
 ### Shared "document" management
 
 Ideally ManyHands will work on all kinds of devices so that people can
-check off a task will miniaml effort.  (Mobile phones seem like a
+check off a task will minimal effort.  (Mobile phones seem like a
 particularly attractive platform.)  It should definitely work offline
-seemlessly, which creates a concurrent versioning problem.
+seamlessly, which creates a concurrent versioning problem.
 
-The iniitial idea is to use version control software, like git, to take
+The initial idea is to use version control software, like git, to take
 care of all the low-level versioning stuff.  There can still be issues
-with people concurently making inconsistent changes (like adding and
+with people concurrently making inconsistent changes (like adding and
 deleting tasks), but those issues should be manageable.
 
-There is a Javascript git implementation that might prove useful:
+There is a JavaScript git implementation that might prove useful:
 
 https://github.com/creationix/js-git
 

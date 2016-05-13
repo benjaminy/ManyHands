@@ -62,8 +62,11 @@ function ServerError( message, server_msg )
 ServerError.prototype = Object.create(Error.prototype);
 ServerError.prototype.constructor = ServerError;
 
+/* Encode a typed buffer as a string using only hex characters
+ * (could be more efficient with base 64 or whatever) */
 function bufToHex( buf )
 {
+    /* assert( buf is a byte array ) */
     var bytes = new Uint8Array( buf );
     var hex = '';
     for( var i = 0; i < bytes.length; i++ )
@@ -79,15 +82,14 @@ function bufToHex( buf )
         }
         hex += n;
     }
+    /* assert( hex.length == 2 * bytes.length ) */
     return hex;
 }
 
 function hexToBuf( hex )
 {
-    if( ( hex.length % 2 ) == 1 )
-    {
-        throw 'asfg';
-    }
+    /* assert( hex is a string ) */
+    /* assert( hex.length % 2 == 0 ) */
     var num_bytes = hex.length / 2;
     var buf = new Uint8Array( num_bytes );
     for( var i = 0; i < num_bytes; i++ )
@@ -155,12 +157,12 @@ function uploadTextFile( user, path, content )
                     } ) } );
 }
 
-function uploadTextFiles( params )
+function uploadTextFiles( files )
 {
     var promises = [];
-    for( var i = 0; i < params.length; i++ )
+    for( var i = 0; i < files.length; i++ )
     {
-        var p = params[i];
+        var p = files[i];
         promises.push( uploadTextFile( p.u, p.p, p.c ) );
     }
     var idx = 0;
@@ -169,7 +171,14 @@ function uploadTextFiles( params )
         for( var i = 0; i < promises.length; i++ )
         {
             promises[i].then( function( resp ) {
-                resps[i] = resp;
+                if( !resp.ok )
+                {
+                    resp.text().then( function( t ) {
+                        reject( new ServerError( 'Failed to upload file '+ files[i].p,
+                                                 resp.statusText + ' ' + t ) );
+                    } );
+                }
+                resps.push( resp );
             } ).catch( function( err ) {
                 reject( err );
             } );
@@ -209,6 +218,7 @@ function downloadDecryptDecode( cloud, path, key, iv )
     } ).then( function( decrypted ) {
         return new Promise( function( resolve, reject ) {
             resolve( decoder.decode( decrypted ) );
+        } )
     } );
 }
 
@@ -286,27 +296,21 @@ function onLoginReq()
     } );
 }
 
-/* Given keys as JS objects, generate exported versions */
-function exportKeypairs( enc_keys, sign_keys )
+/* Run multiple promises.
+ * If all are fulfilled, fulfill an array of all their results.
+ * If any is rejected, reject. */
+function runPromises( promises )
 {
-    var enc_exported  = { priv: null, publ: null };
-    var sign_exported = { priv: null, publ: null };
-    log( 'Running exportKeys', enc_keys, sign_keys );
-    return C.exportKey( 'jwk', enc_keys.privateKey )
-    .then( function( d ) {
-        enc_exported.priv = d;
-        return C.exportKey( 'jwk', enc_keys.publicKey );
-    } ).then( function( d ) {
-        enc_exported.publ = d;
-        return C.exportKey( 'jwk', sign_keys.privateKey );
-    } ).then( function( d ) {
-        sign_exported.priv = d;
-        return C.exportKey( 'jwk', sign_keys.publicKey );
-    } ).then( function( d ) {
-        sign_exported.publ = d;
-        return new Promise( function( resolve, reject ) {
-            resolve( { e: enc_exported, s: sign_exported } );
-        } );
+    results = [];
+    return new Promise( function( fulfill, reject )
+    {
+        for( var i = 0; i < promises.length; i++ )
+        {
+            promises[i].then(
+                function( result ) { results[i] = result },
+                function( reason ) { reject( reason ) } );
+        }
+        fulfill( results );
     } );
 }
 
@@ -320,6 +324,8 @@ function onRegisterReq()
     var sign_exported = { priv: null, publ: null };
     var link_id       = null;
     var link_id_hex   = null;
+    var u_priv_enc_encrypted = null;
+    var uploadToCloud = null;
 
     var uid_enc = encoder.encode( elemUID.value );
     C.digest( 'SHA-256', uid_enc )
@@ -333,108 +339,71 @@ function onRegisterReq()
             alert( 'That username ('+elemUID.value+') is already registered' );
             throw new NameNotAvailableError();
         }
-        else
-        {
-            /* assert not registered */
-            log( 'Userid available', resp );
-            return C.generateKey( { name: 'ECDH', namedCurve: 'P-521' },
-                                  true,
-                                  [ 'deriveKey', 'deriveBits' ] );
-
-        }
-    } ).then( function( e ) {
-        enc_keypair = e;
-        log( 'Generated encryption key-pair', enc_keypair );
-        return C.generateKey( { name: 'ECDSA', namedCurve: 'P-521' },
-                              true,
-                              [ 'sign', 'verify' ] );
-    } ).then( function( s ) {
-        sign_keypair = s;
-        log( 'Generated signing key-pair', sign_keypair );
-        return exportKeypairs( enc_keypair, sign_keypair );
-    } ).then( function( d ) {
-        enc_exported  = d.e;
-        sign_exported = d.s;
-        log( 'Exported key-pairs', d, enc_exported, sign_exported );
+        /* else */
+        /* assert not registered */
+        log( 'Userid available', resp );
         link_id = new Uint8Array( 5 );
         window.crypto.getRandomValues( link_id );
         link_id_hex = bufToHex( link_id );
+        uploadToCloud = function( p, c ) { return uploadTextFile( link_id_hex, p, c ) };
         log( 'link ID:', link_id_hex, link_id );
-        return uploadTextFile(
-            link_id_hex, 'encryption_public_key', JSON.stringify( enc_exported.publ ) );
-    } ).then( function( resp ) {
-        if( !resp.ok )
-        {
-            resp.text().then( function( t ) {
-                throw new ServerError( 'Failed to upload encryption public key', t );
-            } );
-        }
-        return uploadTextFile(
-            link_id_hex, 'signing_public_key', JSON.stringify( sign_exported.publ ) );
-    } ).then( function( resp ) {
-        if( !resp.ok )
-        {
-            resp.text().then( function( t ) {
-                throw new ServerError( 'Failed to upload signing public key', t );
-            }
-        }
         salt = new Uint8Array( SALT_NUM_BYTES );
         window.crypto.getRandomValues( salt );
-        return makeLoginKey( elemUID.value, elemPass.value, salt );
-    } ).then( function( k ) {
-        login_key = k;
-        log( 'Made the login key!', login_key );
-        var p = encoder.encode( JSON.stringify( enc_exported.priv ) );
-        return C.encrypt(
-            { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key, p );
-    } ).then( function( encrypted_enc_priv ) {
-        return uploadTextFile(
-            link_id_hex, 'encryption_private_key', bufToHex( encrypted_enc_priv ) );
-    } ).then( function( resp ) {
-        if( !resp.ok )
-        {
-            resp.text().then( function( t ) {
-                throw new ServerError( 'Failed to upload encryption private key', t );
-            }
-        }
-        var p = encoder.encode( JSON.stringify( sign_exported.priv ) );
-        return C.encrypt(
-            { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key, p );
-    } ).then( function( encrypted_sign_priv ) {
-        return uploadTextFile(
-            link_id_hex, 'signing_private_key', bufToHex( encrypted_sign_priv ) );
-    } ).then( function( resp ) {
-        if( !resp.ok )
-        {
-            resp.text().then( function( t ) {
-                throw new ServerError( 'Failed to upload signing private key', t );
-            }
-        }
-        return C.encrypt(
-            { name: 'AES-CBC', iv: salt.slice( 0, 16 ) }, login_key, link_id );
-    } ).then( function( enc_link ) {
-        log( 'encrypted link:', new Uint8Array( enc_link ) );
-        log( 'blah:', String.fromCharCode.apply( null, new Uint8Array( enc_link ) ) );
-        var reg_info = {
-            link   : bufToHex( enc_link ),
-            pub_key: sign_exported.publ,
+        var s = C.generateKey( { name: 'ECDSA', namedCurve: 'P-521' },
+                               true, [ 'sign', 'verify' ] );
+        var e = C.generateKey( { name: 'ECDH', namedCurve: 'P-521' },
+                               true, [ 'deriveKey', 'deriveBits' ] );
+        var l = makeLoginKey( elemUID.value, elemPass.value, salt );
+        var u = uploadToCloud( 'salt', bufToHex( salt ) );
+        return runPromises( [ s, e, l, u ] );
+    } ).then( function( results ) {
+        u_sign_keypair = results[0];
+        u_encr_keypair = results[1];
+        login_key      = results[2];
+        log( 'Generated key-pairs', results );
+        var keys = [ u_encr_keypair.privateKey, u_encr_keypair.publicKey,
+                     u_sign_keypair.privateKey, u_sign_keypair.publicKey ];
+        var promises = keys.map( function( k ) { return C.exportKey( 'jwk', k ) } );
+        promises.push( C.encrypt(
+            { name: 'AES-CBC', iv: salt.slice( 0, 16 ) }, login_key, link_id ) );
+        return runPromises( promises );
+    } ).then( function( results ) {
+        log( 'step N' );
+        var e = uploadToCloud( 'public_encryption_key', JSON.stringify( results[1] ) );
+        var v = uploadToCloud( 'public_signing_key',    JSON.stringify( results[3] ) );
+        var d = C.encrypt(
+            { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key,
+            encoder.encode( JSON.stringify( results[0] ) ) );
+        var s = C.encrypt(
+            { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key,
+            encoder.encode( JSON.stringify( results[2] ) ) );
+
+        var registration_info = {
+            link   : bufToHex( results[4] ),
+            pub_key: results[3],
             salt   : bufToHex( salt ),
         };
         var content = JSON.stringify( reg_info );
-        log( 'JSON:', content );
-        return fetch( '/Register/'+hashedUID,
-               { method  : 'POST',
-                 body    : content,
-                 headers : new Headers( {
-                     'Content-Type':   'text/plain',
-                     'Content-Length': '' + content.length
-                 } ) } );
+        var r = fetch( '/Register/'+hashedUID,
+            { method  : 'POST',
+              body    : content,
+              headers : new Headers( {
+                  'Content-Type':   'text/plain',
+                  'Content-Length': '' + content.length
+              } ) } );
+        return runPromises( [ e, v, d, s, r ] );
+    } ).then( function( results ) {
+        var e = uploadToCloud( 'private_encryption_key', bufToHex( results[2] ) );
+        var v = uploadToCloud( 'private_signing_key',    bufToHex( results[3] ) );
+    } ).then( function( enc_link ) {
+        log( 'encrypted link:', new Uint8Array( enc_link ) );
+        log( 'blah:', String.fromCharCode.apply( null, new Uint8Array( enc_link ) ) );
     } ).then( function( resp ) {
         if( !resp.ok )
         {
             resp.text().then( function( t ) {
                 throw new ServerError( 'Registration upload failed', t );
-            }
+            } );
         }
         log( 'Registration succeeded!' );
         /*
