@@ -18,8 +18,14 @@ var elemUID  = getElemId( 'IdUserId' );
 var elemPass = getElemId( 'IdPasswd' );
 
 var encoding = 'utf-8';
-var encoder  = new TextEncoder( encoding );
-var decoder  = new TextDecoder( encoding );
+var encode = function() {
+    var encoder  = new TextEncoder( encoding );
+    return encoder.encode.bind( encoder );
+} ();
+var decode = function() {
+    var decoder  = new TextDecoder( encoding );
+    return decoder.decode.bind( decoder );
+} ();
 
 var SALT_NUM_BYTES = 128;
 
@@ -113,7 +119,7 @@ function stringsToBuf( strings )
     var total_bytes = 0;
     for( var i = 0; i < strings.length; i++ )
     {
-        bufs.push( encoder.encode( strings[ i ] ) );
+        bufs.push( encode( strings[ i ] ) );
         total_bytes += bufs[ i ].length;
     }
     var b = new Uint8Array( total_bytes );
@@ -232,9 +238,7 @@ function downloadDecryptDecode( user, path, key, iv )
         return C.decrypt(
             { name: 'AES-CBC', iv: iv }, key, hexToBuf( resp_text ) );
     } ).then( function( decrypted ) {
-        return new Promise( function( resolve, reject ) {
-            resolve( decoder.decode( decrypted ) );
-        } )
+        return Promise.accept( decode( decrypted ) );
     } );
 }
 
@@ -243,12 +247,10 @@ function onLoginReq()
     var salt      = null;
     var enc_link  = null;
     var link_id   = null;
-    var enc_enc   = null;
-    var sign_enc  = null;
-    var enc_keys  = { priv: null, publ: null };
-    var sign_keys = { priv: null, publ: null };
+    var u_encrypt = {};
+    var u_sign    = {};
 
-    var uid_enc = encoder.encode( elemUID.value );
+    var uid_enc = encode( elemUID.value );
     C.digest( 'SHA-256', uid_enc )
     .then( function( hashedUID ) {
         log( 'Got hash', typeof( hashedUID ), bufToHex( hashedUID ) );
@@ -264,7 +266,7 @@ function onLoginReq()
         }
         else
         {
-            throw new NotFoundError();
+            return Promise.reject( new NotFoundError() );
         }
     } ).then( function( resp_json ) {
         log( 'login json', resp_json );
@@ -279,27 +281,37 @@ function onLoginReq()
     } ).then( function( link_id ) {
         link_id_hex = bufToHex( link_id );
         log( 'link ID:', link_id_hex, link_id );
-        return downloadTextFile( link_id_hex, 'encryption_public_key' );
-    } ).then( function( k ) {
-        enc_keys.publ = JSON.parse( k );
-        return downloadTextFile( link_id_hex, 'signing_public_key' );
-    } ).then( function( k ) {
-        sign_keys.publ = JSON.parse( k );
-        return downloadTextFile( link_id_hex, 'encryption_private_key' );
-    } ).then( function( k ) {
-        enc_enc = k;
-        return downloadTextFile( link_id_hex, 'signing_private_key' );
-    } ).then( function( k ) {
-        sign_enc = k;
-        return C.decrypt(
-            { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key, hexToBuf( enc_enc ) );
-    } ).then( function( k ) {
-        enc_keys.priv = JSON.parse( decoder.decode( k ) );
-        return C.decrypt(
-            { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key, hexToBuf( sign_enc ) );
-    } ).then( function( k ) {
-        sign_keys.priv = JSON.parse( decoder.decode( k ) );
-        log( 'Got they keys!!!', enc_keys, sign_keys );
+        var e = downloadTextFile( link_id_hex, 'key_encrypt' );
+        var d = downloadTextFile( link_id_hex, 'key_decrypt' );
+        var s = downloadTextFile( link_id_hex, 'key_sign' );
+        var v = downloadTextFile( link_id_hex, 'key_verify' );
+        return Promise.all( [ e, d, s, v ] );
+    } ).then( function( results ) {
+        var e = C.importKey(
+            "jwk", JSON.parse( results[0] ), { name: "ECDH", namedCurve: "P-521", },
+            false, [] );
+        var d = C.decrypt(
+            { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key, hexToBuf( results[1] ) );
+        var s = C.decrypt(
+            { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key, hexToBuf( results[2] ) );
+        var v = C.importKey(
+            "jwk", JSON.parse( results[3] ), { name: "ECDSA", namedCurve: "P-521", },
+            false, [ "verify" ] );
+        return Promise.all( [ e, d, s, v ] );
+    } ).then( function( results ) {
+        u_encrypt.publicKey = results[0];
+        u_sign.publicKey = results[3];
+        var d = C.importKey(
+            "jwk", JSON.parse( decode( results[1] ) ),
+            { name: "ECDH", namedCurve: "P-521", }, false, [ "deriveKey" ] );
+        var s = C.importKey(
+            "jwk", JSON.parse( decode( results[2] ) ),
+            { name: "ECDSA", namedCurve: "P-521", }, false, [ "sign" ] );
+        return Promise.all( [ d, s ] );
+    } ).then( function( results ) {
+        u_encrypt.privateKey = results[0];
+        u_sign.privateKey = results[1];
+        log( 'Logged in!!!', u_encrypt, u_sign );
     } ).catch( function( err ) {
         if( err instanceof NotFoundError )
         {
@@ -315,16 +327,11 @@ function onLoginReq()
 function onRegisterReq()
 {
     var hashedUID     = null;
-    var enc_keypair   = null;
-    var sign_keypair  = null;
     var salt          = null;
-    var enc_exported  = { priv: null, publ: null };
-    var sign_exported = { priv: null, publ: null };
     var u_cloud       = null;
-    var u_priv_enc_encrypted = null;
     var uploadToCloud = null;
 
-    var uid_enc = encoder.encode( elemUID.value );
+    var uid_enc = encode( elemUID.value );
     C.digest( 'SHA-256', uid_enc )
     .then( function( h ) {
         hashedUID = bufToHex( h );
@@ -386,10 +393,10 @@ function onRegisterReq()
         var v = uploadToCloud( 'key_verify',  JSON.stringify( results[3] ) );
         var d = C.encrypt(
             { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key,
-            encoder.encode( JSON.stringify( results[0] ) ) );
+            encode( JSON.stringify( results[0] ) ) );
         var s = C.encrypt(
             { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key,
-            encoder.encode( JSON.stringify( results[2] ) ) );
+            encode( JSON.stringify( results[2] ) ) );
 
         var registration_info = {
             link   : bufToHex( results[4] ),
@@ -499,7 +506,7 @@ function createTeam( team_name )
                 throw new ServerError( 'Failed to upload signing public key', t );
             } );
         }
-        var p = encoder.encode( JSON.stringify( team_encrypt_exported.priv ) );
+        var p = encode( JSON.stringify( team_encrypt_exported.priv ) );
         return C.encrypt(
             { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key, p );
     } ).then( function( encrypted_enc_priv ) {
@@ -513,7 +520,7 @@ function createTeam( team_name )
                 throw new ServerError( 'Failed to upload encryption private key', t );
             } );
         }
-        var p = encoder.encode( JSON.stringify( team_sign_exported.priv ) );
+        var p = encode( JSON.stringify( team_sign_exported.priv ) );
         return C.encrypt(
             { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key, p );
     } ).then( function( encrypted_sign_priv ) {
@@ -536,7 +543,7 @@ function createTeam( team_name )
     } ).then( function( team_key_exported ) {
         return C.encrypt(
             { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key,
-            encoder.encode( JSON.stringify( team_sign_exported.priv ) ) );
+            encode( JSON.stringify( team_sign_exported.priv ) ) );
     } ).then( function( team_key_encrypted ) {
         return uploadTextFile(
             link_id_hex, in_team_dir( team_id_hex, 'sign_private_key' ),
@@ -555,7 +562,7 @@ function createTeam( team_name )
         team_contents = team_id_hex + ' ' + team_name + '\n' + team_contents;
         return C.encrypt(
             { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key,
-            encoder.encode( team_contents ) );
+            encode( team_contents ) );
     } ).then( function( e ) {
         return uploadTextFile(
             link_id_hex, [ 'Teams', 'teams' ], bufToHex( e ) );
