@@ -33,19 +33,22 @@ function writeFile( pathname, contents, resp )
         if( err )
         {
             log( 'Simple File Server: mkdir error', err );
-            res.writeHead( 500 );
+            resp.writeHead( 500 );
+            resp.end();
             return;
         }
-        fs.writeFile( path.join( fdir, filename ), data, 'utf8', function( err )
+        fs.writeFile( path.join( fdir, filename ), contents, 'utf8', function( err )
         {
             if( err )
             {
                 log( 'Simple File Server: write error', err );
-                res.writeHead( 500 );
+                resp.writeHead( 500 );
+                resp.end();
                 return;
             }
             log( 'Simple File Server: Wrote file', pathname );
-            res.writeHead( 200 ).end();
+            resp.writeHead( 200 );
+            resp.end();
         } );
     } );
 }
