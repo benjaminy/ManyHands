@@ -2,6 +2,11 @@
  *
  */
 
+/* Begin generic utilities (Move to a module some day) */
+
+
+/* End generic utilities */
+
     //     sessionStorage.setItem( 'filePort', p );
     //     window.location.href = 'main.html';
 
@@ -99,8 +104,11 @@ function hexToBuf( hex )
     return buf;
 }
 
+/* Encode and pack strings into a byte array */
 function stringsToBuf( strings )
 {
+    /* assert( Array.isArray( strings ) ) */
+    /* assert( forall i. typeof( strings[i] ) == 'string' ) */
     var bufs = [];
     var total_bytes = 0;
     for( var i = 0; i < strings.length; i++ )
@@ -118,13 +126,11 @@ function stringsToBuf( strings )
     return b;
 }
 
-/*
- * username : string
- * password : string
- * salt     : array buffer thing
- */
 function makeLoginKey( username, password, salt )
 {
+    /* assert( typeof( username ) == 'string' ) */
+    /* assert( typeof( password ) == 'string' ) */
+    /* assert( typeof( salt ) == typed array ) */
     var up = stringsToBuf( [ username, password ] );
     return C.importKey( 'raw', up, { name: 'PBKDF2' }, false, [ 'deriveKey' ]
     ).then( function( temp_key ) {
@@ -134,84 +140,94 @@ function makeLoginKey( username, password, salt )
     } );
 }
 
-function encode_helper( user, path )
+function encode_path( user, path )
 {
-    if( !path.isArray() )
+    /* assert( Array.isArray( path ) || typeof( path ) == 'string' ) */
+    /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == 'string' ) */
+    /* assert( typeof( user ) == 'string' ) */
+    if( !Array.isArray( path ) )
     {
         path = [ path ];
     }
-    return { p: path.map( encodeURIcomponent ).join( '/' ),
-             u: encodeURIcomponent( user ) };
+    return { p: path.map( encodeURIComponent ).join( '/' ),
+             u: encodeURIComponent( user ) };
 }
 
-/* path_pre_encode can be an array of strings or a single string */
+/* Returns a Promise that either rejects or fulfills the response object */
 function uploadTextFile( user, path, content )
 {
-    var pu = encode_helper( user, path );
+    /* assert( Array.isArray( path ) || typeof( path ) == 'string' ) */
+    /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == 'string' ) */
+    /* assert( typeof( user ) == 'string' ) */
+    /* assert( typeof( content ) is whatever fetch accepts ) */
+    var pu = encode_path( user, path );
     return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p,
                   { method  : 'POST',
                     body    : content,
                     headers : new Headers( {
                         'Content-Type':   'text/plain',
                         'Content-Length': '' + content.length
-                    } ) } );
+                    } ) }
+    ).then( function( resp ) {
+        if( !resp.ok )
+        {
+            return new Promise( function( accept, reject )
+            {
+                if( resp.status >= 400 && resp.status < 500 )
+                    resp.text().then( function( t ) {
+                        reject( new RequestError( pu.p, resp.statusText + ' ' + t ) );
+                    } );
+                else
+                    resp.text().then( function( t ) {
+                        reject( new ServerError( pu.p, resp.statusText + ' ' + t ) );
+                    } );
+            } );
+        }
+        else
+            return Promise.accept( resp );
+    } );
+}
+
+/* Returns a Promise that either rejects or fulfills the downloaded file's text */
+function downloadTextFile( user, path )
+{
+    /* assert( Array.isArray( path ) || typeof( path ) == 'string' ) */
+    /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == 'string' ) */
+    /* assert( typeof( user ) == 'string' ) */
+    var pu = encode_path( user, path );
+    return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p
+    ).then( function( resp ) {
+        if( !resp.ok )
+        {
+            return new Promise( function( accept, reject )
+            {
+                if( resp.status == 404 )
+                    reject( new NotFoundError( pu.p ) );
+                else if( resp.status >= 400 && resp.status < 500 )
+                    resp.text().then( function( t ) {
+                        reject( new RequestError( pu.p, resp.statusText + ' ' + t ) );
+                    } );
+                else
+                    resp.text().then( function( t ) {
+                        reject( new ServerError( pu.p, resp.statusText + ' ' + t ) );
+                    } );
+            } );
+        }
+        else
+            return resp.text();
+    } );
 }
 
 function uploadTextFiles( files )
 {
-    var promises = [];
-    for( var i = 0; i < files.length; i++ )
-    {
-        var p = files[i];
-        promises.push( uploadTextFile( p.u, p.p, p.c ) );
-    }
-    var idx = 0;
-    resps = [];
-    return new Promise( function( resolve, reject ) {
-        for( var i = 0; i < promises.length; i++ )
-        {
-            promises[i].then( function( resp ) {
-                if( !resp.ok )
-                {
-                    resp.text().then( function( t ) {
-                        reject( new ServerError( 'Failed to upload file '+ files[i].p,
-                                                 resp.statusText + ' ' + t ) );
-                    } );
-                }
-                resps.push( resp );
-            } ).catch( function( err ) {
-                reject( err );
-            } );
-        }
-        resolve( resps );
-    } );
+    /* assert( Array.isArray( files ) ) */
+    /* assert( forall i. files[i] is { u, p, c } ) */
+    Promise.all( files.map( function( f ) { return uploadTextFile( f.u, f.p, f.c ) } ) );
 }
 
-function downloadTextFile( user_pre_encode, path_pre_encode )
+function downloadDecryptDecode( user, path, key, iv )
 {
-    var pu = encode_helper( user_pre_encode, path_pre_encode );
-    return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p )
-    .then( function( resp ) {
-        if( !resp.ok )
-        {
-            if( resp.status == 404 )
-                throw new NotFoundError( pu.p );
-            else if( resp.status >= 400 && resp.status < 500 )
-                resp.text().then( function( t ) {
-                    throw new RequestError( pu.p, resp.statusText + ' ' + t );
-                } );
-            else
-                resp.text().then( function( t ) {
-                    throw new ServerError( pu.p, resp.statusText + ' ' + t );
-                } );
-        }
-        return resp.text();
-    } );
-}
-
-function downloadDecryptDecode( cloud, path, key, iv )
-{
-    return downloadTextFile( cloud, path
+    return downloadTextFile( user, path
     ).then( function( resp_text ) {
         return C.decrypt(
             { name: 'AES-CBC', iv: iv }, key, hexToBuf( resp_text ) );
@@ -296,24 +312,6 @@ function onLoginReq()
     } );
 }
 
-/* Run multiple promises.
- * If all are fulfilled, fulfill an array of all their results.
- * If any is rejected, reject. */
-function runPromises( promises )
-{
-    results = [];
-    return new Promise( function( fulfill, reject )
-    {
-        for( var i = 0; i < promises.length; i++ )
-        {
-            promises[i].then(
-                function( result ) { results[i] = result },
-                function( reason ) { reject( reason ) } );
-        }
-        fulfill( results );
-    } );
-}
-
 function onRegisterReq()
 {
     var hashedUID     = null;
@@ -322,31 +320,45 @@ function onRegisterReq()
     var salt          = null;
     var enc_exported  = { priv: null, publ: null };
     var sign_exported = { priv: null, publ: null };
-    var link_id       = null;
-    var link_id_hex   = null;
+    var u_cloud       = null;
     var u_priv_enc_encrypted = null;
     var uploadToCloud = null;
 
     var uid_enc = encoder.encode( elemUID.value );
     C.digest( 'SHA-256', uid_enc )
     .then( function( h ) {
-        log( 'uid hash', typeof( h ), h, bufToHex( h ) );
         hashedUID = bufToHex( h );
+        log( 'hashed uid', bufToHex( h ) );
         return fetch( '/Users/'+hashedUID );
     } ).then( function( resp ) {
         if( resp.ok )
         {
             alert( 'That username ('+elemUID.value+') is already registered' );
-            throw new NameNotAvailableError();
+            return Promise.reject( new NameNotAvailableError() );
+        }
+        else if( resp.status != 404 )
+        {
+            return new Promise( function( accept, reject )
+            {
+                var msg = '/Users/'+hashedUID+' '+resp.statusText + ' ';
+                if( resp.status >= 400 && resp.status < 500 )
+                    resp.text().then( function( t ) {
+                        reject( new RequestError( msg + t ) );
+                    } );
+                else
+                    resp.text().then( function( t ) {
+                        reject( new ServerError( msg + t ) );
+                    } );
+            } );
         }
         /* else */
         /* assert not registered */
         log( 'Userid available', resp );
-        link_id = new Uint8Array( 5 );
-        window.crypto.getRandomValues( link_id );
-        link_id_hex = bufToHex( link_id );
-        uploadToCloud = function( p, c ) { return uploadTextFile( link_id_hex, p, c ) };
-        log( 'link ID:', link_id_hex, link_id );
+        u_cloud = { b: new Uint8Array( 5 ) };
+        window.crypto.getRandomValues( u_cloud.b );
+        u_cloud.t = bufToHex( u_cloud.b );
+        uploadToCloud = function( p, c ) { return uploadTextFile( u_cloud.t, p, c ) };
+        log( 'user cloud link:', u_cloud.t, u_cloud.b );
         salt = new Uint8Array( SALT_NUM_BYTES );
         window.crypto.getRandomValues( salt );
         var s = C.generateKey( { name: 'ECDSA', namedCurve: 'P-521' },
@@ -355,22 +367,23 @@ function onRegisterReq()
                                true, [ 'deriveKey', 'deriveBits' ] );
         var l = makeLoginKey( elemUID.value, elemPass.value, salt );
         var u = uploadToCloud( 'salt', bufToHex( salt ) );
-        return runPromises( [ s, e, l, u ] );
+        return Promise.all( [ s, e, l, u ] );
     } ).then( function( results ) {
-        u_sign_keypair = results[0];
-        u_encr_keypair = results[1];
-        login_key      = results[2];
-        log( 'Generated key-pairs', results );
+        log( 'Generated user key-pairs', results );
+        var u_sign_keypair = results[0];
+        var u_encr_keypair = results[1];
+        login_key          = results[2];
         var keys = [ u_encr_keypair.privateKey, u_encr_keypair.publicKey,
                      u_sign_keypair.privateKey, u_sign_keypair.publicKey ];
         var promises = keys.map( function( k ) { return C.exportKey( 'jwk', k ) } );
         promises.push( C.encrypt(
-            { name: 'AES-CBC', iv: salt.slice( 0, 16 ) }, login_key, link_id ) );
-        return runPromises( promises );
+            { name: 'AES-CBC', iv: salt.slice( 0, 16 ) }, login_key, u_cloud.b ) );
+        return Promise.all( promises );
     } ).then( function( results ) {
+        /* assert( results == [ TODO ] ) */
         log( 'step N' );
-        var e = uploadToCloud( 'public_encryption_key', JSON.stringify( results[1] ) );
-        var v = uploadToCloud( 'public_signing_key',    JSON.stringify( results[3] ) );
+        var e = uploadToCloud( 'key_encrypt', JSON.stringify( results[1] ) );
+        var v = uploadToCloud( 'key_verify',  JSON.stringify( results[3] ) );
         var d = C.encrypt(
             { name: 'AES-CBC', iv: new Uint8Array( 16 ) }, login_key,
             encoder.encode( JSON.stringify( results[0] ) ) );
@@ -383,7 +396,7 @@ function onRegisterReq()
             pub_key: results[3],
             salt   : bufToHex( salt ),
         };
-        var content = JSON.stringify( reg_info );
+        var content = JSON.stringify( registration_info );
         var r = fetch( '/Register/'+hashedUID,
             { method  : 'POST',
               body    : content,
@@ -391,20 +404,12 @@ function onRegisterReq()
                   'Content-Type':   'text/plain',
                   'Content-Length': '' + content.length
               } ) } );
-        return runPromises( [ e, v, d, s, r ] );
+        return Promise.all( [ e, v, d, s, r ] );
     } ).then( function( results ) {
-        var e = uploadToCloud( 'private_encryption_key', bufToHex( results[2] ) );
-        var v = uploadToCloud( 'private_signing_key',    bufToHex( results[3] ) );
-    } ).then( function( enc_link ) {
-        log( 'encrypted link:', new Uint8Array( enc_link ) );
-        log( 'blah:', String.fromCharCode.apply( null, new Uint8Array( enc_link ) ) );
-    } ).then( function( resp ) {
-        if( !resp.ok )
-        {
-            resp.text().then( function( t ) {
-                throw new ServerError( 'Registration upload failed', t );
-            } );
-        }
+        var d = uploadToCloud( 'key_decrypt', bufToHex( results[2] ) );
+        var s = uploadToCloud( 'key_sign',    bufToHex( results[3] ) );
+        return Promise.all( [ d, s ] );
+    } ).then( function( results ) {
         log( 'Registration succeeded!' );
         /*
         return C.decrypt(
@@ -433,7 +438,7 @@ function onRegisterReq()
 function in_team_dir( team, path )
 {
     var p;
-    if( path.isArray() )
+    if( Array.isArray( path ) )
     {
         p = path.slice();
     }
