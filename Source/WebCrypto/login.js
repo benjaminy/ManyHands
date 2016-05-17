@@ -15,8 +15,9 @@ var C         = window.crypto.subtle;
 var log       = console.log.bind( console );
 var getElemId = document.getElementById.bind( document );
 
-var elemUID  = getElemId( 'IdUserId' );
-var elemPass = getElemId( 'IdPasswd' );
+var elemUID      = getElemId( 'IdUserId' );
+var elemPass     = getElemId( 'IdPasswd' );
+var elemLoggedIn = getElemId( 'IdLoggedIn' );
 
 var encoding = 'utf-8';
 var encode = function() {
@@ -41,10 +42,14 @@ function encrypt_aes_cbc( iv, k, d )
 { return C.encrypt( { name: 'AES-CBC', iv: iv }, k, d ); }
 
 function decrypt_aes_cbc( iv, k, d )
-{ return C.decrypt( { name: 'AES-CBC', iv: iv }, k, d ); }
+{ var bbb = C.decrypt( { name: 'AES-CBC', iv: iv }, k, d );
+  log( 'blah', bbb, iv, k, d );
+  return bbb;
+}
 
 /* XXX maybe these should go in session storage, or something */
 var login_key = null;
+var link_id_hex = null;
 
 function NameNotAvailableError( message )
 {
@@ -88,7 +93,7 @@ ServerError.prototype.constructor = ServerError;
  * (could be more efficient with base 64 or whatever) */
 function bufToHex( buf )
 {
-    /* assert( buf is a byte array ) */
+    /* assert( buf is a typed array ) */
     var bytes = new Uint8Array( buf );
     var hex = '';
     for( var i = 0; i < bytes.length; i++ )
@@ -171,21 +176,25 @@ function encode_path( user, path )
 }
 
 /* Returns a Promise that either rejects, or fulfills the response object */
-function uploadTextFile( user, path, content )
+function uploadFile( user, path, content, content_type )
 {
     /* assert( Array.isArray( path ) || typeof( path ) == 'string' ) */
     /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == 'string' ) */
     /* assert( typeof( user ) == 'string' ) */
     /* assert( typeof( content ) is whatever fetch accepts ) */
     var pu = encode_path( user, path );
+    var headers = new Headers( { 'Content-Length': '' + content.length } );
+    if( content_type )
+    {
+        headers[ 'Content-Type' ] = content_type;
+    }
+
     return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p,
                   { method  : 'POST',
                     body    : content,
-                    headers : new Headers( {
-                        'Content-Type':   'text/plain',
-                        'Content-Length': '' + content.length
-                    } ) }
+                    headers : headers }
     ).then( function( resp ) {
+        log( 'uploadFile response', resp );
         if( !resp.ok )
         {
             return new Promise( function( accept, reject )
@@ -206,7 +215,7 @@ function uploadTextFile( user, path, content )
 }
 
 /* Returns a Promise that either rejects, or fulfills the downloaded file's text */
-function downloadTextFile( user, path )
+function downloadFile( user, path, text )
 {
     /* assert( Array.isArray( path ) || typeof( path ) == 'string' ) */
     /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == 'string' ) */
@@ -231,7 +240,12 @@ function downloadTextFile( user, path )
             } );
         }
         else
-            return resp.text();
+        {
+            if( text )
+                return resp.text();
+            else
+                return resp.arrayBuffer();
+        }
     } );
 }
 
@@ -244,10 +258,12 @@ function uploadTextFiles( files )
 
 function downloadDecryptDecode( user, path, key, iv )
 {
-    return downloadTextFile( user, path
+    return downloadFile( user, path
     ).then( function( resp_text ) {
-        return decrypt_aes_cbc( iv, key, hexToBuf( resp_text ) );
+        log( 'Z', resp_text, typeof( resp_text ) );
+        return decrypt_aes_cbc( iv, key, resp_text );
     } ).then( function( decrypted ) {
+        log( 'Y' );
         return P.accept( decode( decrypted ) );
     } );
 }
@@ -290,16 +306,16 @@ function onLoginReq()
     } ).then( function( link_id ) {
         link_id_hex = bufToHex( link_id );
         log( 'link ID:', link_id_hex, link_id );
-        var ep = downloadTextFile( link_id_hex, 'key_encrypt' );
-        var dp = downloadTextFile( link_id_hex, 'key_decrypt' );
-        var sp = downloadTextFile( link_id_hex, 'key_sign' );
-        var vp = downloadTextFile( link_id_hex, 'key_verify' );
+        var ep = downloadFile( link_id_hex, 'key_encrypt', true );
+        var dp = downloadFile( link_id_hex, 'key_decrypt' );
+        var sp = downloadFile( link_id_hex, 'key_sign' );
+        var vp = downloadFile( link_id_hex, 'key_verify', true );
         return P.all( [ ep, dp, sp, vp ] );
     } ).then( function( [ e, d, s, v ] ) {
         var ep = C.importKey(
             "jwk", JSON.parse( e ), pub_enc_algo, false, [] );
-        var dp = decrypt_aes_cbc( new Uint8Array( 16 ), login_key, hexToBuf( d ) );
-        var sp = decrypt_aes_cbc( new Uint8Array( 16 ), login_key, hexToBuf( s ) );
+        var dp = decrypt_aes_cbc( new Uint8Array( 16 ), login_key, d );
+        var sp = decrypt_aes_cbc( new Uint8Array( 16 ), login_key, s );
         var vp = C.importKey(
             "jwk", JSON.parse( v ), signing_algo, false, [ "verify" ] );
         return P.all( [ ep, dp, sp, vp ] );
@@ -315,6 +331,7 @@ function onLoginReq()
         u_encrypt.privateKey = d;
         u_sign.privateKey = s;
         log( 'Logged in!!!', u_encrypt, u_sign );
+        elemLoggedIn.innerText = ''+elemUID.value+' '+link_id_hex;
     } ).catch( function( err ) {
         if( err instanceof NotFoundError )
         {
@@ -367,14 +384,14 @@ function onRegisterReq()
         u_cloud = { b: new Uint8Array( 5 ) };
         window.crypto.getRandomValues( u_cloud.b );
         u_cloud.t = bufToHex( u_cloud.b );
-        uploadToCloud = function( p, c ) { return uploadTextFile( u_cloud.t, p, c ) };
+        uploadToCloud = function( p, c, t ) { return uploadFile( u_cloud.t, p, c, t ) };
         log( 'user cloud link:', u_cloud.t, u_cloud.b );
         salt = new Uint8Array( SALT_NUM_BYTES );
         window.crypto.getRandomValues( salt );
         var sp = C.generateKey( signing_algo, true, [ 'sign', 'verify' ] );
         var ep = C.generateKey( pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] );
         var lp = makeLoginKey( elemUID.value, elemPass.value, salt );
-        var up = uploadToCloud( 'salt', bufToHex( salt ) );
+        var up = uploadToCloud( 'salt', salt );
         return P.all( [ sp, ep, lp, up ] );
     } ).then( function( [ s, e, l, u ] ) {
         log( 'Generated user key-pairs' );
@@ -385,10 +402,12 @@ function onRegisterReq()
                      u_sign_keypair.privateKey, u_sign_keypair.publicKey ];
         var promises = keys.map( function( k ) { return C.exportKey( 'jwk', k ) } );
         promises.push( encrypt_aes_cbc( salt.slice( 0, 16 ), login_key, u_cloud.b ) );
+        promises.push( encrypt_aes_cbc( new Uint8Array( 16 ), login_key, encode( '' ) ) );
         return P.all( promises );
-    } ).then( function( [ d, e, s, v, link_encrypted ] ) {
-        var ep = uploadToCloud( 'key_encrypt', JSON.stringify( e ) );
-        var vp = uploadToCloud( 'key_verify',  JSON.stringify( v ) );
+    } ).then( function( [ d, e, s, v, link_encrypted, teams ] ) {
+        var tp = uploadToCloud( [ 'Teams', 'teams' ], teams, 'text/plain' );
+        var ep = uploadToCloud( 'key_encrypt', JSON.stringify( e ), 'text/plain' );
+        var vp = uploadToCloud( 'key_verify',  JSON.stringify( v ), 'text/plain' );
         var dp = encrypt_aes_cbc( new Uint8Array( 16 ), login_key,
                                   encode( JSON.stringify( d ) ) );
         var sp = encrypt_aes_cbc( new Uint8Array( 16 ), login_key,
@@ -407,10 +426,10 @@ function onRegisterReq()
                   'Content-Type':   'text/plain',
                   'Content-Length': '' + content.length
               } ) } );
-        return P.all( [ ep, vp, dp, sp, r ] );
-    } ).then( function( [ e, v, d, s, r ] ) {
-        var dp = uploadToCloud( 'key_decrypt', bufToHex( d ) );
-        var sp = uploadToCloud( 'key_sign',    bufToHex( s ) );
+        return P.all( [ tp, ep, vp, dp, sp, r ] );
+    } ).then( function( [ t, e, v, d, s, r ] ) {
+        var dp = uploadToCloud( 'key_decrypt', d );
+        var sp = uploadToCloud( 'key_sign',    s );
         return P.all( [ dp, sp ] );
     } ).then( function( [ d, s ] ) {
         log( 'Registration succeeded!' );
@@ -457,8 +476,6 @@ function in_team_dir( team, path )
 
 function onCreateTeam( team_name )
 {
-    var team_encrypt_keypair  = null;
-    var team_sign_keypair     = null;
     var team_encrypt_exported = null;
     var team_sign_exported    = null;
     var team_key              = null;
@@ -468,8 +485,6 @@ function onCreateTeam( team_name )
     var tp = C.generateKey( sym_enc_algo, true, [ "encrypt", "decrypt" ] );
     P.all( [ ep, sp, tp ] )
     .then( function( [ e, s, t ] ) {
-        team_encrypt_keypair = k;
-        team_sign_keypair = k;
         log( 'Generated keys', e, s, t );
         var keys = [ e.privateKey, e.publicKey, s.privateKey, s.publicKey, t ];
         return P.all(
@@ -482,36 +497,40 @@ function onCreateTeam( team_name )
         window.crypto.getRandomValues( team_id );
         /* XXX Check that ID is not already in use */
         team_id_hex = bufToHex( team_id );
-        log( 'Team ID:', link_id_hex, link_id );
-        var ep = uploadTextFile(
+        log( 'Team ID:', team_id_hex, link_id_hex );
+        var ep = uploadFile(
             link_id_hex, in_team_dir( team_id_hex, 'key_encrypt' ),
-            JSON.stringify( team_encrypt_exported.publ ) );
-        var vp = uploadTextFile(
+            JSON.stringify( e ), 'application/json' );
+        var vp = uploadFile(
             link_id_hex, in_team_dir( team_id_hex, 'key_verify' ),
-            JSON.stringify( team_sign_exported.publ ) );
-        var dp = encrypt_aes_cbc( new Uint8Array( 16 ), login_key,
-                                  encode( JSON.stringify( d ) ) );
-        var sp = encrypt_aes_cbc( new Uint8Array( 16 ), login_key,
-                                  encode( JSON.stringify( s ) ) );
-        var tp = encrypt_aes_cbc( new Uint8Array( 16 ), login_key,
-                                  encode( JSON.stringify( t ) ) );
-        var cp = downloadDecryptDeccode( link_id_hex, [ 'Teams', 'teams' ],
-                                         login_key, new Uint8Array( 16 ) );
+            JSON.stringify( v ), 'application/json' );
+        var dp = encrypt_aes_cbc(
+            new Uint8Array( 16 ), login_key, encode( JSON.stringify( d ) ) );
+        var sp = encrypt_aes_cbc(
+            new Uint8Array( 16 ), login_key, encode( JSON.stringify( s ) ) );
+        var tp = encrypt_aes_cbc(
+            new Uint8Array( 16 ), login_key, encode( JSON.stringify( t ) ) );
+        var cp = downloadDecryptDecode(
+            link_id_hex, [ 'Teams', 'teams' ], login_key, new Uint8Array( 16 ) );
+        log( 'A' );
         return P.all( [ ep, vp, dp, sp, tp, cp ] );
     } ).then( function( [ e, v, d, s, t, c ] ) {
-        var dp = uploadTextFile(
-            link_id_hex, in_team_dir( team_id_hex, 'key_decryption' ), bufToHex( d ) );
-        var sp = uploadTextFile(
-            link_id_hex, in_team_dir( team_id_hex, 'key_sign' ), bufToHex( s ) );
-        var tp = uploadTextFile(
-            link_id_hex, in_team_dir( team_id_hex, 'key_team' ), bufToHex( t ) );
+        log( 'B' );
+        var dp = uploadFile(
+            link_id_hex, in_team_dir( team_id_hex, 'key_decryption' ), d );
+        var sp = uploadFile(
+            link_id_hex, in_team_dir( team_id_hex, 'key_sign' ), s );
+        var tp = uploadFile(
+            link_id_hex, in_team_dir( team_id_hex, 'key_team' ), t );
         /* XXX need to think carefully about concurrency here */
         var team_contents = team_id_hex + ' ' + team_name + '\n' + c;
         var cp = encrypt_aes_cbc( new Uint8Array( 16 ), login_key,
                                   encode( team_contents ) );
+        log( 'C' )
         return P.all( [ dp, sp, tp, cp ] );
     } ).then( function( [ d, s, t, c ] ) {
-        return uploadTextFile( link_id_hex, [ 'Teams', 'teams' ], bufToHex( c ) );
+        log( 'D' )
+        return uploadFile( link_id_hex, [ 'Teams', 'teams' ], c );
     } ).then( function( resp ) {
         log( 'Created new team!' );
     } ).catch( function( err ) {
@@ -522,6 +541,7 @@ function onCreateTeam( team_name )
         else
         {
             log( 'Unhandled error during team creation:', err );
+            log( '???', typeof( err ) );
         }
     } );
 }
