@@ -28,6 +28,51 @@
                         alert(decodeASCIIString(fileContents));
                     });
         }
+        function testUpdate() {
+            var dropbox = new Dropbox("rwovrjf7g18ya3b");
+            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
+            createVersionFile(dropbox, "version.txt").then(function(versionFile){
+                setInterval(function() {versionFile.advance();}, 5000);
+                startUpdateCheck(versionFile.sharedResourceAccessor, 247, function() {document.body.innerHTML += "Alert!";});
+            });
+        }
+        function testShareMultiple() {
+            var dropbox = new Dropbox("rwovrjf7g18ya3b");
+            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
+            var promise1 = dropbox.uploadFile(encodeASCIIString("ABC"), "stuff1.txt");
+            var promise2 = dropbox.uploadFile(encodeASCIIString("DEF"), "stuff2.txt");
+            var promise3 = dropbox.uploadFile(encodeASCIIString("GHI"), "stuff3.txt");
+            var promise4 = dropbox.uploadFile(encodeASCIIString("JKL"), "stuff4.txt");
+            Promise.all([promise1, promise2, promise3, promise4]).then(
+                    function() {
+                        var promise1 = dropbox.shareFile("stuff1.txt");
+                        var promise2 = dropbox.shareFile("stuff2.txt");
+                        var promise3 = dropbox.shareFile("stuff3.txt");
+                        var promise4 = dropbox.shareFile("stuff4.txt");
+                        return Promise.all([promise1, promise2, promise3, promise4]);
+                    }
+            ).then(function([link1,link2,link3,link4]){
+                var toShare = [];
+                toShare["one"]=link1;
+                toShare["two"]=link2;
+                toShare["three"]=link3;
+                toShare["four"]=link4;
+                return shareMultipleResources(toShare,"allstuff.txt",dropbox);
+            }).then(function(allResourcesLink){
+                return readMultipleSharedResources(allResourcesLink);
+            }).then(function(resources) {
+                var promise1 = resources["one"].retrieve();
+                var promise2 = resources["two"].retrieve();
+                var promise3 = resources["three"].retrieve();
+                var promise4 = resources["four"].retrieve();
+                return Promise.all([promise1, promise2, promise3, promise4]);
+            }).then(function([one,two,three,four]){
+                console.log("one: " + decodeASCIIString(one));
+                console.log("two: " + decodeASCIIString(two));
+                console.log("three: " + decodeASCIIString(three));
+                console.log("four: " + decodeASCIIString(four));
+            });
+        }
     </script>
     <meta charset="UTF-8">
     <title>Test</title>

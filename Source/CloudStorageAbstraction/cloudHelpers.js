@@ -2,8 +2,8 @@
 // required by Many Hands
 
 var VersionFile = function(path, versionNumber, sharedResourceAccessor, cloudStorage) {
-    this.path = pathToVersionFile;
-    this.sharedResourceAccessor = cloudStorage.shareFile(this.path);
+    this.path = path;
+    this.sharedResourceAccessor = sharedResourceAccessor;
 
     // This method advanced the versionNumber by 1, and uploads the change to the
     // version number file. It returns a promise object for the end of upload
@@ -19,7 +19,7 @@ var VersionFile = function(path, versionNumber, sharedResourceAccessor, cloudSto
 function createVersionFile(cloudStorage, pathToVersionFile) {
     var versionNumber;
     // try to retrieve the file, if it's impossible create it
-    return cloudStorage.downloadFile(cloudStorage).then(
+    return cloudStorage.downloadFile(pathToVersionFile).then(
             function(fileContents) {
                 var contentsStringified = decodeASCIIString(fileContents);
                 return new Promise( function(resolve, reject) {
@@ -54,7 +54,6 @@ function createVersionFile(cloudStorage, pathToVersionFile) {
 function startUpdateCheck(versionFileAccessor, timeBetweenChecks, callbackOnUpdate, lastVersion) {
     if (typeof lastVersion != "string")
         lastVersion = "-1";
-    versionFileAccessor = new SharedFile();
     versionFileAccessor.retrieve().then(
         function(versionFileContents) {
             var contentsStringified = decodeASCIIString(versionFileContents);
@@ -86,9 +85,10 @@ function shareMultipleResources(resources, pathToStore, cloudStorage) {
     // cut the excessive last "\n"
     accessFileContents = accessFileContents.slice(0, -1);
 
-    cloudStorage = new CloudStorage();
-    cloudStorage.uploadFile(encodeASCIIString(accessFileContents),pathToStore).
-        then(function() { return cloudStorage.shareFile(pathToStore);});
+    return cloudStorage.uploadFile(encodeASCIIString(accessFileContents),pathToStore).
+        then(function() {
+            return cloudStorage.shareFile(pathToStore);
+        });
 }
 
 // helper function which reverts character escapes \\, and \n
@@ -115,14 +115,14 @@ function revertEscapeCharacters(escapedString) {
 // promise object with an associative array of resources (keys are names of resources, and
 // values are their accessors).
 function readMultipleSharedResources(resourcesAccessor) {
-    resourcesAccessor.retrieve().then(function(accessFileContents) {
+    return resourcesAccessor.retrieve().then(function(accessFileContents) {
         var result = [];
         var contentsStringified = decodeASCIIString(accessFileContents);
         var records = contentsStringified.split("\n");
         for (var i = 0; i < records.length; i+=2) {
             records[i] = revertEscapeCharacters(records[i]);
             records[i+1] = revertEscapeCharacters(records[i+1]);
-            result[records[i]]=encodeASCIIString(records[i+1]);
+            result[records[i]]= new SharedFile(encodeASCIIString(records[i+1]));
         }
         return new Promise(function(resolve, reject) { resolve(result); });
     });
