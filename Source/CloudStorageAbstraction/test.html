@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script type="text/javascript" src="cloudInterface.js" ></script>
+    <script type="text/javascript" src="cloudHelpers.js" ></script>
+    <script type="text/javascript" src="dropboxImplementation.js" ></script>
+    <script>
+        function testUploadDownload() {
+            var dropbox = new Dropbox("rwovrjf7g18ya3b");
+            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
+            dropbox.uploadFile(encodeASCIIString("ABC"), "stuff.txt")
+                    .then(function () {
+                        return dropbox.downloadFile("stuff.txt");
+                    })
+                    .then(function (contents) {
+                        alert(decodeASCIIString(contents));
+                    });
+        }
+        function testSharing() {
+            var dropbox = new Dropbox("rwovrjf7g18ya3b");
+            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
+            dropbox.uploadFile(encodeASCIIString("ABC"), "stuff.txt")
+                    .then(function () {
+                        return dropbox.shareFile("stuff.txt");
+                    }).then( function (linkToFile) {
+                        return (new SharedFile(linkToFile.encode())).retrieve();
+                    }).then( function (fileContents) {
+                        alert(decodeASCIIString(fileContents));
+                    });
+        }
+    </script>
+    <meta charset="UTF-8">
+    <title>Test</title>
+</head>
+<body>
+
+</body>
+</html>

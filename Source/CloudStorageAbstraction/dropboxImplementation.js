@@ -7,75 +7,87 @@ var Dropbox = function(appkey) {
     this.accessToken = null; // access token will be provided by authenticate
     CloudStorage.call(this);
 
-    // Authentication via Dropbox login page
-    this.authenticate = function() {
-        window.open('https://www.dropbox.com/1/oauth2/authorize?client_id='+encodeURIComponent(this.appkey)+
-            '&response_type=token&redirect_uri='+encodeURIComponent(get_redirect_uri()), "_self");
+    // authentication requires access token which can be received from the
+    // DropBox login page
+    this.authenticate = function(accessToken) {
+        this.accessToken = accessToken;
     };
 
     this.downloadFile = function(downloadUrl) {
-        // Promisifying the XMLHttpRequest
-        return new Promise( function (resolve, reject) {
-            var httpRequest = new XMLHttpRequest();
-            var onDownloaded = function () {
-                if (httpRequest.status == 200) {
-                    resolve(encodeASCIIString(httpRequest.responseText));
-                } else {
-                    reject();
-                }
-            };
+        // Wrapper is used to pass the access token down to the promise
+        function wrapper(accessToken) {
+            // Promisifying the XMLHttpRequest
+            return new Promise(function (resolve, reject) {
+                var httpRequest = new XMLHttpRequest();
+                var onDownloaded = function () {
+                    if (httpRequest.status == 200) {
+                        resolve(encodeASCIIString(httpRequest.responseText));
+                    } else {
+                        reject();
+                    }
+                };
 
-            httpRequest.addEventListener('load', onDownloaded, false);
-            httpRequest.open("GET", "https://content.dropboxapi.com/2/files/download", true);
-            httpRequest.setRequestHeader("Authorization"," Bearer " + this.accessToken);
-            httpRequest.setRequestHeader("Dropbox-API-Arg", " {\"path\": \""+downloadUrl+"\"}");
-            httpRequest.send(null);
-        })
+                httpRequest.addEventListener('load', onDownloaded, false);
+                httpRequest.open("GET", "https://content.dropboxapi.com/1/files/auto/"+downloadUrl, true);
+                httpRequest.setRequestHeader("Authorization", " Bearer " + accessToken);
+                httpRequest.send(null);
+            });
+        }
+        return wrapper(this.accessToken);
     };
 
     this.uploadFile = function(fileContents, fileUrl) {
-        // Promisifying the XMLHttpRequest
-        return new Promise( function (resolve, reject) {
-            var httpRequest = new XMLHttpRequest();
-            var onUploaded = function() {
-                if (httpRequest.status == 200) {
-                    resolve();
-                } else {
-                    reject(httpRequest.status);
-                }
-            };
-            httpRequest.addEventListener("load", onUploaded, false);
+        // Wrapper is used to pass the access token down to the promise
+        function wrapper(accessToken) {
+            // Promisifying the XMLHttpRequest
+            return new Promise(function (resolve, reject) {
+                var httpRequest = new XMLHttpRequest();
+                var onUploaded = function () {
+                    if (httpRequest.status == 200) {
+                        resolve();
+                    } else {
+                        reject(httpRequest.status);
+                    }
+                };
+                httpRequest.addEventListener("load", onUploaded, false);
 
-            httpRequest.open("POST", "https://api-content.dropbox.com/1/files_put/auto/"+fileUrl+"?overwrite=true", true);
-            httpRequest.setRequestHeader("Authorization"," Bearer "+ this.accessToken);
-            httpRequest.send(decodeASCIIString(fileContents));
-        });
+                httpRequest.open("POST", "https://api-content.dropbox.com/1/files_put/auto/" + fileUrl + "?overwrite=true", true);
+                httpRequest.setRequestHeader("Authorization", " Bearer " + accessToken);
+                httpRequest.send(decodeASCIIString(fileContents));
+            });
+        }
+        return wrapper(this.accessToken);
     };
 
     this.shareFile = function (sharedFileUrl) {
-        return new Promise ( function(resolve, reject) {
-            var httpRequest = new XMLHttpRequest();
+        // Wrapper is used to pass the access token down to the promise
+        function wrapper(accessToken) {
+            return new Promise(function (resolve, reject) {
+                var httpRequest = new XMLHttpRequest();
 
-            var onShared = function () {
-                if (httpRequest.status == 200) {
-                    var response = JSON.parse(this.responseText);
-                    var linkToResource = resp.url.replace("www.dropbox.com", "dl.dropboxusercontent.com");
-                    linkToResource = new BytableString(linkToResource); // we need a Bytable object
-                    resolve(new SharedFile(Dropbox, linkToResource));
-                } else {
-                    reject("Upload unsuccessful");
-                }
-            };
-            httpRequest.addEventListener('load', onShared, false);
+                var onShared = function () {
+                    if (httpRequest.status == 200) {
+                        var response = JSON.parse(this.responseText);
+                        var linkToResource = response.url.replace("www.dropbox.com", "dl.dropboxusercontent.com");
+                        linkToResource = new BytableString(linkToResource); // we need a Bytable object
+                        resolve(new SharedFile(Dropbox, linkToResource));
+                    } else {
+                        reject("Upload unsuccessful");
+                    }
+                };
+                httpRequest.addEventListener('load', onShared, false);
 
-            httpRequest.open("POST", "https://api.dropbox.com/1/shares/auto/" + sharedFileUrl + "?short_url=false", true);
-            httpRequest.setRequestHeader("Authorization", " Bearer " + this.accessToken);
-            httpRequest.send(null);
-        });
+                httpRequest.open("POST", "https://api.dropbox.com/1/shares/auto/" + sharedFileUrl + "?short_url=false", true);
+                httpRequest.setRequestHeader("Authorization", " Bearer " + accessToken);
+                httpRequest.send(null);
+            });
+        }
+        return wrapper(this.accessToken);
     }
 };
+Dropbox.prototype = CloudStorage.prototype;
 
-Dropbox.retrieveSharedFile = function(accessData) {
+Dropbox.retrieveSharedFile = function(fileUrl) {
     return new Promise(function(resolve,reject){
         var httpRequest = new XMLHttpRequest();
 
@@ -88,10 +100,10 @@ Dropbox.retrieveSharedFile = function(accessData) {
         };
         httpRequest.addEventListener('load', onFileRetrieved, false);
 
-        httpRequest.open("GET", download_url, true);
+        httpRequest.open("GET", fileUrl, true);
         httpRequest.send(null)
     });
-}
+};
 
 Dropbox.sharedDataAccessType = BytableString;
 cloudStorages['Dropbox'] = Dropbox;

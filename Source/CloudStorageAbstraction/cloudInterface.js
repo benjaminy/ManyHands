@@ -54,14 +54,18 @@ Bytable.fromByteArray = function(byteArray) {
 // since a string is the most typical accessData type, we provide a
 // bytable string class
 // Parameter thing is anything convertible to a string (Mozilla Documentation)
-var BytableString = function(thing) {
-    Bytable.call(this);
-    String.call(this, thing);
+var BytableString = function(string) {
+    this.string = string;
     this.toByteArray = function() {
-        return encodeASCIIString(this);
+        return encodeASCIIString(this.string);
     };
+    this.toString = function () {
+        return this.string;
+    }
 };
-BytableString.fromByteArray = decodeASCIIString;
+BytableString.fromByteArray = function(byteArray) {
+    return new BytableString(decodeASCIIString(byteArray));
+}
 
 
 // Handle to a shared resource; contains all the data needed to retrieve a shared
@@ -90,17 +94,17 @@ var SharedFile = function(cloudStorage, accessData) {
 
     /// this function retrieves the data stored in a shared file and returns it as a promise
     this.retrieve = function () {
-        return this.shareMethod(this.accessDate);
+        return this.shareMethod(this.accessData);
     };
 
     /// creates a byte array which then can be send to a different user, and reconstructed
     /// using the SharedFile() constructing function
     this.encode = function () {
-        var byteArray = [];
-        byteArray.push(longToByteArray(cloudStorage.length));
-        byteArray.push(encodeASCIIString(cloudStorage));
-        byteArray.push(accessData.toByteArray());
-    }
+        var cloudName = findCloudStorageName(cloudStorage);
+        return (longToByteArray(cloudName.length)).concat(
+        (encodeASCIIString(cloudName))).concat(
+        (accessData.toByteArray()));
+    };
 };
 
 var CloudStorage = function() {
@@ -120,15 +124,9 @@ var CloudStorage = function() {
         throw "Abstract method call";
     };
 
-    // TODO: talk to Ben, if we shouldn't simply always assume a promise object and some
-    // TODO: kind of a login page
     /// this function should be used before any other call in CloudStorage object - its
     /// purpose is to log in to the cloud storage provider
-    /// Returns: null - if authentication has finished
-    ///          A promise object - if one needs to wait for the authentication to finish
     /// Parameters: If credentials are needed, they should be passed in credentials parameter
-    ///             Note that most clouds have login pages, and authenticate will simply open
-    ///             those pages for the user, so no credentials need to be entered in such case
     this.authenticate = function (credentials) {
         throw "Abstract method call";
     };
@@ -139,14 +137,14 @@ var CloudStorage = function() {
     this.shareFile = function (sharedFileUrl) {
         throw "Abstract method call";
     };
-}
+};
 
 // static methods of CloudStorage:
 // This method retrieves a file from accessData object previously created by
 // CloudStorage.shareFile(). Returns a promise object
 CloudStorage.retrieveSharedFile = function (accessData) {
     throw "Abstact method call";
-}
+};
 
 // static properties of CloudStorage:
 CloudStorage.sharedDataAccessType = null; // indicates the type of accessData

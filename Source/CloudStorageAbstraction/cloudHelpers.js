@@ -47,9 +47,7 @@ function createVersionFile(cloudStorage, pathToVersionFile) {
         )
 }
 
-// TODO: create a variable that enables the user to stop the UpdateCheck
-// TODO: Ask Ben about how to catch the error in startUpdateCheck(), and how to call reject()
-// TODO: Ask ben if you are using promises correctly
+
 // This function will run continuously in the background to check if the give versionFile has been updated
 // It will check every <timeBetweenChecks> milliseconds, and call <callbackOnUpdate> whenever the version
 // changed.
