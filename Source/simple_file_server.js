@@ -26,8 +26,7 @@ function writeFile( pathname, contents, resp )
     // assert( dirs.length >= 2 )
     // assert( dirs[0] == '' )
     var filename = dirs[ dirs.length - 1 ];
-    var fdir = path.join( root_dir,
-        dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
+    var fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
     mkdirp( fdir, function( err )
     {
         if( err )
@@ -59,14 +58,11 @@ function serveDynamic( req, res )
     if( req.method == 'POST' )
     {
         var body = [];
-        req.setEncoding( 'utf8' );
         req.addListener( 'data', function( chunk ) { body.push( chunk ); } );
         req.addListener( 'end', function()
         {
-            var body_str = Buffer.concat( body ).toString();
-            writeFile( url.parse( req.url ).pathname, body_str, res );
+            writeFile( url.parse( req.url ).pathname, Buffer.concat( body ), res );
         } );
-
         return;
     }
     return finalhandler( req, res )();
