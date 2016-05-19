@@ -494,7 +494,10 @@ function in_team_dir( team, path )
 function onCreateTeam()
 {
     var team_name = elemTeamName.value;
-    boolean id_found = false;
+    var t_signing_pair = null;
+    var t_encrypt_pair = null;
+    var t_main_key = null;
+    var id_found = false;
     var team_id;
     while( !id_found )
     {
@@ -506,52 +509,69 @@ function onCreateTeam()
     var team_encrypt_exported = null;
     var team_sign_exported    = null;
     var team_key              = null;
-    log( 'creating a new team:', team_name );
+    log( '[TeamCreate] Starting', team_name, team_id );
     var ep = C.generateKey( pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] )
     var sp = C.generateKey( signing_algo, true, [ 'sign', 'verify' ] );
     var tp = C.generateKey( sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
     P.all( [ ep, sp, tp ] )
     .then( function( [ e, s, t ] ) {
-        log( 'Generated keys', e, s, t );
+        log( '[TeamCreate] Generated keys', e, s, t );
+        t_signing_pair = s;
+        t_encrypt_pair = e;
+        t_main_key = t;
         var keys = [ e.privateKey, e.publicKey, s.privateKey, s.publicKey, t ];
         return P.all(
             keys.map( function( k ) { return C.exportKey( 'jwk', k ) } ) );
     } ).then( function( [ d, e, s, v, t ] ) {
-        team_encrypt_exported = e.e;
-        team_sign_exported    = e.s;
-        log( 'Exported key-pairs', e );
-        log( 'Team ID:', team_id, link_id_hex );
-        var ep = uploadFile(
-            link_id_hex, in_team_dir( team_id, 'key_encrypt' ),
-            JSON.stringify( e ), 'application/json' );
-        var vp = uploadFile(
-            link_id_hex, in_team_dir( team_id, 'key_verify' ),
-            JSON.stringify( v ), 'application/json' );
+        log( '[TeamCreate] exported keys' );
+        /* This loop could be a performance bug, but team creation
+         * should be infrequent, so not a big deal */
+        var teams_file_contents = {};
+        for( var property in u_teams )
+        {
+            teams_file_contents[ property ] = u_teams.name;
+        }
+        teams_file_contents[ team_id ] = team_name;
+        t_encrypt_pair.publicKeyExported = e;
+        t_signing_pair.publicKeyExported = v;
         var dp = encrypt_aes_cbc(
             new Uint8Array( 16 ), u_main_key, encode( JSON.stringify( d ) ) );
         var sp = encrypt_aes_cbc(
             new Uint8Array( 16 ), u_main_key, encode( JSON.stringify( s ) ) );
         var tp = encrypt_aes_cbc(
             new Uint8Array( 16 ), u_main_key, encode( JSON.stringify( t ) ) );
-        var cp = downloadDecryptDecode(
-            link_id_hex, [ 'Teams', 'teams' ], u_main_key, new Uint8Array( 16 ) );
-        return P.all( [ ep, vp, dp, sp, tp, cp ] );
-    } ).then( function( [ e, v, d, s, t, c ] ) {
-        var dp = uploadFile(
-            link_id_hex, in_team_dir( team_id, 'key_decryption' ), d );
-        var sp = uploadFile(
-            link_id_hex, in_team_dir( team_id, 'key_sign' ), s );
-        var tp = uploadFile(
-            link_id_hex, in_team_dir( team_id, 'key_team' ), t );
-        /* XXX need to think carefully about concurrency here */
-        var team_contents = team_id + ' ' + team_name + '\n' + c;
-        var cp = encrypt_aes_cbc( new Uint8Array( 16 ), u_main_key,
-                                  encode( team_contents ) );
+        var cp = encrypt_aes_cbc(
+            new Uint8Array( 16 ), u_main_key, encode( JSON.stringify( teams_file_contents ) ) );
         return P.all( [ dp, sp, tp, cp ] );
     } ).then( function( [ d, s, t, c ] ) {
-        return uploadFile( link_id_hex, [ 'Teams', 'teams' ], c );
-    } ).then( function( resp ) {
-        log( 'Created new team!' );
+        log( '[TeamCreate] Encrypted keys' );
+        function uploadInTeamDir( nct )
+        {
+            var t = undefined;
+            if( t in nct ) t = nct.t;
+            return uploadFile( u_cloud.t, in_team_dir( team_id, nct.n ), nct.c, nct.t );
+        }
+        var files = [
+            { n: 'key_encrypt', c: JSON.stringify( t_encrypt_pair.publicKeyExported ),
+              t: 'application/json' },
+            { n: 'key_verify',  c: JSON.stringify( t_signing_pair.publicKeyExported ),
+              t: 'application/json' },
+            { n: 'key_decrypt', c: d },
+            { n: 'key_sign',    c: s },
+            { n: 'key_team',    c: t },
+        ];
+        var promises = files.map( uploadInTeamDir );
+        promises.push( uploadFile( u_cloud.t, [ 'Teams', 'teams' ], c ) );
+        return P.all( promises );
+    } ).then( function( [ e, v, d, s, t, c ] ) {
+        log( '[TeamCreate] Complete' );
+        u_teams[ team_id ] =
+            {
+                name: team_name,
+                signing_pair: t_signing_pair,
+                encrypt_pair: t_encrypt_pair,
+                main_key: t_main_key
+            }
     } ).catch( function( err ) {
         if( err instanceof ServerError )
         {
