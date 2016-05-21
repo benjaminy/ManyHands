@@ -2,11 +2,12 @@
  *
  */
 
-var P         = Promise;
-var C         = window.crypto.subtle;
+var P               = Promise;
+var C               = window.crypto.subtle;
 var getRandomValues = window.crypto.getRandomValues.bind( window.crypto );
-var log       = console.log.bind( console );
-var getElemId = document.getElementById.bind( document );
+var log             = console.log.bind( console );
+var getElemId       = document.getElementById.bind( document );
+var uniqueIdDefaultLength = 5;
 
 function getRandomBytes( num_bytes )
 {
@@ -63,7 +64,7 @@ function ServerError( message, server_msg )
 ServerError.prototype = Object.create(Error.prototype);
 ServerError.prototype.constructor = ServerError;
 
-function AuthenticationError( message, authentication_msg )
+function AuthenticationError( message )
 {
     this.name       = 'AuthenticationError';
     this.message    = ( message || '' );
@@ -71,6 +72,15 @@ function AuthenticationError( message, authentication_msg )
 }
 AuthenticationError.prototype = Object.create(Error.prototype);
 AuthenticationError.prototype.constructor = AuthenticationError;
+
+function CryptoError( message )
+{
+    this.name       = 'CryptoError';
+    this.message    = ( message || '' );
+    this.stack      = ( new Error() ).stack;
+}
+CryptoError.prototype = Object.create(Error.prototype);
+CryptoError.prototype.constructor = CryptoError;
 
 
 /* Encode a typed buffer as a string using only hex characters
@@ -108,6 +118,88 @@ function hexToBuf( hex )
         buf[i] = parseInt( hex.slice( 2 * i, 2 * i + 2 ), 16 );
     }
     return buf;
+}
+
+function makeUniqueId( ids, len )
+{
+    var id;
+    var found = false;
+    if( !len )
+    {
+        len = uniqueIdDefaultLength;
+    }
+    while( !found )
+    {
+        id = bufToHex( getRandomBytes( len ) );
+        if( !( id in ids ) )
+            found = true;
+    }
+    return id;
+}
+
+function unhandledError( msg, err )
+{
+    log( 'Unhandled error', msg, err );
+    alert( 'Unhandled error', msg );
+}
+
+function array_zip( a1, a2, flatten1, flatten2, strict1, strict2 )
+{
+    log( 'zip', a1, a2 );
+    function helper( a, i )
+    {
+        var result = null;
+        if( flatten1 )
+        {
+            if( Array.isArray( a ) )
+            {
+                result = a;
+            }
+            else if( strict1 )
+            {
+                throw new Error( 'Fix me' );
+            }
+            else
+            {
+                result = [ a ];
+            }
+        }
+        else
+        {
+            result = [ a ];
+        }
+        if( flatten2 )
+        {
+            if( Array.isArray( a2[i] ) )
+            {
+                result = result.concat( a2[i] );
+            }
+            else if( strict1 )
+            {
+                throw new Error( 'Fix me' );
+            }
+            else
+            {
+                result.push( a2[i] );
+            }
+        }
+        else
+        {
+            result.push( a2[i] );
+        }
+        return result;
+    }
+    return a1.map( helper );
+}
+
+function typedArrayConcat( a, b )
+{
+    a = new Uint8Array( a );
+    b = new Uint8Array( b );
+    var c = new Uint8Array( a.length + b.length );
+    c.set( a );
+    c.set( b, a.length );
+    return c;
 }
 
 /* Graveyard */
