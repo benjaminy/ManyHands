@@ -1,0 +1,274 @@
+<html>
+<head>
+    <script type="text/javascript">
+        // Your Client ID can be retrieved from your project in the Google
+        // Developer Console, https://console.developers.google.com
+        var CLIENT_ID = '392978722656-a0jvseibdvvk6k71unp1dsest89tvjsg.apps.googleusercontent.com';
+
+        function escapeSpecialChars(string) {
+            return string.replace(/\\n/g, "\\n")
+                    .replace(/\\'/g, "\\'")
+                    .replace(/\\"/g, '\\"')
+                    .replace(/\\&/g, "\\&")
+                    .replace(/\\r/g, "\\r")
+                    .replace(/\\t/g, "\\t")
+                    .replace(/\\b/g, "\\b")
+                    .replace(/\\f/g, "\\f");
+        }
+
+        function downloadFileFromLink(link) {
+            // Promisifying the XMLHttpRequest
+            return new Promise(function (resolve, reject) {
+                var httpRequest = new XMLHttpRequest();
+                var onDownloaded = function () {
+                    if (httpRequest.status == 200) {
+                        resolve(httpRequest.responseText);
+                    } else {
+                        reject();
+                    }
+                };
+
+                httpRequest.addEventListener('load', onDownloaded, false);
+                httpRequest.open("GET", "https://content.dropboxapi.com/1/files/auto/blaaaah", true);
+                httpRequest.setRequestHeader("Authorization", " Bearer " + "asdasggasdgadfg");
+                httpRequest.send(null);
+                /*
+                httpRequest.addEventListener('load', onDownloaded, false);
+                httpRequest.open("GET", link, true);
+                httpRequest.send(null);*/
+            });
+        }
+
+        function share(fileId) {
+            return gapi.client.drive.permissions.create({
+                resource: {
+                    'type': 'anyone',
+                    'role': 'reader'
+                },
+                fileId: fileId,
+                fields: 'id',
+            }).then(function(result) {
+                return Promis.resolve(fileId);
+            });
+        }
+
+        function downloadSharedFile(fileId) {
+            return fetch('https://googledrive.com/host/'+fileId).then(function(result) {
+                var a = 1;
+            }, function(result) {
+                var a = 1;
+            });
+        }
+
+        // This function creates a file with a given name in the appDataFolder
+        // Returned is a promise object for when the upload is finished
+        var createFile = function(name) {
+            var boundary = name+"_boundary";
+            var requestBody = '--'+boundary+'\n' +
+                    'Content-Type: application/json; charset=UTF-8\n' +
+                    '\n' +
+                    '{\n' +
+                    '"name": "'+name+'",\n' +
+                    '"parents": [ "appDataFolder"]\n' +
+                    // this is used to differentiate between many-hands and non-many-hands files:
+                    '"appNameCodeManyHands9Rf5sURQNJJhO2K0WWgH": "x82TYyHgZFcQrypIQH2q9wfZ0oiidlXF3KOaS8FH"' +
+                    '}\n' +
+                    '\n' +
+                    '--'+boundary+'\n' +
+                    "Content-Type: text/plain\n" +
+                    "--"+boundary+"--";
+            var request = gapi.client.request({
+                'path': '/upload/drive/v3/files?uploadType=multipart',
+                'method': 'POST',
+                'headers': {
+                    'Content-Type': 'multipart/related; boundary='+boundary
+                },
+                'body': requestBody});
+            return new Promise(function (resolve, reject) {
+                return request.then(resolve, reject);
+            });
+        };
+
+        // this function find the file with a given name in the appDataFolder
+        // returns a promise with the id of the file. If the file doesn't exist
+        // promise will reject.
+        var findFileId = function(name) {
+            var request = gapi.client.request({
+                'path': '/drive/v3/files',
+                'method': 'GET',
+                'params': {
+                    'corpus': 'user',
+                    'pageSize': 1,
+                    'spaces': 'drive',
+                    'fields': 'files',
+                    // TODO: ask Ben if this escape is necessary
+                    'q': 'name="'+escapeSpecialChars(name)+
+                    '" and appNameCodeManyHands9Rf5sURQNJJhO2K0WWgH = "x82TYyHgZFcQrypIQH2q9wfZ0oiidlXF3KOaS8FH"'
+                }
+            });
+
+            return request.then(function(resp) {
+                var files = resp.result.files;
+                if (files && files.length > 0) {
+                    return Promise.resolve(files[0].id);
+                } else
+                    return Promise.reject("File not found");
+            });
+        };
+
+        var downloadFile = function(downloadPath) {
+            return findFileId(downloadPath).then(function(id) {
+                return getFileContentsById(id);
+            }).then(function(contents) {
+                return Promise.resolve(encodeASCIIString(contents));
+            });
+        };
+
+        var uploadFile = function(fileContents, filePath) {
+            return this.findFileId(filePath).then(function (id) {
+                // file exists
+                return this.updateFileContents(id, fileContents);
+            }, function () {
+                // file does not exist, so create it first
+                return this.createFile(filePath).then(function(){
+                    return uploadFile(fileContents, filePath);
+                })
+            });
+        };
+
+        // this function places "newContents" in the file with the given id
+        // returned is a promise file
+        var updateFileContents = function (id, newContents) {
+            var request = gapi.client.request({
+                'path': '/upload/drive/v2/files/'+id,
+                'method': 'PUT',
+                'params': {
+                    'uploadType': 'media'
+                },
+                'body': newContents
+            });
+            return new Promise(function(resolve, reject) {
+                request.then(resolve, reject);
+            });
+        };
+
+        // returns a promise file with contents of a file with a given id
+        var getFileContentsById = function (id) {
+            return gapi.client.request({
+                'path': '/drive/v2/files/' + id + '?alt=media',
+                'method': 'GET'
+            }).then(function(result) {
+                if (result.status == 200)
+                    return Promise.resolve(result.body);
+                else
+                    return Promise.reject(result);
+            });
+        };
+        var SCOPES = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/drive.appdata'];
+
+        /**
+         * Check if current user has authorized this application.
+         */
+        function checkAuth() {
+            gapi.auth.authorize(
+                    {
+                        'client_id': CLIENT_ID,
+                        'scope': SCOPES.join(' '),
+                        'immediate': true
+                    }, handleAuthResult);
+        }
+
+        /**
+         * Handle response from authorization server.
+         *
+         * @param {Object} authResult Authorization result.
+         */
+        function handleAuthResult(authResult) {
+            var authorizeDiv = document.getElementById('authorize-div');
+            if (authResult && !authResult.error) {
+                // Hide auth UI, then load client library.
+                authorizeDiv.style.display = 'none';
+                loadDriveApi();
+            } else {
+                // Show auth UI, allowing the user to initiate authorization by
+                // clicking authorize button.
+                authorizeDiv.style.display = 'inline';
+            }
+        }
+
+        /**
+         * Initiate auth flow in response to user clicking authorize button.
+         *
+         * @param {Event} event Button click event.
+         */
+        function handleAuthClick(event) {
+            gapi.auth.authorize(
+                    {client_id: CLIENT_ID, scope: SCOPES, immediate: false},
+                    handleAuthResult);
+            return false;
+        }
+
+        /**
+         * Load Drive API client library.
+         */
+        function loadDriveApi() {
+            gapi.client.load('drive', 'v3', listFiles);
+        }
+
+        /**
+         * Print files.
+         */
+
+        function listFiles() {
+            var request = gapi.client.request({
+                'path': '/drive/v3/files',
+                'method': 'GET',
+                'params': {
+                    'corpus': 'user',
+                    'pageSize': 100,
+                    'spaces': 'drive',
+                    'fields': 'files'
+                }
+                });
+
+            request.execute(function(resp) {
+                appendPre('Files:');
+                var files = resp.files;
+                if (files && files.length > 0) {
+                    for (var i = 0; i < files.length; i++) {
+                        var file = files[i];
+                        appendPre(file.name + ' (' + file.id + ')');
+                    }
+                } else {
+                    appendPre('No files found.');
+                }
+            });
+        }
+
+        /**
+         * Append a pre element to the body containing the given message
+         * as its text node.
+         *
+         * @param {string} message Text to be placed in pre element.
+         */
+        function appendPre(message) {
+            var pre = document.getElementById('output');
+            var textContent = document.createTextNode(message + '\n');
+            pre.appendChild(textContent);
+        }
+
+    </script>
+    <script src="https://apis.google.com/js/client.js?onload=checkAuth">
+    </script>
+</head>
+<body>
+<div id="authorize-div" style="display: none">
+    <span>Authorize access to Drive API</span>
+    <!--Button for the user to click to initiate auth sequence -->
+    <button id="authorize-button" onclick="handleAuthClick(event)">
+        Authorize
+    </button>
+</div>
+<pre id="output"></pre>
+</body>
+</html>

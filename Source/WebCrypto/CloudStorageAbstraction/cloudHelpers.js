@@ -16,7 +16,7 @@ var VersionFile = function(path, versionNumber, sharedResourceAccessor, cloudSto
 
 // Creates a version file (or opens and existing one) to allow for changing the version
 // Returns a promise object with the VersionFile object.
-function createVersionFile(cloudStorage, pathToVersionFile) {
+function initializeVersionFile(cloudStorage, pathToVersionFile) {
     var versionNumber;
     // try to retrieve the file, if it's impossible create it
     return cloudStorage.downloadFile(pathToVersionFile).then(
@@ -114,16 +114,30 @@ function revertEscapeCharacters(escapedString) {
 // An inverse function to shareMultipleResources(). Given the resourcesAccessor returns a
 // promise object with an associative array of resources (keys are names of resources, and
 // values are their accessors).
-function readMultipleSharedResources(resourcesAccessor) {
+function readMultipleSharedResourcesFromAccessor(resourcesAccessor) {
     return resourcesAccessor.retrieve().then(function(accessFileContents) {
-        var result = [];
         var contentsStringified = decodeASCIIString(accessFileContents);
-        var records = contentsStringified.split("\n");
-        for (var i = 0; i < records.length; i+=2) {
-            records[i] = revertEscapeCharacters(records[i]);
-            records[i+1] = revertEscapeCharacters(records[i+1]);
-            result[records[i]]= new SharedFile(encodeASCIIString(records[i+1]));
-        }
-        return new Promise(function(resolve, reject) { resolve(result); });
+        return Promise.resolve(readMultipleSharedResourcesFromText(contentsStringified));
+    });
+}
+
+function readMultipleSharedResourcesFromText(contentsStringified) {
+    var records = contentsStringified.split("\n");
+    var result = [];
+    for (var i = 0; i < records.length; i+=2) {
+        records[i] = revertEscapeCharacters(records[i]);
+        records[i+1] = revertEscapeCharacters(records[i+1]);
+        result[records[i]]= new SharedFile(encodeASCIIString(records[i+1]));
+    }
+    return result;
+}
+
+// function used to read multiple resources on the user's cloud storage.
+// This means that instead of operating on an accessor, this function
+// uses a file path to find a file containing the shared resources links
+function readMultipleSharedResourcesFromFile(cloudStorage, pathToFile) {
+    return cloudStorage.downloadFile(pathToFile).then(function(fileContents) {
+        var contentsStringified = decodeASCIIString(fileContents);
+        return Promise.resolve(readMultipleSharedResourcesFromText(contentsStringified));
     });
 }

@@ -118,10 +118,26 @@ var CloudStorage = function() {
         throw "Abstract method call";
     };
 
+    /// this function downloads a file and then returns a promise with its contents as
+    /// a string
+    this.downloadTextFile = function (downloadUrl) {
+        return this.downloadFile(downloadUrl).then(function(fileContents){
+            return Promise.resolve(decodeASCIIString(fileContents));
+        });
+    };
+
     /// this function uploads a file to a specified url within the cloud. File is created
     /// out of binary data found in fileContents
     this.uploadFile = function (fileContents, url) {
         throw "Abstract method call";
+    };
+
+    /// this function uploads a file to a specified url within the cloud. File is created
+    /// out of a string
+    this.uploadTextFile = function (fileContents, url) {
+        return this.uploadFile(encodeASCIIString(fileContents), url).then(function(result) {
+            return Promise.resolve(result);
+        });
     };
 
     /// this function should be used before any other call in CloudStorage object - its
