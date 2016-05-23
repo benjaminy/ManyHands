@@ -463,8 +463,9 @@ function loginCloud( user )
     var vp = download( 'key_verify' , true );
     var dp = download( 'key_decrypt' );
 
-    /* XXX download team information */
+    /* XXX download team and invite information */
     user.teams = {};
+    user.invites = {};
     /* XXX */
 
     return P.all( [ ep, vp, dp ] )
@@ -489,8 +490,10 @@ function loginCloud( user )
             user.encrypt_pair.privateKey,
             sym_enc_algo, false, [ 'encrypt', 'decrypt' ] );
         var sp = download( 'key_sign' );
-        return P.all( [ kp, sp ] );
-    } ).then( function( [ k, s ] ) {
+        var tp = download( [ 'Teams', 'teams' ] );
+        var ip = download( [ 'Invites', 'invites' ] );
+        return P.all( [ kp, sp, tp, ip ] );
+    } ).then( function( [ k, s, t, i ] ) {
         log( '[Login] Downloaded signing key and derived main key' );
         user.main_key = k
         return decrypt_aes_cbc( new Uint8Array( 16 ), user.main_key, s );
@@ -611,54 +614,37 @@ function createTeam( team_name, user )
  * 3) A makes
  */
 
-function onInviteForm()
+function makeInvite( invite_user, invite_team, user )
 {
-    return onInviteInternal( elemInviteName.value, elemInviteTeam.value );
-}
-
-function onInvite( invite_user, invite_team )
-{
-    if( !( u_cloud && 't' in u_cloud ) )
-    {
-        alert( 'Not logged in' );
-        return;
-    }
-    var invite_id   = makeUniqueId( u_invites );
+    var invite_id   = makeUniqueId( user.invites );
     var invite_salt = getRandomBytes( 16 );
     var contents    = JSON.stringify( { id: invite_user, team: invite_team } );
     var ip = encrypt_and_sign_ac_ed(
-        u_main_key, u_signing_pair.privateKey, invite_salt, encode( contents ) );
+        user.main_key, user.signing_pair.privateKey, invite_salt, encode( contents ) );
     var sp = encrypt_and_sign_ac_ed(
-        u_main_key, u_signing_pair.privateKey, new Uint8Array( 16 ), invite_salt );
-    P.all( [ ip, sp ] )
+        user.main_key, user.signing_pair.privateKey, new Uint8Array( 16 ), invite_salt );
+    return P.all( [ ip, sp ] )
     .then( function( [ i, s ] ) {
         log( '[Invite] Encrypted and signed' );
         function uploadHelper( [ d, n, t ] )
-        { return uploadFile( u_cloud.t, [ 'Invites', invite_id, n ], d, t ); }
+        { return uploadFile( user.cloud_text, [ 'Invites', invite_id, n ], d, t ); }
 
         f = [ [ i, 'step1' ], [ s, 'salt' ], [ '', 'step3', 'text/plain' ] ];
         return P.all( f.map( uploadHelper ) );
     } ).then( function( _ ) {
         log( '[Invite] Uploaded' );
-        elemInvite.innerText = JSON.stringify( { c:u_cloud.t, i:invite_id } );
-    } ).catch( function( err ) {
-        unhandledError( 'invite', err );
+        return P.accept( JSON.stringify( { c:user.cloud_text, i:invite_id } ) );
     } );
 }
 
-function onInviteAcceptForm()
-{
-    return onInviteAccept( elemInviteInput.value );
-}
-
-function onInviteAccept()
+function inviteAccept()
 {
     var invite      = JSON.parse( invite_input );
     var team_id     = makeUniqueId( u_teams );
     var invite_id   = makeUniqueId( u_invites );
     var invite_salt = getRandomBytes( 16 );
     var debug_k;
-    downloadFile( invite.c, 'key_encrypt', true )
+    return downloadFile( invite.c, 'key_encrypt', true )
     .then( function( k ) {
         log( '[InviteAccept] Downloaded key' );
         return C.importKey( 'jwk', JSON.parse( k ), pub_enc_algo, false, [] );

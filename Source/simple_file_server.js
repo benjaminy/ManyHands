@@ -73,6 +73,7 @@ function runServer()
     var p = parseArgs();
 
     var serveFiles = serveStatic( root_dir, { 'index': [ 'index.html', 'index.htm' ] } );
+    // var serveFiles = serveStatic( root_dir, { 'index': false } );
 
     var server = http.createServer(
         function( req, res ) {

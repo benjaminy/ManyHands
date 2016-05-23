@@ -60,3 +60,28 @@ function onCreateTeam()
     } )
 }
 
+function onInvite()
+{
+    if( !logged_in_user /* Possibly more sanity checking */ )
+    {
+        alert( 'Must login first' );
+        return;
+    }
+    return makeInvite( elemInviteName.value, elemInviteTeam.value, logged_in_user )
+    .then( function( i ) {
+        elemInvite.innerText = i;
+    } ).catch( function( err ) {
+        log( 'Error during invitation', err );
+    } );
+}
+
+function onInviteAccept()
+{
+    if( !logged_in_user /* Possibly more sanity checking */ )
+    {
+        alert( 'Must login first' );
+        return;
+    }
+    return inviteAccept( elemInviteInput.value );
+}
+

@@ -7,3 +7,6 @@ start_file_server:
 
 start_mh_server:
 	cd ../.. && node Source/WebCrypto/many_hands_server.js
+
+clean_slate:
+	cd ../.. && cp ./Testing/Users/login_links_empty.sqlite ./Testing/Users/login_links.sqlite && rm -rf ./Testing/Cloud/*
