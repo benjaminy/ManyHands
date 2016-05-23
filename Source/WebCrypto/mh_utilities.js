@@ -6,7 +6,6 @@ var P               = Promise;
 var C               = window.crypto.subtle;
 var getRandomValues = window.crypto.getRandomValues.bind( window.crypto );
 var log             = console.log.bind( console );
-var getElemId       = document.getElementById.bind( document );
 var uniqueIdDefaultLength = 5;
 
 function getRandomBytes( num_bytes )
@@ -82,6 +81,27 @@ function CryptoError( message )
 CryptoError.prototype = Object.create(Error.prototype);
 CryptoError.prototype.constructor = CryptoError;
 
+function VerificationError( message )
+{
+    this.name       = 'VerificationError';
+    this.message    = ( message || '' );
+    this.stack      = ( new Error() ).stack;
+}
+VerificationError.prototype = Object.create(Error.prototype);
+VerificationError.prototype.constructor = VerificationError;
+
+
+function domToCrypto( err ) {
+    if( err instanceof DOMException )
+    {
+        var e = new CryptoError();
+        e.stack = err.stack;
+        return Promise.reject( e );
+    }
+    else
+        return Promise.reject( err );
+}
+
 
 /* Encode a typed buffer as a string using only hex characters
  * (could be more efficient with base 64 or whatever) */
@@ -141,6 +161,7 @@ function unhandledError( msg, err )
 {
     log( 'Unhandled error', msg, err );
     alert( 'Unhandled error', msg );
+    return P.reject( err );
 }
 
 function array_zip( a1, a2, flatten1, flatten2, strict1, strict2 )
@@ -200,6 +221,12 @@ function typedArrayConcat( a, b )
     c.set( a );
     c.set( b, a.length );
     return c;
+}
+
+function p_all_accept( promises, values )
+{
+    var resolve = Promise.resolve.bind( Promise );
+    return P.all( promises.concat( values.map( resolve ) ) );
 }
 
 /* Graveyard */
