@@ -82,6 +82,18 @@ function onInviteAccept()
         alert( 'Must login first' );
         return;
     }
-    return inviteAccept( elemInviteInput.value );
+    return inviteAccept( elemInviteInput.value, logged_in_user )
+    .then( function( i ) {
+        elemInvite.innerText = i;
+    } );
 }
 
+function onInviteComplete()
+{
+    if( !logged_in_user /* Possibly more sanity checking */ )
+    {
+        alert( 'Must login first' );
+        return;
+    }
+    return inviteComplete( elemInviteInput.value, logged_in_user );
+}

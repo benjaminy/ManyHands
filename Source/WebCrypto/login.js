@@ -47,6 +47,7 @@ var sym_enc_algo  = { name: 'AES-CBC',     length:    256  };
 
 function encrypt_and_sign( e_algo, s_algo, e_key, s_key, d )
 {
+    log( '[Debug]', d );
     return C.encrypt( e_algo, e_key, d )
     .then( function( m ) {
         return P.all( [ C.sign( s_algo, s_key, m ), P.accept( m ) ] );
@@ -81,10 +82,21 @@ function encrypt_and_sign_ac_ed( e_key, s_key, iv, d )
 
 function verify_and_decrypt_ac_ed( e_key, s_key, iv, d )
 {
-    return verify_and_decrypt(
+    return P.all( [ C.exportKey( 'jwk', e_key ), C.exportKey( 'jwk', s_key ) ] )
+    .then( function( [ e, s ] ) {
+        var d8 = new Uint8Array( d )
+        log( 'V AND D e:', e );
+        log( 'V AND D s:', s );
+        log( 'V AND D i:', new Uint8Array( iv ) );
+        log( 'V AND D d:', typeof( d ), d8.length, d.byteLength, d8 );
+        return P.resolve();
+    } ).then( function( _ ) {
+        return verify_and_decrypt(
         { name: 'AES-CBC', iv: iv },
         { name: 'ECDSA', hash: { name:'SHA-256' } },
         e_key, s_key, d, SIG_LENGTH );
+
+    } );
 }
 
 function encrypt_aes_cbc( iv, k, d )
@@ -144,11 +156,11 @@ function makeLoginKey( username, password, salt )
     /* assert( typeof( password ) == 'string' ) */
     /* assert( typeof( salt ) == typed array ) */
     var up = stringsToBuf( [ username, password ] );
-    return C.importKey( 'raw', up, { name: 'PBKDF2' }, false, [ 'deriveKey' ]
+    return C.importKey( 'raw', up, { name: 'PBKDF2' }, true, [ 'deriveKey' ]
     ).then( function( k ) {
         return C.deriveKey(
             { name: 'PBKDF2', salt: salt, iterations: PBKDF2_ITER, hash: { name: 'SHA-1' }, },
-            k, sym_enc_algo, false, [ 'encrypt', 'decrypt' ] );
+            k, sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
     } );
 }
 
@@ -323,7 +335,7 @@ function initializeBasicUserAccount( name, passwd, user )
         return C.deriveKey(
             { name: 'ECDH', namedCurve: 'P-521', public: user.encrypt_pair.publicKey },
             user.encrypt_pair.privateKey,
-            sym_enc_algo, false, [ 'encrypt', 'decrypt' ] );
+            sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
     } ).then( function( k ) {
         user.main_key = k;
         return P.accept( '' );
@@ -335,29 +347,34 @@ function initializeCloudStorage( user )
     user.cloud_bits = getRandomBytes( 5 );
     user.cloud_text = bufToHex( user.cloud_bits );
     log( 'user cloud link:', user.cloud_text, user.cloud_bits );
-    function uploadToCloud( p, c, t ) { return uploadFile( user.cloud_text, p, c, t ) };
     var dp = C.exportKey( 'jwk', user.encrypt_pair.privateKey );
     var sp = C.exportKey( 'jwk', user.signing_pair.privateKey );
     return P.all( [ dp, sp ] )
     .then( function( [ d, s ] ) {
+        var bad_salt = new Uint8Array( 16 );
         log( '[init cloud] Exported private keys' );
-        var dp = encrypt_aes_cbc(
-            new Uint8Array( 16 ), user.login_key, encode( JSON.stringify( d ) ) );
-        var sp = encrypt_aes_cbc(
-            new Uint8Array( 16 ), user.main_key, encode( JSON.stringify( s ) ) );
-        var tp = encrypt_aes_cbc( new Uint8Array( 16 ), user.main_key, encode( '' ) );
+        var dp = encrypt_and_sign_ac_ed(
+            user.login_key, user.signing_pair.privateKey, bad_salt,
+            encode( JSON.stringify( d ) ) );
+        function encrypt( [ d, s ] )
+        { return encrypt_and_sign_ac_ed( user.main_key, user.signing_pair.privateKey, s, d ); }
+        var to_encrypt = [ [ encode( JSON.stringify( s ) ), bad_salt ],
+                           [ encode( '{}' ), bad_salt ],
+                           [ encode( '{}' ), bad_salt ] ];
         var ep = C.exportKey( 'jwk', user.encrypt_pair.publicKey );
         var vp = C.exportKey( 'jwk', user.signing_pair.publicKey );
-        return P.all( [ dp, sp, ep, vp, tp ] );
-    } ).then( function( [ d, s, e, v, t ] ) {
+        return P.all( to_encrypt.map( encrypt ).concat( [ dp, ep, vp ] ) );
+    } ).then( function( [ s, t, i, d, e, v ] ) {
         log( '[init cloud] Exported public keys and encrypted private keys' );
-        var ep = uploadToCloud( 'key_encrypt', JSON.stringify( e ), 'text/plain' );
-        var vp = uploadToCloud( 'key_verify',  JSON.stringify( v ), 'text/plain' );
-        var dp = uploadToCloud( 'key_decrypt', d );
-        var sp = uploadToCloud( 'key_sign', s );
-        var tp = uploadToCloud( [ 'Teams', 'teams' ], t );
-        var up = uploadToCloud( 'salt', user.salt );
-        return P.all( [ ep, vp, tp, dp, sp, up ] );
+        function upload( [ p, c, t ] ) { return uploadFile( user.cloud_text, p, c, t ) };
+        var fs = [ [ 'key_encrypt', JSON.stringify( e ), 'text/plain' ],
+                   [ 'key_verify',  JSON.stringify( v ), 'text/plain' ],
+                   [ 'key_decrypt', d ],
+                   [ 'key_sign', s ],
+                   [ [ 'Teams', 'manifest' ], t ],
+                   [ [ 'Invites', 'manifest' ], i ],
+                   [ 'salt', user.salt ] ]
+        return P.all( fs.map( upload ) );
     } );
 }
 
@@ -475,32 +492,40 @@ function loginCloud( user )
             'jwk', JSON.parse( e ), pub_enc_algo, true, [] );
         var vp = C.importKey(
             'jwk', JSON.parse( v ), signing_kalgo, true, [ 'verify' ] );
-        var dp = decrypt_aes_cbc( new Uint8Array( 16 ), user.login_key, d );
-        return P.all( [ ep, dp, vp ] );
-    } ).then( function( [ e, d, v ] ) {
-        log( '[Login] Decrypted decryption key' );
+        return p_all_accept( [ ep, vp ], [ d ] );
+    } ).then( function( [ e, v, d ] ) {
+        log( '[Login] Imported public keys' );
         user.encrypt_pair.publicKey = e;
         user.signing_pair.publicKey = v;
+        return verify_and_decrypt_ac_ed( user.login_key, user.signing_pair.publicKey,
+                                         new Uint8Array( 16 ), d );
+    } ).then( function( d ) {
+        log( '[Login] Decrypted decryption key', d );
         return C.importKey(
-            'jwk', JSON.parse( decode( d ) ), pub_enc_algo, false, [ 'deriveKey' ] );
+            'jwk', JSON.parse( decode( d ) ), pub_enc_algo, true, [ 'deriveKey' ] );
     } ).then( function( d ) {
         user.encrypt_pair.privateKey = d;
         var kp = C.deriveKey(
             { name: 'ECDH', namedCurve: 'P-521', public: user.encrypt_pair.publicKey },
             user.encrypt_pair.privateKey,
-            sym_enc_algo, false, [ 'encrypt', 'decrypt' ] );
+            sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
         var sp = download( 'key_sign' );
-        var tp = download( [ 'Teams', 'teams' ] );
-        var ip = download( [ 'Invites', 'invites' ] );
+        var tp = download( [ 'Teams', 'manifest' ] );
+        var ip = download( [ 'Invites', 'manifest' ] );
         return P.all( [ kp, sp, tp, ip ] );
     } ).then( function( [ k, s, t, i ] ) {
         log( '[Login] Downloaded signing key and derived main key' );
         user.main_key = k
-        return decrypt_aes_cbc( new Uint8Array( 16 ), user.main_key, s );
-    } ).then( function( s ) {
-        log( '[Login] Decrypted signing key' );
+        function decrypt( d )
+        { return verify_and_decrypt_ac_ed( user.main_key, user.signing_pair.publicKey,
+                                           new Uint8Array( 16 ), d ); }
+        return P.all( [ s, t, i ].map( decrypt ) );
+    } ).then( function( [ s, t, i ] ) {
+        log( '[Login] Decrypted signing key', t, i );
+        user.teams = JSON.parse( decode( t ) );
+        user.invites = JSON.parse( decode( i ) );
         return C.importKey(
-            'jwk', JSON.parse( decode( s ) ), signing_kalgo, false, [ 'sign' ] );
+            'jwk', JSON.parse( decode( s ) ), signing_kalgo, true, [ 'sign' ] );
     } ).then( function( s ) {
         user.signing_pair.privateKey = s;
         return P.accept( '' );
@@ -539,9 +564,9 @@ function createTeam( team_name, user )
     var team_sign_exported    = null;
     var team_key              = null;
     log( '[TeamCreate] Starting', team_name, team_id );
-    var ep = C.generateKey( pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] )
+    var ep = C.generateKey(  pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] )
     var sp = C.generateKey( signing_kalgo, true, [ 'sign', 'verify' ] );
-    var tp = C.generateKey( sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
+    var tp = C.generateKey(  sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
     return P.all( [ ep, sp, tp ] )
     .then( function( [ e, s, t ] ) {
         log( '[TeamCreate] Generated keys', e, s, t );
@@ -563,15 +588,15 @@ function createTeam( team_name, user )
         teams_file_contents[ team_id ] = team_name;
         t_encrypt_pair.publicKeyExported = e;
         t_signing_pair.publicKeyExported = v;
-        var dp = encrypt_aes_cbc(
-            new Uint8Array( 16 ), user.main_key, encode( JSON.stringify( d ) ) );
-        var sp = encrypt_aes_cbc(
-            new Uint8Array( 16 ), user.main_key, encode( JSON.stringify( s ) ) );
-        var tp = encrypt_aes_cbc(
-            new Uint8Array( 16 ), user.main_key, encode( JSON.stringify( t ) ) );
-        var cp = encrypt_aes_cbc(
-            new Uint8Array( 16 ), user.main_key, encode( JSON.stringify( teams_file_contents ) ) );
-        return P.all( [ dp, sp, tp, cp ] );
+
+        var bad_salt = new Uint8Array( 16 );
+        function encrypt( [ d, s ] )
+        { return encrypt_and_sign_ac_ed( user.main_key, user.signing_pair.privateKey, s, d ); }
+        var to_encrypt = [ [ encode( JSON.stringify( d ) ), bad_salt ],
+                           [ encode( JSON.stringify( s ) ), bad_salt ],
+                           [ encode( JSON.stringify( t ) ), bad_salt ],
+                           [ encode( JSON.stringify( teams_file_contents ) ), bad_salt ] ];
+        return P.all( to_encrypt.map( encrypt ) );
     } ).then( function( [ d, s, t, c ] ) {
         log( '[TeamCreate] Encrypted keys' );
         function uploadInTeamDir( nct )
@@ -590,7 +615,7 @@ function createTeam( team_name, user )
             { n: 'key_team',    c: t },
         ];
         var promises = files.map( uploadInTeamDir );
-        promises.push( upload( [ 'Teams', 'teams' ], c ) );
+        promises.push( upload( [ 'Teams', 'manifest' ], c ) );
         return P.all( promises );
     } ).then( function( [ e, v, d, s, t, c ] ) {
         log( '[TeamCreate] Complete' );
@@ -637,107 +662,103 @@ function makeInvite( invite_user, invite_team, user )
     } );
 }
 
-function inviteAccept()
+function inviteAccept( invite_input, user )
 {
     var invite      = JSON.parse( invite_input );
-    var team_id     = makeUniqueId( u_teams );
-    var invite_id   = makeUniqueId( u_invites );
+    var team_id     = makeUniqueId( user.teams );
+    var invite_id   = makeUniqueId( user.invites );
     var invite_salt = getRandomBytes( 16 );
     var debug_k;
     return downloadFile( invite.c, 'key_encrypt', true )
     .then( function( k ) {
         log( '[InviteAccept] Downloaded key' );
-        return C.importKey( 'jwk', JSON.parse( k ), pub_enc_algo, false, [] );
+        return C.importKey( 'jwk', JSON.parse( k ), pub_enc_algo, true, [] );
     } ).then( function( k ) {
         log( '[InviteAccept] Imported key' );
         return C.deriveKey(
             { name: 'ECDH', namedCurve: 'P-521', public: k },
-            u_encrypt_pair.privateKey,
-            sym_enc_algo, false, [ 'encrypt', 'decrypt' ] );
+            user.encrypt_pair.privateKey,
+            sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
     } ).then( function( k ) {
-        log( '[InviteAccept] Derived key' );
-        var msg = encode( JSON.stringify( { l: u_cloud.t, t: team_id, i:invite.i } ) );
+        return p_all_accept( [ C.exportKey( 'jwk', k ) ], [ k ] );
+    } ).then( function( [ ex, k ] ) {
+        log( '[InviteAccept] Derived key!', ex );
+        var msg = encode( JSON.stringify( { l: user.cloud_text, t: team_id, i:invite.i } ) );
         var ip = encrypt_and_sign_ac_ed(
-            k, u_signing_pair.privateKey, invite_salt, msg );
+            k, user.signing_pair.privateKey, invite_salt, msg );
         var sp = encrypt_and_sign_ac_ed(
-            k, u_signing_pair.privateKey, new Uint8Array( 16 ), invite_salt );
+            k, user.signing_pair.privateKey, new Uint8Array( 16 ), invite_salt );
         debug_k = k;
         return P.all( [ ip, sp ] )
     } ).then( function( [ i, s ] ) {
-        log( '[InviteAccept] Encrypted and signed', s, debug_k, u_signing_pair.publicKey );
-
-        verify_and_decrypt_ac_ed( debug_k, u_signing_pair.publicKey, new Uint8Array( 16 ), s )
-            .then( function( ss ) { log( 'DECRYPT WORKED!' ) } )
-            .catch( function( err ) { log( 'DECRYPT FAILED' ) } );
-
+        log( '[InviteAccept] Encrypted and signed', s, debug_k, user.signing_pair.publicKey );
         function uploadHelper( [ d, n, t ] )
-        { return uploadFile( u_cloud.t, [ 'Invites', invite_id, n ], d, t ); }
+        { return uploadFile( user.cloud_text, [ 'Invites', invite_id, n ], d, t ); }
 
         f = [ [ i, 'step2' ], [ s, 'salt' ] ];
         return P.all( f.map( uploadHelper ) );
     } ).then( function( _ ) {
         log( '[InviteAccept] Uploaded' );
-        elemInvite.innerText = JSON.stringify( { c:u_cloud.t, i:invite_id } );
+        return P.resolve( JSON.stringify( { c:user.cloud_text, i:invite_id } ) );
     } ).catch( function( err ) {
         return unhandledError( 'invite accept', err )
     } );
 }
 
-function onInviteCompleteForm()
+function inviteComplete( invite_input, user )
 {
-    return onInviteComplete( elemInviteInput.value )
-}
-
-function onInviteComplete( invite_input )
-{
-    var invite      = JSON.parse( invite_input );
-    var invite_id_A = makeUniqueId( u_invites );
-    var invite_id_B = invite.i;
-    var ep = downloadFile( invite.c, 'key_encrypt', true );
-    var vp = downloadFile( invite.c, 'key_verify', true );
-    var ip = downloadFile( invite.c, [ 'Invites', invite.i, 'step2' ] );
-    var sp = downloadFile( invite.c, [ 'Invites', invite.i, 'salt' ] );
-    P.all( [ ep, vp, ip, sp ] )
+    var invite = JSON.parse( invite_input );
+    function downloadA( [ p, t ] ) { return downloadFile( user.cloud_text, p, t ) };
+    function downloadB( [ p, t ] ) { return downloadFile( invite.c, p, t ) };
+    var fs = [ [ 'key_encrypt', true ],
+               [ 'key_verify', true ],
+               [ [ 'Invites', invite.i, 'step2' ] ],
+               [ [ 'Invites', invite.i, 'salt' ] ] ];
+    return P.all( fs.map( downloadB ) )
     .then( function( [ ek, vk, step2, salt_B ] ) {
         log( '[InviteComplete] Downloaded B' );
-        var ep = C.importKey( 'jwk', JSON.parse( ek ), pub_enc_algo, false, [] );
-        var vp = C.importKey( 'jwk', JSON.parse( vk ), signing_kalgo, false, [] );
+        var ep = C.importKey( 'jwk', JSON.parse( ek ), pub_enc_algo, true, [] );
+        var vp = C.importKey( 'jwk', JSON.parse( vk ), signing_kalgo, true, [ 'verify' ] );
         return p_all_accept( [ ep, vp ], [ step2, salt_B ] );
     } ).then( function( [ ek, vk, step2, salt_B ] ) {
         log( '[InviteComplete] Imported keys' );
         var ep = C.deriveKey(
             { name: 'ECDH', namedCurve: 'P-521', public: ek },
-            u_encrypt_pair.privateKey,
-            sym_enc_algo, false, [ 'encrypt', 'decrypt' ] );
+            user.encrypt_pair.privateKey,
+            sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
         return p_all_accept( [ ep ], [ vk, step2, salt_B ] );
     } ).then( function( [ ek, vk, step2, salt_B ] ) {
-        log( '[InviteComplete] Derived', new Uint8Array( salt_B ), ek, vk );
-        var sp = verify_and_decrypt_ac_ed( ek, vk, new Uint8Array( 16 ), new Uint8Array( salt_B ) );
+        log( '[InviteComplete] Derived', new Uint8Array( salt_B ), vk );
+        var sp = verify_and_decrypt_ac_ed(
+            ek, vk, new Uint8Array( 16 ), salt_B );
         return p_all_accept( [ sp ], [ ek, vk, step2 ] );
     } ).then( function( [ salt_B, ek, vk, step2 ] ) {
         log( '[InviteComplete] Decrypted salt' );
         var ip = verify_and_decrypt_ac_ed( ek, vk, salt_B, step2 );
         return p_all_accept( [ ip ], [ ek ] );
     } ).then( function( [ step2, ek ] ) {
-        log( '[InviteComplete] Decrypted step2' );
+        log( '[InviteComplete] Decrypted step2', decode( step2 ) );
         step2 = JSON.parse( decode( step2 ) );
-        var sp = downloadFile( u_cloud.t, [ 'Invites', step2.i, 'salt' ] );
-        var ip = downloadFile( u_cloud.t, [ 'Invites', step2.i, 'step1' ] );
-        return p_all_accept( [ ip, sp ], [ step2.i, step2.t, ek ] );
-    } ).then( function( [ i, s, invite_id_A, team_id_B, ek ] ) {
+        var sp = downloadA( [ [ 'Invites', step2.i, 'salt' ] ] );
+        var ip = downloadA( [ [ 'Invites', step2.i, 'step1' ] ] );
+        return p_all_accept( [ ip, sp ], [ step2, ek ] );
+    } ).then( function( [ step1, salt_A, step2, ek ] ) {
         log( '[InviteComplete] Downloaded A' );
-        var sp = verify_and_decrypt_ac_ed( ek, vk, new Uint8Array( 16 ), s );
-        return p_all_accept( [ sp ], [ i, step2.i, step2.t, ek ] );
-    } ).then( function( [ salt_A, step1, invite_id_A, team_id_B, ek ] ) {
+        var sp = verify_and_decrypt_ac_ed(
+            user.main_key, user.signing_pair.publicKey, new Uint8Array( 16 ), salt_A );
+        return p_all_accept( [ sp ], [ step1, step2, ek ] );
+    } ).then( function( [ salt_A, step1, step2, ek ] ) {
         log( '[InviteComplete] Decrypted salt' );
-        var ip = verify_and_decrypt_ac_ed( ek, vk, salt_A, step1 );
-        return p_all_accept( [ ip ] );
-    } ).then( function( [ step1, invite_id_A, team_id_B, ek ] ) {
+        var ip = verify_and_decrypt_ac_ed(
+            user.main_key, user.signing_pair.publicKey, salt_A, step1 );
+        return p_all_accept( [ ip ], [ step2, ek ] );
+    } ).then( function( [ step1, step2, ek ] ) {
         log( '[InviteComplete] Decrypted step1' );
-        console.log( 'really', step1 );
+        console.log( 'really', decode( step1 ) );
+        console.log( 'yes', step2 );
     } ).catch( function( err ) {
         return unhandledError( 'invite complete', err );
     } );
 }
 
-//            return C.verify( signing_salgo, u_signing_pair.publicKey, s, m )
+//            return C.verify( signing_salgo, user.signing_pair.publicKey, s, m )
