@@ -44,14 +44,14 @@ var Dropbox = function(appkey) {
                 var httpRequest = new XMLHttpRequest();
                 var onUploaded = function () {
                     if (httpRequest.status == 200) {
-                        resolve();
+                        resolve(httpRequest);
                     } else {
                         reject(httpRequest.status);
                     }
                 };
                 httpRequest.addEventListener("load", onUploaded, false);
 
-                httpRequest.open("POST", "https://api-content.dropbox.com/1/files_put/auto/" + fileUrl + "?overwrite=true", true);
+                httpRequest.open("POST", "https://content.dropboxapi.com/1/files_put/auto/" + fileUrl + "?overwrite=true", true);
                 httpRequest.setRequestHeader("Authorization", " Bearer " + accessToken);
                 httpRequest.send(decodeASCIIString(fileContents));
             });

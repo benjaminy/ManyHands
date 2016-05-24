@@ -9,7 +9,7 @@
             var dropbox = new Dropbox("rwovrjf7g18ya3b");
             dropbox.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
             dropbox.uploadFile(encodeASCIIString("ABC"), "stuff.txt")
-                    .then(function () {
+                    .then(function (req) {
                         return dropbox.downloadFile("stuff.txt");
                     })
                     .then(function (contents) {
@@ -31,7 +31,7 @@
         function testUpdate() {
             var dropbox = new Dropbox("rwovrjf7g18ya3b");
             dropbox.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
-            createVersionFile(dropbox, "version.txt").then(function(versionFile){
+            initializeVersionFile(dropbox, "version.txt").then(function(versionFile){
                 setInterval(function() {versionFile.advance();}, 5000);
                 startUpdateCheck(versionFile.sharedResourceAccessor, 247, function() {document.body.innerHTML += "Alert!";});
             });
@@ -59,7 +59,7 @@
                 toShare["four"]=link4;
                 return shareMultipleResources(toShare,"allstuff.txt",dropbox);
             }).then(function(allResourcesLink){
-                return readMultipleSharedResources(allResourcesLink);
+                return readMultipleSharedResourcesFromAccessor(allResourcesLink);
             }).then(function(resources) {
                 var promise1 = resources["one"].retrieve();
                 var promise2 = resources["two"].retrieve();

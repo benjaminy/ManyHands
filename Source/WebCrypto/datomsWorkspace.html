@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>just some testing</title>
+    <script type="text/javascript" src="murmurHash3.min.js" ></script>
+    <script type="text/javascript" src="CloudStorageAbstraction/cloudInterface.js" ></script>
+    <script type="text/javascript" src="CloudStorageAbstraction/cloudHelpers.js" ></script>
+    <script type="text/javascript" src="CloudStorageAbstraction/dropboxImplementation.js" ></script>
+    <script type="text/javascript" src="transactions.js" ></script>
+    <script>
+        function clone(obj) {
+            if (null == obj || "object" != typeof obj) return obj;
+            var copy = obj.constructor();
+            for (var attr in obj) {
+                if (obj.hasOwnProperty(attr)) copy[attr] = obj[attr];
+            }
+            return copy;
+        }
+
+        var cloud = new Dropbox("rwovrjf7g18ya3b");
+        cloud.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
+
+        function prepareTeams() {
+            var manager1 = new TransactionManager(cloud, "team1");
+            var manager2 = new TransactionManager(cloud, "team2");
+            var t1 = Transaction.fromString(test());
+            var t2 = Transaction.fromString(test());
+            t2.events[0].id = 1234;
+            return manager1.uploadTransactionToChain(t1).then(function(){
+                return manager1.uploadTransactionToChain(t1);
+            }).then(function(){
+                return manager1.uploadTransactionToChain(t1);
+            }).then(function(){
+                return manager1.uploadTransactionToChain(t1);
+            }).then(function(){
+                return manager2.uploadTransactionToChain(t1);
+            }).then(function(){
+                return manager2.uploadTransactionToChain(t1);
+            }).then(function(){
+                return manager2.uploadTransactionToChain(t2);
+            }).then(function(){
+                return manager2.uploadTransactionToChain(t2);
+            }).then(function(){
+                return manager2.uploadTransactionToChain(t1);
+            }).then(function() {
+                console.log("uploads finished!");
+            });
+        }
+        function testChanges() {
+            var manager1 = new TransactionManager(cloud, "team1");
+            return retrieveLastTransaction("team2").then(function(accessor) {
+                return manager1.loadDifferencesFromForeignTransactionChain(accessor);
+            }).then(function(chain) {
+                console.log(chain);
+            })
+        }
+        function test() {
+            var events = [];
+            for (var i = 0; i < 5; ++i) {
+                var params = {};
+                for (var j = 0; j < i+1; ++j) {
+                    params[String.fromCharCode(65+j)] = "" + i + " " + j;
+                }
+                events[i] = new EventInfo(String.fromCharCode(48+i), params, i);
+            }
+            var t = new Transaction(events, 1234);
+            return t.exportToString();
+        }
+
+        function retrieveLastTransaction(teamCatalog) {
+            return readMultipleSharedResourcesFromFile(cloud, teamCatalog + "/links").then(function(resources) {
+                console.log(resources["latestTransaction"]);
+                return Promise.resolve(resources["latestTransaction"]);
+            });
+        }
+
+        var manager = new TransactionManager(cloud, "team1");
+
+    </script>
+</head>
+<body>
+<script type="text/javascript">
+    function myCallback(json) {
+        alert(new Date(json.dateString));
+    }
+</script>
+<script type="text/javascript" src="http://timeapi.org/utc/now.json?callback=myCallback"></script>
+</body>
+</html>
