@@ -94,7 +94,7 @@ VerificationError.prototype.constructor = VerificationError;
 function domToCrypto( err ) {
     if( err instanceof DOMException )
     {
-        var e = new CryptoError();
+        var e = new CryptoError( err.message );
         e.stack = err.stack;
         return Promise.reject( e );
     }
@@ -223,9 +223,12 @@ function typedArrayConcat( a, b )
     return c;
 }
 
-function p_all_accept( promises, values )
+function p_all_resolve( promises, values )
 {
-    var resolve = Promise.resolve.bind( Promise );
+    /* assert( Array.isArray( promises ) ) */
+    /* assert( Array.isArray( values ) ) */
+    /* assert( forall i. typeof( promises[i] ) is Promise ) */
+    var resolve = P.resolve.bind( P );
     return P.all( promises.concat( values.map( resolve ) ) );
 }
 

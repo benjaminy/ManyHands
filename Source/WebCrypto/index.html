@@ -27,10 +27,6 @@
     <td>Invite User ID:</td>
     <td><input id="IdInviteName" type="text" value="invite user id"></td>
   </tr>
-  <tr>
-    <td>Invite Team:</td>
-    <td><input id="IdInviteTeam" type="text" value="invite team"></td>
-  </tr>
 </tbody>
 </table>
 <div>
@@ -41,7 +37,8 @@
   <input type="button" value="Accept"      onclick="onInviteAccept()">
   <input type="button" value="Complete"    onclick="onInviteComplete()">
 </div>
-<div>Logged in as: <div id="IdLoggedIn">*</div></div>
+<div>Logged in as: <div id="IdLoggedIn">*</div>
+Teams: <div><select id='IdTeamSelect'></select></div></div>
 <div>Invite: <div id="IdInvite">*</div></div>
 <script src="mh_utilities.js"></script>
 <script src="login.js"></script>

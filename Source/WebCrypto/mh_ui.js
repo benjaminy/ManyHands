@@ -2,15 +2,24 @@
  *
  */
 
-var getElemId = document.getElementById.bind( document );
+var getElemId     = document.getElementById.bind( document );
+var createElement = document.createElement.bind( document );
 
 var [ elemUID, elemPass, elemLoggedIn, elemTeamName, elemInvite, elemInviteName,
-      elemInviteTeam, elemInviteInput ] =
+      elemInviteInput, elemTeamSelect ] =
     [ 'IdUserId', 'IdPasswd', 'IdLoggedIn', 'IdTeamName', 'IdInvite', 'IdInviteName',
-      'IdInviteTeam', 'IdInviteInput' ]
+      'IdInviteInput', 'IdTeamSelect' ]
     .map( getElemId );
 
 var logged_in_user = null;
+
+function removeChildren( elem )
+{
+    while( elem.firstChild )
+    {
+        elem.removeChild( elem.firstChild );
+    }
+}
 
 function onRegisterReq()
 {
@@ -34,6 +43,19 @@ function onLoginReq()
     .then( function( user ) {
         logged_in_user = user;
         elemLoggedIn.innerText = ''+name+' '+user.cloud_text;
+        removeChildren( elemTeamSelect );
+        var e = createElement( 'option' );
+        e.innerHTML = '! No Team Selected';
+        e.value = 'None';
+        elemTeamSelect.appendChild( e );
+        for( team_id in user.teams )
+        {
+            var team = user.teams[ team_id ];
+            var e = createElement( 'option' );
+            e.innerHTML = team.name + ' (' + team_id + ')';
+            e.value = team_id;
+            elemTeamSelect.appendChild( e );
+        }
     } ).catch( function( err ) {
         log( 'Error during login', err );
         if( err instanceof NotFoundError )
@@ -67,7 +89,13 @@ function onInvite()
         alert( 'Must login first' );
         return;
     }
-    return makeInvite( elemInviteName.value, elemInviteTeam.value, logged_in_user )
+    var team_id = elemTeamSelect.value;
+    if( !( team_id in logged_in_user.teams ) )
+    {
+        alert( 'Must select valid team' );
+        return;
+    }
+    return makeInvite( elemInviteName.value, team_id, logged_in_user )
     .then( function( i ) {
         elemInvite.innerText = i;
     } ).catch( function( err ) {
