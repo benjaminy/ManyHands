@@ -561,13 +561,14 @@ function loginReadTeam( user )
 {
 return function( team_id )
 {
+    var download = null
+    var bad_salt = new Uint8Array( 16 );
     var team = {};
     return C.digest(
         'SHA-256', typedArrayConcat( encode( team_id ), user.salt ) )
     .then( function( team_dir ) {
-        log( "HELP1", team_id, bufToHex( user.salt ), bufToHex( team_dir ) );
         team.team_dir = team_dir;
-        function download( [ p, t ] )
+        download = function( [ p, t ] )
         {
             if( !Array.isArray( p ) )
                 p = [ p ];
@@ -575,43 +576,53 @@ return function( team_id )
             p.unshift( 'Teams' );
             return downloadFile( user.cloud_text, p, t );
         }
+        return download( [ 'key_team' ] );
+    } ).then( function( team_key ) {
+        return verify_and_decrypt_ac_ed(
+            user.main_key, user.signing_pair.publicKey, bad_salt, team_key );
+    } ).then( function( team_key ) {
+        return importKeySym( decode( team_key ) );
+    } ).then( function( team_key ) {
+        log( '[LoginTeam] Team main key imported' );
+        team.main_key = team_key;
         var files = [ [ 'key_encrypt', true ],
                       [ 'key_verify', true ],
                       [ 'key_decrypt' ],
                       [ 'key_sign' ],
-                      [ 'key_team' ],
                       [ 'self_id' ],
                       [ [ 'Data', 'data' ] ],
                       [ [ 'Teammates', 'manifest' ] ],
                       [ [ 'Teammates', 'salt' ], true ] ];
         return P.all( files.map( download ) );
-    } ).then( function( [ e, v, d, s, t, user_team_id, data, teammates_manifest, salt ] ) {
-        log( '[LoginTeam]',team_id,'Downloaded files' );
+    } ).then( function( [ e, v, d, s, user_team_id, data, teammates_manifest, salt ] ) {
+        log( '[LoginTeam]',team_id,'Downloaded files', new Uint8Array( teammates_manifest ) );
         team.salt = hexToBuf( salt );
-        var bad_salt = new Uint8Array( 16 );
         var ep = importKeyEncrypt( e );
         var vp = importKeyVerify( v );
-        function decrypt( x )
+        var to_decrypt = [ [ team.main_key, d ],
+                           [ team.main_key, s ],
+                           [ user.main_key, user_team_id ],
+                           [ team.main_key, data ],
+                           [ user.main_key, teammates_manifest ] ];
+        function decrypt( [ k, x ] )
         { return verify_and_decrypt_ac_ed(
-            user.main_key, user.signing_pair.publicKey, bad_salt, x ); }
-        return P.all( [ ep, vp ].concat( [ d, s, t, user_team_id, data, teammates_manifest ]
-                                         .map( decrypt ) ) );
-    } ).then( function( [ e, v, d, s, t, user_team_id, data, teammates_manifest ] ) {
-        log( '[LoginTeam]',team_id,'Imported and decrypted' );
+            k, user.signing_pair.publicKey, bad_salt, x ); }
+        return P.all( [ ep, vp ].concat( to_decrypt.map( decrypt ) ) );
+    } ).then( function( [ e, v, d, s, user_team_id, data, teammates_manifest ] ) {
+        log( '[LoginTeam]',team_id,'Imported and decrypted', new Uint8Array( teammates_manifest ) );
         team.key_encrypt = e;
         team.key_verify = v;
         team.self_id = decode( user_team_id );
         team.data = JSON.parse( decode( data ) );
+        team.name = team.data.name;
         team.teammates_manifest = JSON.parse( decode( teammates_manifest ) );
         var dp = importKeyDecrypt( decode( d ) );
         var sp = importKeySign( decode( s ) );
-        var tp = importKeySym( decode( t ) );
-        return P.all( [ dp, sp, tp ] );
-    } ).then( function( [ d, s, t ] ) {
+        return P.all( [ dp, sp ] );
+    } ).then( function( [ d, s ] ) {
         log( '[LoginTeam]',team_id,'Imported' );
         team.key_decrypt = d;
         team.key_sign = s;
-        team.key_main = t;
         user.teams[ team_id ] = team;
         return P.resolve();
     } )
@@ -686,7 +697,7 @@ function createTeam( team_name, user )
               [ user.main_key, encode( JSON.stringify( manifest ) ), bad_salt ],
               [ user.main_key, encode( JSON.stringify( main ) ), bad_salt ],
               [ user.main_key, encode( team.self_id ), bad_salt ],
-              [ user.main_key, encode( '{}' ), bad_salt ] ];
+              [ user.main_key, encode( JSON.stringify( { test: 'blah'} ) ), bad_salt ] ];
         var promises = to_encrypt.map( encrypt );
         var team_dir = C.digest(
             'SHA-256', typedArrayConcat( encode( team_id ), user.salt ) );
@@ -694,7 +705,6 @@ function createTeam( team_name, user )
         return P.all( promises );
     } ).then( function( [ d, s, data, manifest, main, self_id, teammates_manifest, team_dir ] ) {
         log( '[TeamCreate] Encrypted keys' );
-        log( "HELP2", team_id, bufToHex( user.salt ), bufToHex( team_dir ) );
         function upload( [ p, c, t ] )
         {
             if( !Array.isArray( p ) )
@@ -815,9 +825,9 @@ function inviteAddToTeam( invite_input, user )
     return P.all( files.map( downloadB ) )
     .then( function( [ encrypt_B, verify_B, step2, salt_B ] ) {
         log( '[InviteAdd] Downloaded B' );
-        return p_all_resolve( [ importKeyEncrypt( encrypt_B ),
-                                importKeyVerify( verify_B ) ],
-                              [ step2, salt_B ] );
+        return p_all_resolve(
+            [ importKeyEncrypt( encrypt_B ), importKeyVerify( verify_B ) ],
+            [ step2, salt_B ] );
     } ).then( function( [ encrypt_B, verify_B, step2, salt_B ] ) {
         log( '[InviteAdd] Imported keys' );
         var ep = C.deriveKey(
@@ -851,7 +861,7 @@ function inviteAddToTeam( invite_input, user )
         return p_all_resolve( [ ip ], [ step2, sym_AB, verify_B ] );
     } ).then( function( [ step1, step2, sym_AB, verify_B ] ) {
         step1 = JSON.parse( decode( step1 ) );
-        log( '[InviteAdd] Decrypted step1', user );
+        log( '[InviteAdd] Decrypted step1', user, step1 );
         if( !( step1.team in user.teams ) )
         {
             log( 'blah', user.teams );
@@ -859,8 +869,10 @@ function inviteAddToTeam( invite_input, user )
         }
         var team = user.teams[ step1.team ];
         log( 'DEBUG' );
-        var user_id = makeUniqueId( team.teammates );
+        var user_id = makeUniqueId( team.data.teammates );
         var step3 = JSON.stringify( { t: step1.team, u: user_id } );
+        var step3p = encrypt_and_sign_ac_ed(
+            k, user.signing_pair.privateKey, new Uint8Array( 16 ), invite_salt );
 
         team.data.teammates[ user_id ] =
             { name: step1.id, cloud: invite.c, key: verify_B };

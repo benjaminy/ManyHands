@@ -76,6 +76,7 @@ function onCreateTeam()
         alert( 'Must login first' );
         return;
     }
+    alert( elemTeamName.value );
     return createTeam( elemTeamName.value, logged_in_user )
     .catch( function( err ) {
         log( 'Error during team creation', err );
@@ -116,12 +117,12 @@ function onInviteAccept()
     } );
 }
 
-function onInviteComplete()
+function onInviteAddToTeam()
 {
     if( !logged_in_user /* Possibly more sanity checking */ )
     {
         alert( 'Must login first' );
         return;
     }
-    return inviteComplete( elemInviteInput.value, logged_in_user );
+    return inviteAddToTeam( elemInviteInput.value, logged_in_user );
 }
