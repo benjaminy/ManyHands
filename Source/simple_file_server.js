@@ -73,7 +73,7 @@ function handlePost( req, resp )
     req.addListener( 'data', function( chunk ) { body.push( chunk ); } );
     req.addListener( 'end', function()
     {
-        writeFile( url.parse( req.url ).pathname, Buffer.concat( body ), res );
+        writeFile( url.parse( req.url ).pathname, Buffer.concat( body ), resp );
     } );
 }
 
@@ -102,12 +102,12 @@ function handleDelete( req, resp )
     } );
 }
 
-function handleDynamic( req, res )
+function handleDynamic( req, resp )
 {
-    if(      req.method == 'POST' )   return handlePost( req, res );
-    else if( req.method == 'DELETE' ) return handleDelete( req, res );
+    if(      req.method == 'POST' )   return handlePost( req, resp );
+    else if( req.method == 'DELETE' ) return handleDelete( req, resp );
     log( '[Simple File Server] Not POST or DELETE', req.url, req.method );
-    return finalhandler( req, res )();
+    return finalhandler( req, resp )();
 }
 
 function runServer()
@@ -118,12 +118,12 @@ function runServer()
     // var serveFiles = serveStatic( root_dir, { 'index': false } );
 
     var server = http.createServer(
-        function( req, res ) {
+        function( req, resp ) {
             for( i = 0; i < CORS_HEADERS.length; i++ )
             {
-                res.setHeader( CORS_HEADERS[i][0], CORS_HEADERS[i][1] );
+                resp.setHeader( CORS_HEADERS[i][0], CORS_HEADERS[i][1] );
             }
-            serveFiles( req, res, function() { handleDynamic( req, res ) } );
+            serveFiles( req, resp, function() { handleDynamic( req, resp ) } );
         } );
     server.listen( p );
     log( 'Simple File Server: Serving directory', root_dir, 'on port', p );
