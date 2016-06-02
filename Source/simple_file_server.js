@@ -20,11 +20,25 @@ var CORS_HEADERS = [ [ 'Access-Control-Allow-Origin', '*' ],
 
 var log = console.log.bind( console );
 
+function assert( property, msg, resp )
+{
+    if( property )
+        return;
+    log( '[Simple File Server] Internal error', msg );
+    resp.writeHead( 500 );
+    resp.end();
+}
+
+function pathSanity( path, resp )
+{
+    assert( path.length >= 2, 'Path too short', resp );
+    assert( path[0] == '', 'Text before first slash', resp )
+}
+
 function writeFile( pathname, contents, resp )
 {
     var dirs = pathname.split( '/' );
-    // assert( dirs.length >= 2 )
-    // assert( dirs[0] == '' )
+    pathSanity( dirs, resp );
     var filename = dirs[ dirs.length - 1 ];
     var fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
     mkdirp( fdir, function( err )
@@ -36,7 +50,7 @@ function writeFile( pathname, contents, resp )
             resp.end();
             return;
         }
-        fs.writeFile( path.join( fdir, filename ), contents, 'utf8', function( err )
+        fs.writeFile( path.join( fdir, filename ), contents, function( err )
         {
             if( err )
             {
@@ -52,19 +66,47 @@ function writeFile( pathname, contents, resp )
     } );
 }
 
-function serveDynamic( req, res )
+function handlePost( req, resp )
 {
-    log( 'Simple File Server: Dynamic ', req.url, req.method );
-    if( req.method == 'POST' )
+    log( '[Simple File Server] Post', req.url );
+    var body = [];
+    req.addListener( 'data', function( chunk ) { body.push( chunk ); } );
+    req.addListener( 'end', function()
     {
-        var body = [];
-        req.addListener( 'data', function( chunk ) { body.push( chunk ); } );
-        req.addListener( 'end', function()
+        writeFile( url.parse( req.url ).pathname, Buffer.concat( body ), res );
+    } );
+}
+
+function handleDelete( req, resp )
+{
+    log( '[Simple File Server] Delete', req.url );
+    var parsedUrl = url.parse( req.url );
+    var path = parsedUrl.pathname;
+    var dirs = path.split( '/' );
+    pathSanity( dirs, resp );
+    var filename = dirs[ dirs.length - 1 ];
+    var fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
+    fs.unlink( path.join( fdir, filename ), function( err ) {
+        if( err )
         {
-            writeFile( url.parse( req.url ).pathname, Buffer.concat( body ), res );
-        } );
-        return;
-    }
+            log( '[Simple File Server] Error during delete', err );
+            resp.writeHead( 404 );
+            resp.end();
+        }
+        else
+        {
+            log( '[Simple File Server] Deleted', path.join( fdir, filename ) );
+            resp.writeHead( 200 );
+            resp.end();
+        }
+    } );
+}
+
+function handleDynamic( req, res )
+{
+    if(      req.method == 'POST' )   return handlePost( req, res );
+    else if( req.method == 'DELETE' ) return handleDelete( req, res );
+    log( '[Simple File Server] Not POST or DELETE', req.url, req.method );
     return finalhandler( req, res )();
 }
 
@@ -81,7 +123,7 @@ function runServer()
             {
                 res.setHeader( CORS_HEADERS[i][0], CORS_HEADERS[i][1] );
             }
-            serveFiles( req, res, function() { serveDynamic( req, res ) } );
+            serveFiles( req, res, function() { handleDynamic( req, res ) } );
         } );
     server.listen( p );
     log( 'Simple File Server: Serving directory', root_dir, 'on port', p );
