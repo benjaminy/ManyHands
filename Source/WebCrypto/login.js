@@ -449,59 +449,59 @@ function in_team_dir( team, path )
 
 function createTeam( team_name, user )
 {
-    var team = { name: team_name };
+    var team = {
+        name: team_name,
+        salt: getRandomBytes( 16 ),
+        self_id: makeUniqueId( {} ) };
     var upload = uploadFileTo( user.cloud_text );
     var team_id = makeUniqueId( user.teams );
 
     log( '[TeamCreate] Starting', team_name, team_id );
-    var ep = C.generateKey(  pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] )
-    var sp = C.generateKey( signing_kalgo, true, [ 'sign', 'verify' ] );
-    var mp = C.generateKey(  sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
-    return P.all( [ ep, sp, mp ] )
-    .then( function( [ enc_keypair, sign_keypair, main_key ] ) {
+    var key_gen_promises =
+        [ C.generateKey(  pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] ),
+          C.generateKey( signing_kalgo, true, [ 'sign', 'verify' ] ),
+          C.generateKey(  sym_enc_algo, true, [ 'encrypt', 'decrypt' ] ) ]
+    return P.all( key_gen_promises )
+    .then( function( key_pairs ) {
         log( '[TeamCreate] Generated keys' );
-        team.signing_pair = sign_keypair;
-        team.encrypt_pair = enc_keypair;
-        team.main_key = main_key;
+        [ team.encrypt_pair, team.signing_pair, team.main_key ] = key_pairs;
         var keys = [ team.encrypt_pair.privateKey, team.encrypt_pair.publicKey,
                      team.signing_pair.privateKey, team.signing_pair.publicKey,
-                     main_key, user.signing_pair.publicKey ];
+                     team.main_key, user.signing_pair.publicKey ];
         return P.all(
             keys.map( function( k ) { return C.exportKey( 'jwk', k ) } ) );
-    } ).then( function( [ d, e, s, v, main, pub ] ) {
+    } ).then( function( keys ) {
         log( '[TeamCreate] exported keys' );
         var bad_salt = new Uint8Array( 16 );
-        var teammates = {};
-        team.self_id = makeUniqueId( teammates );
-        team.salt = getRandomBytes( 16 );
-        teammates[ team.self_id ] = { name: user.name, cloud: user.cloud_text, key: pub };
-        var data = { name: team_name, teammates: teammates };
+        var teammates = {}
+        teammates[ team.self_id ] =
+            { name: user.name, cloud: user.cloud_text, key: keys[5] };
+        var team_db = { name: team_name, teammates: teammates };
         /* This loop could be a performance bug, but team creation
-         * should be infrequent, so not a big deal */
+         * should be infrequent, so not urgent */
         var manifest = [];
         for( var old_id in user.teams )
             manifest.push( old_id );
         manifest.push( team_id );
-        log( "MADE MANIFEST", manifest );
-        team.encrypt_pair.publicKeyExported = e;
-        team.signing_pair.publicKeyExported = v;
+        team.encrypt_pair.publicKeyExported = keys[1];
+        team.signing_pair.publicKeyExported = keys[3];
 
         function encrypt( [ k, d, s ] )
         { return encrypt_and_sign_ac_ed( k, user.signing_pair.privateKey, s, d ); }
         var to_encrypt =
-            [ [ team.main_key, encode( JSON.stringify( d ) ), bad_salt ],
-              [ team.main_key, encode( JSON.stringify( s ) ), bad_salt ],
-              [ team.main_key, encode( JSON.stringify( data ) ), bad_salt ],
+            [ [ team.main_key, encode( JSON.stringify( keys[0] ) ), bad_salt ],
+              [ team.main_key, encode( JSON.stringify( keys[2] ) ), bad_salt ],
+              [ team.main_key, encode( JSON.stringify( team_db ) ), bad_salt ],
               [ user.main_key, encode( JSON.stringify( manifest ) ), bad_salt ],
-              [ user.main_key, encode( JSON.stringify( main ) ), bad_salt ],
+              [ user.main_key, encode( JSON.stringify( keys[4] ) ), bad_salt ],
               [ user.main_key, encode( team.self_id ), bad_salt ],
-              [ user.main_key, encode( JSON.stringify( { test: 'blah'} ) ), bad_salt ] ];
+              [ user.main_key, encode( '{}' ), bad_salt ] ];
         var promises = to_encrypt.map( encrypt );
         var team_dir = C.digest(
             'SHA-256', typedArrayConcat( encode( team_id ), user.salt ) );
         promises.push( team_dir );
         return P.all( promises );
-    } ).then( function( [ d, s, data, manifest, main, self_id, teammates_manifest, team_dir ] ) {
+    } ).then( function( [ d, s, team_db, manifest, main, self_id, teammates_manifest, team_dir ] ) {
         log( '[TeamCreate] Encrypted keys' );
         function upload( [ p, c, t ] )
         {
@@ -522,7 +522,7 @@ function createTeam( team_name, user )
             [ 'self_id',     self_id ],
             [ [ 'Teammates', 'manifest' ], teammates_manifest ],
             [ [ 'Teammates', 'salt' ], bufToHex( team.salt ), 'text/plain' ],
-            [ [ 'Data', 'data' ], data ],
+            [ [ 'Data', 'data' ], team_db ],
         ];
         var promises = files.map( upload );
         promises.push( uploadFile( user.cloud_text, [ 'Teams', 'manifest' ], manifest ) );
