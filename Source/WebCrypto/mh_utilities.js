@@ -25,6 +25,15 @@ function encodeDecodeFunctions( encoding )
 }
 
 
+function AssertionFailedError( message )
+{
+    this.name    = 'AssertionFailedError';
+    this.message = ( message || '' );
+    this.stack   = ( new Error() ).stack;
+}
+AssertionFailedError.prototype = Object.create(Error.prototype);
+AssertionFailedError.prototype.constructor = AssertionFailedError;
+
 function NameNotAvailableError( message )
 {
     this.name    = 'NameNotAvailableError';
@@ -90,6 +99,12 @@ function VerificationError( message )
 VerificationError.prototype = Object.create(Error.prototype);
 VerificationError.prototype.constructor = VerificationError;
 
+function assert( condition, message )
+{
+    if( condition )
+        return;
+    throw new AssertionFailedError( message );
+}
 
 function domToCrypto( err ) {
     if( err instanceof DOMException )

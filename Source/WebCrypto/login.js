@@ -41,42 +41,6 @@ var FILE_SERVER_ADDR = 'http://localhost:'+FILE_SERVER_PORT;
  */
 
 
-/* Encode and pack strings into a byte array */
-function stringsToBuf( strings )
-{
-    /* assert( Array.isArray( strings ) ) */
-    /* assert( forall i. typeof( strings[i] ) == 'string' ) */
-    var bufs = [];
-    var total_bytes = 0;
-    for( var i = 0; i < strings.length; i++ )
-    {
-        bufs.push( encode( strings[ i ] ) );
-        total_bytes += bufs[ i ].length;
-    }
-    var b = new Uint8Array( total_bytes );
-    var byte_ptr = 0;
-    for( var i = 0; i < bufs.length; i++ )
-    {
-        b.set( bufs[i], byte_ptr );
-        byte_ptr += bufs[i];
-    }
-    return b;
-}
-
-function makeLoginKey( username, password, salt )
-{
-    /* assert( typeof( username ) == 'string' ) */
-    /* assert( typeof( password ) == 'string' ) */
-    /* assert( typeof( salt ) == typed array ) */
-    var up = stringsToBuf( [ username, password ] );
-    return C.importKey( 'raw', up, { name: 'PBKDF2' }, true, [ 'deriveKey' ]
-    ).then( function( k ) {
-        return C.deriveKey(
-            { name: 'PBKDF2', salt: salt, iterations: PBKDF2_ITER, hash: { name: 'SHA-1' }, },
-            k, sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
-    } );
-}
-
 /* Begin registration for the ManyHands protocol */
 
 /* Returns a resolved Promise if successful; a rejected Promise otherwise */
@@ -670,7 +634,7 @@ function inviteAddToTeam( invite_input, user )
         var user_id = makeUniqueId( team.data.teammates );
         var step3 = JSON.stringify( { t: step1.team, u: user_id } );
         var step3p = encrypt_and_sign_ac_ed(
-            k, user.signing_pair.privateKey, new Uint8Array( 16 ), invite_salt );
+            sym_AB, user.signing_pair.privateKey, new Uint8Array( 16 ), invite_salt );
 
         team.data.teammates[ user_id ] =
             { name: step1.id, cloud: invite.c, key: verify_B };
@@ -682,6 +646,11 @@ function inviteAddToTeam( invite_input, user )
     } ).catch( function( err ) {
         return unhandledError( 'invite complete', err );
     } );
+}
+
+function inviteJoinTeam()
+{
+    
 }
 
 //            return C.verify( signing_salgo, user.signing_pair.publicKey, s, m )
