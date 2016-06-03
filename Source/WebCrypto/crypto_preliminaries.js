@@ -94,3 +94,39 @@ function decrypt_aes_cbc( iv, k, d )
             return P.reject( err );
     } );
 }
+
+/* Encode and pack strings into a byte array */
+function stringsToBuf( strings )
+{
+    /* assert( Array.isArray( strings ) ) */
+    /* assert( forall i. typeof( strings[i] ) == 'string' ) */
+    var bufs = [];
+    var total_bytes = 0;
+    for( var i = 0; i < strings.length; i++ )
+    {
+        bufs.push( encode( strings[ i ] ) );
+        total_bytes += bufs[ i ].length;
+    }
+    var b = new Uint8Array( total_bytes );
+    var byte_ptr = 0;
+    for( var i = 0; i < bufs.length; i++ )
+    {
+        b.set( bufs[i], byte_ptr );
+        byte_ptr += bufs[i];
+    }
+    return b;
+}
+
+function makeLoginKey( username, password, salt )
+{
+    /* assert( typeof( username ) == 'string' ) */
+    /* assert( typeof( password ) == 'string' ) */
+    /* assert( typeof( salt ) == typed array ) */
+    var up = stringsToBuf( [ username, password ] );
+    return C.importKey( 'raw', up, { name: 'PBKDF2' }, true, [ 'deriveKey' ]
+    ).then( function( k ) {
+        return C.deriveKey(
+            { name: 'PBKDF2', salt: salt, iterations: PBKDF2_ITER, hash: { name: 'SHA-1' }, },
+            k, sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
+    } );
+}
