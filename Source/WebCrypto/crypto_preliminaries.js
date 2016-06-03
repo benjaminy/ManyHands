@@ -1,3 +1,7 @@
+var SALT_NUM_BYTES = 128;
+var SIG_LENGTH = 132;
+var PBKDF2_ITER = 1000;
+
 var signing_kalgo = { name: 'ECDSA', namedCurve: 'P-521' };
 var signing_salgo = { name: 'ECDSA', hash: { name:'SHA-256' } };
 var pub_enc_algo  = { name: 'ECDH', namedCurve: 'P-521' };
@@ -39,7 +43,7 @@ function verify_and_decrypt( e_algo, s_algo, e_key, s_key, d, s_bytes )
     } ).catch( domToCrypto );
 }
 
-function encrypt_and_sign_ac_ed( e_key, s_key, iv, d )
+function encrypt_and_sign_ac_ed( e_key, s_key, d, iv )
 {
     return encrypt_and_sign(
         { name: 'AES-CBC', iv: iv },

@@ -8,6 +8,9 @@ var getRandomValues = window.crypto.getRandomValues.bind( window.crypto );
 var log             = console.log.bind( console );
 var uniqueIdDefaultLength = 5;
 
+var encoding = 'utf-8';
+var [ encode, decode ] = encodeDecodeFunctions( encoding );
+
 function getRandomBytes( num_bytes )
 {
     var x = new Uint8Array( num_bytes );
@@ -246,6 +249,22 @@ function p_all_resolve( promises, values )
     var resolve = P.resolve.bind( P );
     return P.all( promises.concat( values.map( resolve ) ) );
 }
+
+function handleServerError( url, resp )
+{
+    return new Promise( function( resolve, reject ) {
+        var msg = url+' '+resp.statusText + ' ';
+        if( resp.status >= 400 && resp.status < 500 )
+            return resp.text().then( function( t ) {
+                reject( new RequestError( msg + t ) );
+            } );
+        else
+            return resp.text().then( function( t ) {
+                reject( new ServerError( msg + t ) );
+            } );
+    } );
+}
+
 
 /* Graveyard */
 
