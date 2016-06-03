@@ -94,15 +94,15 @@
         // promise will reject.
         var findFileId = function(name) {
             var request = gapi.client.request({
-                'path': '/drive/v3/files',
-                'method': 'GET',
-                'params': {
-                    'corpus': 'user',
-                    'pageSize': 1,
-                    'spaces': 'drive',
-                    'fields': 'files',
+                path: '/drive/v3/files',
+                method: 'GET',
+                params: {
+                    corpus: 'user',
+                    pageSize: 1,
+                    spaces: 'drive',
+                    fields: 'files',
                     // TODO: ask Ben if this escape is necessary
-                    'q': 'name="'+escapeSpecialChars(name)+
+                    q: 'name="'+escapeSpecialChars(name)+
                     '" and appNameCodeManyHands9Rf5sURQNJJhO2K0WWgH = "x82TYyHgZFcQrypIQH2q9wfZ0oiidlXF3KOaS8FH"'
                 }
             });
@@ -120,7 +120,7 @@
             return findFileId(downloadPath).then(function(id) {
                 return getFileContentsById(id);
             }).then(function(contents) {
-                return Promise.resolve(encodeASCIIString(contents));
+                return Promise.resolve(encode(contents));
             });
         };
 

@@ -9,8 +9,13 @@ var VersionFile = function(path, versionNumber, sharedResourceAccessor, cloudSto
     // version number file. It returns a promise object for the end of upload
     // operation.
     this.advance = function() {
+        // check for int overflow
+        var previousVersionNumber = versionNumber;
         versionNumber++;
-        return cloudStorage.uploadFile(encodeASCIIString(""+versionNumber), path);
+        if (previousVersionNumber == versionNumber) {
+            versionNumber = 0;
+        }
+        return cloudStorage.uploadTextFile(""+versionNumber, path);
     }
 };
 
@@ -19,22 +24,21 @@ var VersionFile = function(path, versionNumber, sharedResourceAccessor, cloudSto
 function initializeVersionFile(cloudStorage, pathToVersionFile) {
     var versionNumber;
     // try to retrieve the file, if it's impossible create it
-    return cloudStorage.downloadFile(pathToVersionFile).then(
+    return cloudStorage.downloadTextFile(pathToVersionFile).then(
             function(fileContents) {
-                var contentsStringified = decodeASCIIString(fileContents);
                 return new Promise( function(resolve, reject) {
                     // check if the string is a number
-                    if (Number(~~contentsStringified).toString() == contentsStringified) {
-                        versionNumber = Number(contentsStringified);
+                    if (Number(~~fileContents).toString() == fileContents) {
+                        versionNumber = Number(fileContents);
                         resolve(versionNumber);
                     }
                     else
-                        throw "Supplied version file contains a nonnumerical value";
+                        reject(new InputValueError("Supplied version file contains a nonnumerical value"));
                 })
             },
             function () {
                 versionNumber = 0;
-                return cloudStorage.uploadFile(encodeASCIIString("0"), pathToVersionFile);
+                return cloudStorage.uploadTextFile("0", pathToVersionFile);
             }
         ).then(
             function() {
@@ -56,7 +60,7 @@ function startUpdateCheck(versionFileAccessor, timeBetweenChecks, callbackOnUpda
         lastVersion = "-1";
     versionFileAccessor.retrieve().then(
         function(versionFileContents) {
-            var contentsStringified = decodeASCIIString(versionFileContents);
+            var contentsStringified = decode(versionFileContents);
             if (contentsStringified != lastVersion) {
                 callbackOnUpdate();
                 lastVersion = contentsStringified;
@@ -65,9 +69,7 @@ function startUpdateCheck(versionFileAccessor, timeBetweenChecks, callbackOnUpda
                 startUpdateCheck(versionFileAccessor,timeBetweenChecks,callbackOnUpdate,lastVersion);
             }, timeBetweenChecks);
         }
-    ).catch(function(error){
-        console.log("error: " + error);
-    });
+    );
 }
 
 // This function will create a file on the file server that contains all the resources specified
@@ -79,13 +81,15 @@ function shareMultipleResources(resources, pathToStore, cloudStorage) {
     for (var key in resources) {
         // we need to escape the delimiter (\n), since resources are binary data, and might
         // contain "\n" in them
-        accessFileContents += key + "\n" + decodeASCIIString(resources[key].encode()).
-            replace("\\", "\\\\").replace("\n", "\\n")+"\n";
+        if (resources[key] != null) {
+            accessFileContents += key + "\n" + decode(resources[key].encode()).
+                replace("\\", "\\\\").replace("\n", "\\n") + "\n";
+        }
     }
     // cut the excessive last "\n"
     accessFileContents = accessFileContents.slice(0, -1);
 
-    return cloudStorage.uploadFile(encodeASCIIString(accessFileContents),pathToStore).
+    return cloudStorage.uploadTextFile(accessFileContents,pathToStore).
         then(function() {
             return cloudStorage.shareFile(pathToStore);
         });
@@ -116,7 +120,7 @@ function revertEscapeCharacters(escapedString) {
 // values are their accessors).
 function readMultipleSharedResourcesFromAccessor(resourcesAccessor) {
     return resourcesAccessor.retrieve().then(function(accessFileContents) {
-        var contentsStringified = decodeASCIIString(accessFileContents);
+        var contentsStringified = decode(accessFileContents);
         return Promise.resolve(readMultipleSharedResourcesFromText(contentsStringified));
     });
 }
@@ -127,7 +131,7 @@ function readMultipleSharedResourcesFromText(contentsStringified) {
     for (var i = 0; i < records.length; i+=2) {
         records[i] = revertEscapeCharacters(records[i]);
         records[i+1] = revertEscapeCharacters(records[i+1]);
-        result[records[i]]= new SharedFile(encodeASCIIString(records[i+1]));
+        result[records[i]]= new SharedFile(encode(records[i+1]));
     }
     return result;
 }
@@ -136,8 +140,7 @@ function readMultipleSharedResourcesFromText(contentsStringified) {
 // This means that instead of operating on an accessor, this function
 // uses a file path to find a file containing the shared resources links
 function readMultipleSharedResourcesFromFile(cloudStorage, pathToFile) {
-    return cloudStorage.downloadFile(pathToFile).then(function(fileContents) {
-        var contentsStringified = decodeASCIIString(fileContents);
-        return Promise.resolve(readMultipleSharedResourcesFromText(contentsStringified));
+    return cloudStorage.downloadTextFile(pathToFile).then(function(fileContents) {
+        return Promise.resolve(readMultipleSharedResourcesFromText(fileContents));
     });
 }

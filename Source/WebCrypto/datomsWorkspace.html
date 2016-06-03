@@ -3,12 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <title>just some testing</title>
+    <script src="//cdn.jsdelivr.net/bluebird/3.4.0/bluebird.js"></script>
     <script type="text/javascript" src="murmurHash3.min.js" ></script>
+    <script type="text/javascript" src="mh_utilities.js" ></script>
+    <script type="text/javascript" src="utils.js" ></script>
     <script type="text/javascript" src="CloudStorageAbstraction/cloudInterface.js" ></script>
     <script type="text/javascript" src="CloudStorageAbstraction/cloudHelpers.js" ></script>
     <script type="text/javascript" src="CloudStorageAbstraction/dropboxImplementation.js" ></script>
     <script type="text/javascript" src="transactions.js" ></script>
     <script>
+        function initVars2() {
+            var manager1, manager2, manager3;
+            var p = [];
+            manager1 = new TransactionManager(cloud, "team1", "1");
+            p[0] = manager1.initialize();
+            manager2 = new TransactionManager(cloud, "team2", "2");
+            p[1] = manager2.initialize();
+            manager3 = new TransactionManager(cloud, "team3", "3");
+            p[2] = manager3.initialize();
+            return Promise.all(p).then(function() { return Promise.resolve([manager1,manager2,manager3]); });
+        }
+        function initVars() {
+            var manager1, manager2, manager3;
+            return prepareTeams().then(function() {
+                var p = [];
+                manager1 = new TransactionManager(cloud, "team1", "1");
+                p[0] = manager1.initialize();
+                manager2 = new TransactionManager(cloud, "team2", "2");
+                p[1] = manager2.initialize();
+                manager3 = new TransactionManager(cloud, "team3", "3");
+                p[2] = manager3.initialize();
+                return Promise.all(p);
+            }).then(function() { return Promise.resolve([manager1,manager2,manager3]); });
+        }
         function clone(obj) {
             if (null == obj || "object" != typeof obj) return obj;
             var copy = obj.constructor();
@@ -19,51 +46,130 @@
         }
 
         var cloud = new Dropbox("rwovrjf7g18ya3b");
-        cloud.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
+        cloud.authenticate("ecJ2oWRI0wUAAAAAAAABN9fb2Hx2nyDqp-4BbaVK6p3kLVZgZM3M1NDcwCtl-2aV");
 
+        function fullTest() {
+            var manager1, manager2, manager3;
+            return prepareTeams().then(function() {
+                var p = [];
+                manager1 = new TransactionManager(cloud, "team1", "1");
+                p[0] = manager1.initialize();
+                manager2 = new TransactionManager(cloud, "team2", "2");
+                p[1] = manager2.initialize();
+                manager3 = new TransactionManager(cloud, "team3", "3");
+                p[2] = manager3.initialize();
+                return Promise.all(p);
+            }).then(function() {
+                startUpdateCheck(manager1.ownVersionFile.sharedResourceAccessor,100,function() {cds1(manager2)});
+                //startUpdateCheck(manager2.ownVersionFile.sharedResourceAccessor,100,function() {cds2(manager3)});
+                //startUpdateCheck(manager3.ownVersionFile.sharedResourceAccessor,100,function() {cds3(manager1)});
+                //startUpdateCheck(manager1.ownVersionFile.sharedResourceAccessor,100,function() {cds1(manager3)});
+                startUpdateCheck(manager2.ownVersionFile.sharedResourceAccessor,100,function() {cds2(manager1)});
+                //startUpdateCheck(manager3.ownVersionFile.sharedResourceAccessor,100,function() {cds3(manager2)});
+            });
+        }
         function prepareTeams() {
-            var manager1 = new TransactionManager(cloud, "team1");
-            var manager2 = new TransactionManager(cloud, "team2");
+            var manager1 = new TransactionManager(cloud, "team1", "1");
+            var manager2 = new TransactionManager(cloud, "team2", "2");
+            Transaction.prototype.clone = function() {
+                return Transaction.fromString(this.exportToString());
+            };
             var t1 = Transaction.fromString(test());
             var t2 = Transaction.fromString(test());
             t2.events[0].id = 1234;
-            return manager1.uploadTransactionToChain(t1).then(function(){
-                return manager1.uploadTransactionToChain(t1);
+            return manager1.uploadTransactionToChain(t1.clone()).then(function(){
+/*                return manager1.uploadTransactionToChain(t1.clone());
             }).then(function(){
-                return manager1.uploadTransactionToChain(t1);
+                return manager1.uploadTransactionToChain(t1.clone());
             }).then(function(){
-                return manager1.uploadTransactionToChain(t1);
+                return manager1.uploadTransactionToChain(t2.clone());
             }).then(function(){
-                return manager2.uploadTransactionToChain(t1);
+                return manager2.uploadTransactionToChain(t1.clone());
             }).then(function(){
-                return manager2.uploadTransactionToChain(t1);
+                return manager2.uploadTransactionToChain(t2.clone());
             }).then(function(){
-                return manager2.uploadTransactionToChain(t2);
+                return manager2.uploadTransactionToChain(t1.clone());
             }).then(function(){
-                return manager2.uploadTransactionToChain(t2);
-            }).then(function(){
-                return manager2.uploadTransactionToChain(t1);
+                return manager2.uploadTransactionToChain(t2.clone());
+            }).then(function(){*/
+                return manager2.uploadTransactionToChain(t1.clone());
             }).then(function() {
                 console.log("uploads finished!");
             });
         }
         function testChanges() {
-            var manager1 = new TransactionManager(cloud, "team1");
-            return retrieveLastTransaction("team2").then(function(accessor) {
+            var manager1 = new TransactionManager(cloud, "team1", "1");
+            return manager1.initialize().then(function() {
+                return retrieveLastTransaction("team2")
+            }).then(function(accessor) {
                 return manager1.loadDifferencesFromForeignTransactionChain(accessor);
             }).then(function(chain) {
                 console.log(chain);
-            })
+                return Promise.resolve(chain);
+            });
+        }
+
+        function checkDiffSolve2() {
+            var manager2 = new TransactionManager(cloud, "team2", "2");
+            return manager2.initialize().then(function () {
+                return retrieveLastTransaction("team1")
+            }).then(function (accessor) {
+                return manager2.loadDifferencesFromForeignTransactionChain(accessor);
+            }).then(function (diff) {
+                console.log(diff);
+                return manager2.solveDiff(diff);
+            });
+        }
+
+        function cds1(manager) {
+            return retrieveLastTransaction("team1").then(function(accessor) {
+                return manager.loadDifferencesFromForeignTransactionChain(accessor);
+            }).then(function(diff) {
+                console.log(diff);
+                return manager.solveDiff(diff);
+            });
+        }
+        function cds2(manager) {
+            return retrieveLastTransaction("team2").then(function(accessor) {
+                return manager.loadDifferencesFromForeignTransactionChain(accessor);
+            }).then(function(diff) {
+                console.log(diff);
+                return manager.solveDiff(diff);
+            });
+        }
+        function cds3(manager) {
+            return retrieveLastTransaction("team3").then(function(accessor) {
+                return manager.loadDifferencesFromForeignTransactionChain(accessor);
+            }).then(function(diff) {
+                console.log(diff);
+                return manager.solveDiff(diff);
+            });
+        }
+        function doubleCheck() {
+            var manager1 = new TransactionManager(cloud, "team1", "1");
+            var manager2 = new TransactionManager(cloud, "team2", "2");
+            return Promise.all([manager1.initialize(),manager2.initialize()]).then(function() {
+                cds1(manager1);
+                cds2(manager2);
+                cds1(manager1);
+                cds2(manager2);
+                cds1(manager1);
+                cds2(manager2);
+            });
+        }
+        function checkDiffSolve() {
+            var manager1 = new TransactionManager(cloud, "team1", "1");
+            return manager1.initialize().then(function() {
+                return retrieveLastTransaction("team2")
+            }).then(function(accessor) {
+                return manager1.loadDifferencesFromForeignTransactionChain(accessor);
+            }).then(function(diff) {
+                console.log(diff);
+                return manager1.solveDiff(diff);
+            });
         }
         function test() {
-            var events = [];
-            for (var i = 0; i < 5; ++i) {
-                var params = {};
-                for (var j = 0; j < i+1; ++j) {
-                    params[String.fromCharCode(65+j)] = "" + i + " " + j;
-                }
-                events[i] = new EventInfo(String.fromCharCode(48+i), params, i);
-            }
+            var events = [new TaskCreatedEvent("first task",1),new TaskCompletedEvent("1",1)];
             var t = new Transaction(events, 1234);
             return t.exportToString();
         }
@@ -72,10 +178,10 @@
             return readMultipleSharedResourcesFromFile(cloud, teamCatalog + "/links").then(function(resources) {
                 console.log(resources["latestTransaction"]);
                 return Promise.resolve(resources["latestTransaction"]);
+            }, function() {
+                return Promise.resolve(null);
             });
         }
-
-        var manager = new TransactionManager(cloud, "team1");
 
     </script>
 </head>

@@ -13,6 +13,30 @@ var Dropbox = function(appkey) {
         this.accessToken = accessToken;
     };
 
+    this.removeFile = function(filePath) {
+        // Wrapper is used to pass the access token down to the promise
+        function wrapper(accessToken) {
+            // Promisifying the XMLHttpRequest
+            return new Promise(function (resolve, reject) {
+                var httpRequest = new XMLHttpRequest();
+                var onUploaded = function () {
+                    if (httpRequest.status == 200) {
+                        resolve(httpRequest);
+                    } else {
+                        reject(httpRequest.status);
+                    }
+                };
+                httpRequest.addEventListener("load", onUploaded, false);
+
+                httpRequest.open("POST", "https://api.dropboxapi.com/1/fileops/delete?"+
+                    "root=auto&path="+encodeURIComponent(filePath), true);
+                httpRequest.setRequestHeader("Authorization", " Bearer " + accessToken);
+                httpRequest.send();
+            });
+        }
+        return wrapper(this.accessToken);
+    };
+
     this.downloadFile = function(downloadUrl) {
         // Wrapper is used to pass the access token down to the promise
         function wrapper(accessToken) {
@@ -21,7 +45,7 @@ var Dropbox = function(appkey) {
                 var httpRequest = new XMLHttpRequest();
                 var onDownloaded = function () {
                     if (httpRequest.status == 200) {
-                        resolve(encodeASCIIString(httpRequest.responseText));
+                        resolve(encode(httpRequest.responseText));
                     } else {
                         reject();
                     }
@@ -53,7 +77,7 @@ var Dropbox = function(appkey) {
 
                 httpRequest.open("POST", "https://content.dropboxapi.com/1/files_put/auto/" + fileUrl + "?overwrite=true", true);
                 httpRequest.setRequestHeader("Authorization", " Bearer " + accessToken);
-                httpRequest.send(decodeASCIIString(fileContents));
+                httpRequest.send(decode(fileContents));
             });
         }
         return wrapper(this.accessToken);
@@ -70,7 +94,7 @@ var Dropbox = function(appkey) {
                         var response = JSON.parse(this.responseText);
                         var linkToResource = response.url.replace("www.dropbox.com", "dl.dropboxusercontent.com");
                         linkToResource = new BytableString(linkToResource); // we need a Bytable object
-                        resolve(new SharedFile(Dropbox, linkToResource));
+                        resolve(new SharedFile(Dropbox, linkToResource, sharedFileUrl));
                     } else {
                         reject("Upload unsuccessful");
                     }
@@ -93,7 +117,7 @@ Dropbox.retrieveSharedFile = function(fileUrl) {
 
         var onFileRetrieved = function() {
             if (httpRequest.status == 200) {
-                resolve(encodeASCIIString(httpRequest.response));
+                resolve(encode(httpRequest.response));
             } else {
                 reject("Download unsuccessful");
             }

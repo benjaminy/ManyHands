@@ -3,34 +3,45 @@
 <head>
     <script type="text/javascript" src="cloudInterface.js" ></script>
     <script type="text/javascript" src="cloudHelpers.js" ></script>
+    <script type="text/javascript" src="simpleFileServerImplementation.js" ></script>
     <script type="text/javascript" src="dropboxImplementation.js" ></script>
     <script>
+        function sfsTest() {
+            var sfs = new SimpleFileServer("user1");
+            sfs.uploadTextFile("test","testFile.txt");
+        }
+
+        function getDropbox() {
+            var dropbox = new Dropbox("rwovrjf7g18ya3b");
+            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAABN9fb2Hx2nyDqp-4BbaVK6p3kLVZgZM3M1NDcwCtl-2aV");
+            return dropbox;
+        }
         function testUploadDownload() {
             var dropbox = new Dropbox("rwovrjf7g18ya3b");
-            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
-            dropbox.uploadFile(encodeASCIIString("ABC"), "stuff.txt")
+            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAABN9fb2Hx2nyDqp-4BbaVK6p3kLVZgZM3M1NDcwCtl-2aV");
+            dropbox.uploadFile(encode("ABC"), "stuff.txt")
                     .then(function (req) {
                         return dropbox.downloadFile("stuff.txt");
                     })
                     .then(function (contents) {
-                        alert(decodeASCIIString(contents));
+                        alert(decode(contents));
                     });
         }
         function testSharing() {
             var dropbox = new Dropbox("rwovrjf7g18ya3b");
-            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
-            dropbox.uploadFile(encodeASCIIString("ABC"), "stuff.txt")
+            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAABN9fb2Hx2nyDqp-4BbaVK6p3kLVZgZM3M1NDcwCtl-2aV");
+            dropbox.uploadFile(encode("ABC"), "stuff.txt")
                     .then(function () {
                         return dropbox.shareFile("stuff.txt");
                     }).then( function (linkToFile) {
                         return (new SharedFile(linkToFile.encode())).retrieve();
                     }).then( function (fileContents) {
-                        alert(decodeASCIIString(fileContents));
+                        alert(decode(fileContents));
                     });
         }
         function testUpdate() {
             var dropbox = new Dropbox("rwovrjf7g18ya3b");
-            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
+            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAABN9fb2Hx2nyDqp-4BbaVK6p3kLVZgZM3M1NDcwCtl-2aV");
             initializeVersionFile(dropbox, "version.txt").then(function(versionFile){
                 setInterval(function() {versionFile.advance();}, 5000);
                 startUpdateCheck(versionFile.sharedResourceAccessor, 247, function() {document.body.innerHTML += "Alert!";});
@@ -38,11 +49,11 @@
         }
         function testShareMultiple() {
             var dropbox = new Dropbox("rwovrjf7g18ya3b");
-            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAAA4iEPo6XlzqjaPzYqJ9onk9Hjh-4E3dbqfFlt-ileFv94");
-            var promise1 = dropbox.uploadFile(encodeASCIIString("ABC"), "stuff1.txt");
-            var promise2 = dropbox.uploadFile(encodeASCIIString("DEF"), "stuff2.txt");
-            var promise3 = dropbox.uploadFile(encodeASCIIString("GHI"), "stuff3.txt");
-            var promise4 = dropbox.uploadFile(encodeASCIIString("JKL"), "stuff4.txt");
+            dropbox.authenticate("ecJ2oWRI0wUAAAAAAAABN9fb2Hx2nyDqp-4BbaVK6p3kLVZgZM3M1NDcwCtl-2aV");
+            var promise1 = dropbox.uploadFile(encode("ABC"), "stuff1.txt");
+            var promise2 = dropbox.uploadFile(encode("DEF"), "stuff2.txt");
+            var promise3 = dropbox.uploadFile(encode("GHI"), "stuff3.txt");
+            var promise4 = dropbox.uploadFile(encode("JKL"), "stuff4.txt");
             Promise.all([promise1, promise2, promise3, promise4]).then(
                     function() {
                         var promise1 = dropbox.shareFile("stuff1.txt");
@@ -67,10 +78,10 @@
                 var promise4 = resources["four"].retrieve();
                 return Promise.all([promise1, promise2, promise3, promise4]);
             }).then(function([one,two,three,four]){
-                console.log("one: " + decodeASCIIString(one));
-                console.log("two: " + decodeASCIIString(two));
-                console.log("three: " + decodeASCIIString(three));
-                console.log("four: " + decodeASCIIString(four));
+                console.log("one: " + decode(one));
+                console.log("two: " + decode(two));
+                console.log("three: " + decode(three));
+                console.log("four: " + decode(four));
             });
         }
     </script>
