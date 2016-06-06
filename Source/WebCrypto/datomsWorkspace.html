@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <title>just some testing</title>
-    <script src="//cdn.jsdelivr.net/bluebird/3.4.0/bluebird.js"></script>
+    <scriptsss src="//cdn.jsdelivr.net/bluebird/3.4.0/bluebird.js"></scriptsss>
     <script type="text/javascript" src="murmurHash3.min.js" ></script>
     <script type="text/javascript" src="mh_utilities.js" ></script>
     <script type="text/javascript" src="utils.js" ></script>
     <script type="text/javascript" src="CloudStorageAbstraction/cloudInterface.js" ></script>
     <script type="text/javascript" src="CloudStorageAbstraction/cloudHelpers.js" ></script>
     <script type="text/javascript" src="CloudStorageAbstraction/dropboxImplementation.js" ></script>
+    <script type="text/javascript" src="CloudStorageAbstraction/simpleFileServerImplementation.js" ></script>
     <script type="text/javascript" src="transactions.js" ></script>
     <script>
         function initVars2() {
@@ -45,6 +46,7 @@
             return copy;
         }
 
+        //var cloud = new SimpleFileServer('user2');
         var cloud = new Dropbox("rwovrjf7g18ya3b");
         cloud.authenticate("ecJ2oWRI0wUAAAAAAAABN9fb2Hx2nyDqp-4BbaVK6p3kLVZgZM3M1NDcwCtl-2aV");
 
@@ -61,11 +63,11 @@
                 return Promise.all(p);
             }).then(function() {
                 startUpdateCheck(manager1.ownVersionFile.sharedResourceAccessor,100,function() {cds1(manager2)});
-                //startUpdateCheck(manager2.ownVersionFile.sharedResourceAccessor,100,function() {cds2(manager3)});
-                //startUpdateCheck(manager3.ownVersionFile.sharedResourceAccessor,100,function() {cds3(manager1)});
-                //startUpdateCheck(manager1.ownVersionFile.sharedResourceAccessor,100,function() {cds1(manager3)});
+                startUpdateCheck(manager2.ownVersionFile.sharedResourceAccessor,100,function() {cds2(manager3)});
+                startUpdateCheck(manager3.ownVersionFile.sharedResourceAccessor,100,function() {cds3(manager1)});
+                startUpdateCheck(manager1.ownVersionFile.sharedResourceAccessor,100,function() {cds1(manager3)});
                 startUpdateCheck(manager2.ownVersionFile.sharedResourceAccessor,100,function() {cds2(manager1)});
-                //startUpdateCheck(manager3.ownVersionFile.sharedResourceAccessor,100,function() {cds3(manager2)});
+                startUpdateCheck(manager3.ownVersionFile.sharedResourceAccessor,100,function() {cds3(manager2)});
             });
         }
         function prepareTeams() {
@@ -78,7 +80,7 @@
             var t2 = Transaction.fromString(test());
             t2.events[0].id = 1234;
             return manager1.uploadTransactionToChain(t1.clone()).then(function(){
-/*                return manager1.uploadTransactionToChain(t1.clone());
+                return manager1.uploadTransactionToChain(t1.clone());
             }).then(function(){
                 return manager1.uploadTransactionToChain(t1.clone());
             }).then(function(){
@@ -91,7 +93,7 @@
                 return manager2.uploadTransactionToChain(t1.clone());
             }).then(function(){
                 return manager2.uploadTransactionToChain(t2.clone());
-            }).then(function(){*/
+            }).then(function(){
                 return manager2.uploadTransactionToChain(t1.clone());
             }).then(function() {
                 console.log("uploads finished!");
@@ -123,26 +125,23 @@
 
         function cds1(manager) {
             return retrieveLastTransaction("team1").then(function(accessor) {
-                return manager.loadDifferencesFromForeignTransactionChain(accessor);
-            }).then(function(diff) {
-                console.log(diff);
-                return manager.solveDiff(diff);
+                if (accessor != null)
+                    accessor.owned_by = 1;
+                return manager.updateFromOtherUser(accessor);
             });
         }
         function cds2(manager) {
             return retrieveLastTransaction("team2").then(function(accessor) {
-                return manager.loadDifferencesFromForeignTransactionChain(accessor);
-            }).then(function(diff) {
-                console.log(diff);
-                return manager.solveDiff(diff);
+                if (accessor != null)
+                    accessor.owned_by = 2;
+                return manager.updateFromOtherUser(accessor);
             });
         }
         function cds3(manager) {
             return retrieveLastTransaction("team3").then(function(accessor) {
-                return manager.loadDifferencesFromForeignTransactionChain(accessor);
-            }).then(function(diff) {
-                console.log(diff);
-                return manager.solveDiff(diff);
+                if (accessor != null)
+                    accessor.owned_by = 3;
+                return manager.updateFromOtherUser(accessor);
             });
         }
         function doubleCheck() {

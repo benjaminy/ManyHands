@@ -9,7 +9,7 @@ function encode_path( user, path )
     /* assert( typeof( user ) == 'string' ) */
     if( !Array.isArray( path ) )
     {
-        path = [ path ];
+        path = path.split("/");
     }
     return { p: path.map( encodeURIComponent ).join( '/' ),
         u: encodeURIComponent( user ) };
@@ -101,7 +101,7 @@ var SimpleFileServer = function(userName) {
         return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p,
             { method  : 'DELETE' }
         ).then( function( resp ) {
-            log( 'uploadFile response:', resp.status, resp.statusText );
+            log( 'removeFile response:', resp.status, resp.statusText );
             /* log( 'uploadFile response', resp ); */
             if( !resp.ok )
             {
@@ -153,6 +153,8 @@ SimpleFileServer.retrieveSharedFile = function (accessData) {
         return Promise.resolve(encode(text));
     });
 };
+
+cloudStorages['SFS'] = SimpleFileServer;
 
 // static properties of CloudStorage:
 SimpleFileServer.sharedDataAccessType = BytableString; // indicates the type of accessData

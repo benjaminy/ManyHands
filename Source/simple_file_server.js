@@ -14,7 +14,8 @@ var DEFAULT_PORT = 8080;
 var DEFAULT_DIR  = '.';
 var root_dir     = null;
 
-var CORS_HEADERS = [ [ 'Access-Control-Allow-Origin', '*' ],
+var CORS_HEADERS = [ ['Access-Control-Allow-Methods', 'GET,POST,PUT,OPTIONS,DELETE'],
+                     [ 'Access-Control-Allow-Origin', '*' ],
                      [ 'Access-Control-Allow-Headers',
                        'Origin, X-Requested-With, Content-Type, Accept' ] ];
 
@@ -81,8 +82,8 @@ function handleDelete( req, resp )
 {
     log( '[Simple File Server] Delete', req.url );
     var parsedUrl = url.parse( req.url );
-    var path = parsedUrl.pathname;
-    var dirs = path.split( '/' );
+    var file_path = parsedUrl.pathname;
+    var dirs = file_path.split( '/' );
     pathSanity( dirs, resp );
     var filename = dirs[ dirs.length - 1 ];
     var fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
@@ -102,11 +103,21 @@ function handleDelete( req, resp )
     } );
 }
 
+function handleOptions( req, resp ) {
+    if(req.headers["access-control-request-method"] == 'DELETE') {
+        log( 'Accepted preflight DELETE request' );
+        resp.writeHead( 200 );
+        resp.end();
+    }
+}
+
 function handleDynamic( req, resp )
 {
     if(      req.method == 'POST' )   return handlePost( req, resp );
     else if( req.method == 'DELETE' ) return handleDelete( req, resp );
-    log( '[Simple File Server] Not POST or DELETE', req.url, req.method );
+    else if ( req.method == 'OPTIONS' ) return handleOptions( req, resp );
+    log( '[Simple File Server] Not POST or DELETE or OPTIONS', req.url, req.method );
+
     return finalhandler( req, resp )();
 }
 

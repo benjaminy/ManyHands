@@ -7,6 +7,15 @@
 // If we decide that downloading the timeStamps file all the time is inefficient,
 // we can use the approach with the pointer to the next file.
 
+// DEBUG:
+console.log2 = function() {
+    var args = [];
+    for(var i=0; i<arguments.length; i++) {
+        args.push(JSON.parse(JSON.stringify(arguments[i])));
+    }
+    console.log.apply(console, args);
+};
+
 // TODO: Get time stamp will need to use our own server to be able to bypass CORS requirements
 // other options include relying on computer's built-in time or using clouds' data.
 
@@ -32,11 +41,13 @@ var Lock = function() {
     this.locked = false;
     this.waitingList = [];
     this.unlock = function() {
+        console.log2("unlock");
         var thisLock = this;
         if (this.waitingList.length > 0) {
             var action = this.waitingList[0];
             var result = action.method();
-            if (result instanceof Promise) {
+            // check if result is a promise
+            if (result.then != null) {
                 result.then(function(r) {
                     thisLock.unlock();
                     action.resolve(r);
@@ -59,7 +70,8 @@ var Lock = function() {
         if (!this.locked) {
             this.locked = true;
             var result = method();
-            if (result instanceof Promise) {
+            // check if result is a promise
+            if (result.then != null) {
                 return result.then(function(r) {
                     thisLock.unlock();
                     return Promise.resolve(r);
@@ -212,94 +224,102 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                 }
             }
         }
-        console.log(transactions);
-        console.log(this.currentDBs);
+        console.log2(transactions);
+        console.log2(this.currentDBs);
     };
 
+    this.updateFromOtherUser = function(lastForeignTransactionAccessor) {
+        var manager = this;
+        return manager.lock.lock(function() {
+            return manager.loadDifferencesFromForeignTransactionChain(lastForeignTransactionAccessor).then(
+                function(diff) {
+                    return manager.solveDiff(diff);
+                }
+            )
+        });
+    };
     // This method takes an object returned by loadDifferencesFromForeignTransactionChain
     // and tries to solve it and change the chain
     this.solveDiff = function (diff) {
         if (diff.own.length == 0 && diff.foreign.length == 0)
             return Promise.resolve();
         var manager = this;
-
-        return manager.lock.lock(function() {
-            var mergedTransactions = [];
-            var own_copy = diff.own.slice(0);
-            for (var i = 0; i < diff.foreign.length; ++i) {
-                var newTransaction = Transaction.fromString(JSON.stringify(diff.foreign[i]));
-                var ownMatch = null;
-                for (var j = 0; j < diff.own.length; ++j) {
-                    if (diff.own[j].owner == diff.foreign[i].owner &&
-                        diff.own[j].initialIndex == diff.foreign[i].initialIndex) {
-                        ownMatch = diff.own[j];
-                        // remove from the array
-                        var index = own_copy.indexOf(ownMatch);
-                        own_copy.splice(index, 1);
-                        break;
-                    }
+        var mergedTransactions = [];
+        var own_copy = diff.own.slice(0);
+        for (var i = 0; i < diff.foreign.length; ++i) {
+            var newTransaction = Transaction.fromString(JSON.stringify(diff.foreign[i]));
+            var ownMatch = null;
+            for (var j = 0; j < diff.own.length; ++j) {
+                if (diff.own[j].owner == diff.foreign[i].owner &&
+                    diff.own[j].initialIndex == diff.foreign[i].initialIndex) {
+                    ownMatch = diff.own[j];
+                    // remove from the array
+                    var index = own_copy.indexOf(ownMatch);
+                    own_copy.splice(index, 1);
+                    break;
                 }
-                if (ownMatch != null) {
-                    if (diff.foreign[j].timestamp == null)
-                        newTransaction.timestamp = ownMatch.timestamp;
-                    else if (ownMatch.timestamp == null)
-                        newTransaction.timestamp = diff.foreign[j].timestamp;
-                    else
-                        newTransaction.timestamp = (ownMatch.timestamp < diff.foreign[j].timestamp ?
-                            ownMatch.timestamp : diff.foreign[j].timestamp);
-                }
-                mergedTransactions.push(newTransaction);
             }
-            for (var i = 0; i < own_copy.length; ++i) {
-                mergedTransactions.push(Transaction.fromString(JSON.stringify(own_copy[i])))
+            if (ownMatch != null) {
+                if (diff.foreign[i].timestamp == null)
+                    newTransaction.timestamp = ownMatch.timestamp;
+                else if (ownMatch.timestamp == null)
+                    newTransaction.timestamp = diff.foreign[i].timestamp;
+                else
+                    newTransaction.timestamp = (ownMatch.timestamp < diff.foreign[i].timestamp ?
+                        ownMatch.timestamp : diff.foreign[i].timestamp);
             }
+            mergedTransactions.push(newTransaction);
+        }
+        for (var i = 0; i < own_copy.length; ++i) {
+            mergedTransactions.push(Transaction.fromString(JSON.stringify(own_copy[i])))
+        }
 
-            // Sort transactions
-            mergedTransactions.sort(function cmp(t1, t2) {
-                return t1.compareChronology(t2);
-            });
+        // Sort transactions
+        mergedTransactions.sort(function cmp(t1, t2) {
+            return t1.compareChronology(t2);
+        });
 
-            manager.resolveConflicts(mergedTransactions, diff.indexOfFirstDifference);
+        //manager.resolveConflicts(mergedTransactions, diff.indexOfFirstDifference);
 
-            if (mergedTransactions.length > 0)
-                mergedTransactions[0].previousTransactionLink = null;
+        if (mergedTransactions.length > 0)
+            mergedTransactions[0].previousTransactionLink = null;
 
-            // set new indexes for transactions
-            for (var i = 0; i < mergedTransactions.length; ++i) {
-                mergedTransactions[i].index = diff.indexOfFirstDifference + i;
-            }
-            console.log(mergedTransactions);
+        // set new indexes for transactions
+        for (var i = 0; i < mergedTransactions.length; ++i) {
+            mergedTransactions[i].index = diff.indexOfFirstDifference + i;
+        }
+        console.log2(mergedTransactions);
 
-            // Upload the transactions to the chain
-            function uploadNext(i, uploadAfter) {
-                if (i >= mergedTransactions.length)
-                    return Promise.resolve(null);
-                return manager.uploadTransactionAfter(mergedTransactions[i], uploadAfter)
-                    .then(function (accessor) {
-                        if (i >= mergedTransactions.length - 1)
-                            return Promise.resolve(accessor);
-                        return uploadNext(i + 1, accessor);
-                    });
-            }
+        // Upload the transactions to the chain
+        function uploadNext(i, uploadAfter) {
+            if (i >= mergedTransactions.length)
+                return Promise.resolve(null);
+            return manager.uploadTransactionAfter(mergedTransactions[i], uploadAfter)
+                .then(function (accessor) {
+                    if (i >= mergedTransactions.length - 1)
+                        return Promise.resolve(accessor);
+                    return uploadNext(i + 1, accessor);
+                });
+        }
 
-            var uploadAfter = diff.indexOfFirstDifference < manager.currentChain.length ?
-                manager.currentChain[diff.indexOfFirstDifference].previousTransactionLink :
-                manager.currentLastTransactionLink;
-            if (uploadAfter != null && !(uploadAfter instanceof SharedFile))
-                uploadAfter = new SharedFile(encode(uploadAfter));
-            var previousLastTransaction = manager.currentLastTransactionLink;
+        var uploadAfter = diff.indexOfFirstDifference < manager.currentChain.length ?
+            manager.currentChain[diff.indexOfFirstDifference].previousTransactionLink :
+            manager.currentLastTransactionLink;
+        if (uploadAfter != null && !(uploadAfter instanceof SharedFile))
+            uploadAfter = new SharedFile(encode(uploadAfter));
+        var previousLastTransaction = manager.currentLastTransactionLink;
 
-            return uploadNext(0, uploadAfter).then(function (lastTransactionAccessor) {
-                return manager.setNewLastTransaction(lastTransactionAccessor);
-            }).then(function () {
-                return manager.removeTransactions(previousLastTransaction, uploadAfter);
-            }).then(function () {
-                manager.currentChain = manager.currentChain.slice(0, diff.indexOfFirstDifference).concat(mergedTransactions);
-                var lastDB = (diff.indexOfFirstDifference > 0 ? manager.currentDBs[diff.indexOfFirstDifference-1].clone() : new DB());
-                manager.currentDBs = manager.currentDBs.slice(0, diff.indexOfFirstDifference).
-                    concat(DB.makeDBChain(lastDB, mergedTransactions));
-                return Promise.resolve();
-            });
+        return uploadNext(0, uploadAfter).then(function (lastTransactionAccessor) {
+            return manager.setNewLastTransaction(lastTransactionAccessor);
+        }).then(function () {
+            return manager.removeTransactions(previousLastTransaction, uploadAfter);
+        }).then(function () {
+            manager.currentChain = manager.currentChain.slice(0, diff.indexOfFirstDifference).concat(mergedTransactions);
+            var lastDB = (diff.indexOfFirstDifference > 0 ? manager.currentDBs[diff.indexOfFirstDifference-1].clone() : new DB());
+            manager.currentDBs = manager.currentDBs.slice(0, diff.indexOfFirstDifference).
+                concat(DB.makeDBChain(lastDB, mergedTransactions));
+            console.log2(manager.userId, manager.currentChain);
+            return Promise.resolve();
         });
     };
 
@@ -346,6 +366,7 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
     };
 
     this.loadTransactionChain = function (lastTransactionLink, setTimestamps) {
+        var timestamp = null;
         return this.lock.lock(function() {
             // this variable will hold the result
             var transactionChain = [];
@@ -361,14 +382,12 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                     var t = Transaction.fromString(transactionJsonText);
                     // set up the timestamp of this transaction
                     var promise;
-                    if (setTimestamps)
-                        promise = getTimeStamp().then(function (timestamp) {
-                            // Add the transaction to the chain
-                            if (t.timestamp == null) {
-                                t.timestamp = timestamp;
-                            }
-                            return Promise.resolve();
-                        });
+                    if (setTimestamps) {
+                        if (t.timestamp == null) {
+                            t.timestamp = timestamp;
+                        }
+                        return Promise.resolve();
+                    }
                     else {
                         promise = Promise.resolve();
                     }
@@ -388,9 +407,16 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                     return Promise.resolve([]);
                 });
             }
-
-            // calling the recursive method from above
-            return retrieveRestOfTheChain(lastTransactionLink, transactionChain);
+            if (setTimestamps)
+                return getTimeStamp().then(function (stamp) {
+                    timestamp = stamp;
+                }).then(function() {
+                    // calling the recursive method from above
+                    return retrieveRestOfTheChain(lastTransactionLink, transactionChain);
+                });
+            else {
+                return retrieveRestOfTheChain(lastTransactionLink, transactionChain);
+            }
         });
     };
 
@@ -405,77 +431,91 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
     // find differences between the chains and return them. Passed is the link to the latest
     // transaction in teammate's chain, returned is a promise with the differing part of the chain
     this.loadDifferencesFromForeignTransactionChain = function(lastTransactionLink) {
+        var timestamp = null;
         if (lastTransactionLink == null) {
             return Promise.resolve({own: [], foreign: [], indexOfFirstDifference: 0})
         }
         var manager = this;
-        return this.lock.lock(function() {
-            // those variables will hold the results:
-            var foreignTransactionChain = [];
-            var ownTransactionChain = [];
-            // this variable is used to preserve the currentTransaction between the promises
-            var currentTransaction;
+        // those variables will hold the results:
+        var foreignTransactionChain = [];
+        var ownTransactionChain = [];
+        // this variable is used to preserve the currentTransaction between the promises
+        var currentTransaction;
 
 
-            // this method enables recurrence. It will reaturn a promise with a chain starting from
-            // the first difference in chains and ending with the transaction to which transactionLink
-            // points. manager is passed to enable using TransactionManager's features.
-            function loadRestOfTheChain(transactionLink, manager) {
-                function returnDiffObject() {
-                    // process the chain so that it contains transaction objects, not JSON objects:
-                    for (var i = 0; i < foreignTransactionChain.length; ++i) {
-                        foreignTransactionChain[i] = Transaction.fromJSON(foreignTransactionChain[i]);
-                    }
-                    return Promise.resolve({
-                        foreign: foreignTransactionChain, own: ownTransactionChain,
-                        indexOfFirstDifference: manager.currentChain.length - ownTransactionChain.length
-                    });
+        // this method enables recurrence. It will return a promise with a chain starting from
+        // the first difference in chains and ending with the transaction to which transactionLink
+        // points. manager is passed to enable using TransactionManager's features.
+        function loadRestOfTheChain(transactionLink, manager) {
+            function returnDiffObject() {
+                // process the chain so that it contains transaction objects, not JSON objects:
+                for (var i = 0; i < foreignTransactionChain.length; ++i) {
+                    foreignTransactionChain[i] = Transaction.fromJSON(foreignTransactionChain[i]);
                 }
-
-                // this function adds a given transaction to the resultant chain and goes on to the
-                // next transaction in the chain
-                function addTransactionAndProceed(transaction) {
-                    // set the timestamp of the read transaction
-                    return getTimeStamp().then(function (timestamp) {
-                        if (transaction.timestamp == null) {
-                            transaction.timestamp = timestamp;
-                        }
-
-                        foreignTransactionChain.unshift(transaction);
-                        if (transaction.previousTransactionLink != null)
-                            return loadRestOfTheChain(new SharedFile(encode(transaction.previousTransactionLink)), manager);
-                        else
-                            return returnDiffObject();
-                    });
-                }
-
-                // retrieve the linked transaction
-                return transactionLink.retrieve().then(function (data) {
-                    var transactionJsonText = decode(data);
-                    currentTransaction = JSON.parse(transactionJsonText);
-
-                    // check the corresponding transaction in user's chain
-                    var t = manager.currentChain[currentTransaction.index];
-                    if (t == null) {
-                        // transaction does not exist in user's chain, we need to proceed to the next transaction
-                        return addTransactionAndProceed(currentTransaction);
-                    } else {
-                        if (t.h == currentTransaction.h) {
-                            // TODO: direct comparison of transactions
-                            // hashes are the same, so (most likely) the transactions are the same
-                            return returnDiffObject()
-                        } else {
-                            // transactions are different, we need to proceed to the next transaction
-                            ownTransactionChain.push(t);
-                            return addTransactionAndProceed(currentTransaction);
-                        }
-                    }
-                }, function () {
-                    // TODO: retrieval was unsuccessful
-                    return Promise.resolve({own: [], foreign: [], indexOfFirstDifference: 0});
+                console.log2(lastTransactionLink.owned_by, manager.userId, {
+                    foreign: foreignTransactionChain, own: ownTransactionChain,
+                    indexOfFirstDifference: manager.currentChain.length - ownTransactionChain.length
+                });
+                return Promise.resolve({
+                    foreign: foreignTransactionChain, own: ownTransactionChain,
+                    indexOfFirstDifference: manager.currentChain.length - ownTransactionChain.length
                 });
             }
 
+            // this function adds a given transaction to the resultant chain and goes on to the
+            // next transaction in the chain
+            function addTransactionAndProceed(transaction) {
+                // set the timestamp of the read transaction
+                if (transaction.timestamp == null) {
+                    transaction.timestamp = timestamp;
+                }
+
+                foreignTransactionChain.unshift(transaction);
+                if (transaction.previousTransactionLink != null)
+                    return loadRestOfTheChain(new SharedFile(encode(transaction.previousTransactionLink)), manager);
+                else
+                    return returnDiffObject();
+            }
+
+            // retrieve the linked transaction
+            return transactionLink.retrieve().then(function (data) {
+                var transactionJsonText = decode(data);
+                currentTransaction = JSON.parse(transactionJsonText);
+
+                // if this is the first call to our recursive function
+                if (transactionLink == lastTransactionLink) {
+                    // if the foreign chain is shorter than ours:
+                    for (var i = currentTransaction.index+1; i < manager.currentChain.length; ++i) {
+                        ownTransactionChain.push(manager.currentChain[i]);
+                    }
+                }
+
+                // check the corresponding transaction in user's chain
+                var t = manager.currentChain[currentTransaction.index];
+                if (t == null) {
+                    // transaction does not exist in user's chain, we need to proceed to the next transaction
+                    return addTransactionAndProceed(currentTransaction);
+                } else {
+                    if (t.h == currentTransaction.h) {
+                        // TODO: direct comparison of transactions
+                        // hashes are the same, so (most likely) the transactions are the same
+                        return returnDiffObject()
+                    } else {
+                        // transactions are different, we need to proceed to the next transaction
+                        ownTransactionChain.push(t);
+                        return addTransactionAndProceed(currentTransaction);
+                    }
+                }
+            }, function () {
+                // TODO: retrieval was unsuccessful
+                console.log2(lastTransactionLink.owned_by, manager.userId, {own: [], foreign: [], indexOfFirstDifference: 0});
+                return Promise.resolve({own: [], foreign: [], indexOfFirstDifference: 0});
+            });
+        }
+
+        return getTimeStamp().then(function (stamp) {
+            timestamp = stamp;
+        }).then(function() {
             // call the recursive method
             return loadRestOfTheChain(lastTransactionLink, manager);
         });
@@ -566,9 +606,11 @@ var EventInfo = function(eventCode, eventParams, eventId) {
     this.params = eventParams;
     this.id = eventId;
     this.condition = function(transactionChain, currentStateOfDb) {
+        return true;
         throw new AbstractMethodCallError("Called an abstract method", "EventInfo");
     };
     this.applyOn = function(dbState) {
+        return;
         throw new AbstractMethodCallError("Called an abstract method", "EventInfo");
     }
 };
@@ -754,67 +796,70 @@ DB.makeDBChain = function(previousDB, transactions) {
 
 // Event types:
 var TaskCreatedEvent = function(taskName, id) {
+    EventInfo.call(this);
     this.code = "task_create";
     this.params = {name: taskName};
     this.id = id;
-    this.condition = function(transactionChain, dbState) {
-        var event = this;
-        return (dbState.tasks.findIndex(function(t) { return t.id == event.id; }) == -1);
-    };
-    this.applyOn = function(db) {
-        db.tasks.push(new Task(this.params.name, this.id));
-    };
+    // this.condition = function(transactionChain, dbState) {
+    //     var event = this;
+    //     return (dbState.tasks.findIndex(function(t) { return t.id == event.id; }) == -1);
+    // };
+    // this.applyOn = function(db) {
+    //     db.tasks.push(new Task(this.params.name, this.id));
+    // };
 };
 TaskCreatedEvent.prototype = EventInfo.prototype;
 
 var TaskCompletedEvent = function(userId, taskId) {
+    EventInfo.call(this);
     this.code = "task_complete";
     this.params = {userId: userId, taskId: taskId};
-    this.applyOn = function(db) {
-        var event = this;
-        var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
-        if (taskIndex == -1)
-            throw new NotFoundError("The task cannot be completed, since it does not exist");
-        else {
-            if (db.tasks[taskIndex].completedBy != null) {
-                throw new Error("the task has already been completed");
-            } else {
-                db.tasks[taskIndex].completedBy = this.params.userId;
-            }
-        }
-    };
-
-    this.condition = function(chain, db) {
-        var event = this;
-        var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
-        if (taskIndex == -1)
-            return false;
-        else {
-            return db.tasks[taskIndex].completedBy == null;
-        }
-    };
+    // this.applyOn = function(db) {
+    //     var event = this;
+    //     var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
+    //     if (taskIndex == -1)
+    //         throw new NotFoundError("The task cannot be completed, since it does not exist");
+    //     else {
+    //         if (db.tasks[taskIndex].completedBy != null) {
+    //             throw new Error("the task has already been completed");
+    //         } else {
+    //             db.tasks[taskIndex].completedBy = this.params.userId;
+    //         }
+    //     }
+    // };
+    //
+    // this.condition = function(chain, db) {
+    //     var event = this;
+    //     var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
+    //     if (taskIndex == -1)
+    //         return false;
+    //     else {
+    //         return db.tasks[taskIndex].completedBy == null;
+    //     }
+    // };
 };
 TaskCompletedEvent.prototype = EventInfo.prototype;
 
 
 var TaskRemovedEvent = function(taskId) {
+    EventInfo.call(this);
     this.code = "task_remove";
     this.params = {id: taskId};
-    this.applyOn = function(db) {
-        var event = this;
-        var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
-        if (taskIndex == -1)
-            throw new NotFoundError("The task cannot be removed, since it does not exist");
-        else {
-            db.tasks.splice(taskIndex,1);
-        }
-    };
-
-    this.condition = function(chain, db) {
-        var event = this;
-        var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
-        return taskIndex != -1;
-    };
+    // this.applyOn = function(db) {
+    //     var event = this;
+    //     var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
+    //     if (taskIndex == -1)
+    //         throw new NotFoundError("The task cannot be removed, since it does not exist");
+    //     else {
+    //         db.tasks.splice(taskIndex,1);
+    //     }
+    // };
+    //
+    // this.condition = function(chain, db) {
+    //     var event = this;
+    //     var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
+    //     return taskIndex != -1;
+    // };
 };
 TaskRemovedEvent.prototype = EventInfo.prototype;
 

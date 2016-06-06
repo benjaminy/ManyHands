@@ -8,7 +8,14 @@
     <script>
         function sfsTest() {
             var sfs = new SimpleFileServer("user1");
-            sfs.uploadTextFile("test","testFile.txt");
+            return sfs.uploadTextFile("test2","a/testFile.txt").then(function() {
+                return sfs.shareFile("a/testFile.txt")
+            }).then(function(accessor) {
+                return accessor.retrieve();
+            }).then(function(contents) {
+                alert(decode(contents));
+                return sfs.removeFile("a/testFile.txt");
+            });
         }
 
         function getDropbox() {
