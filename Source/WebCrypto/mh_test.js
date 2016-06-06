@@ -24,6 +24,8 @@ function test01()
         return inviteAccept( invite, bob );
     } ).then( function( accept ) {
         return inviteAddToTeam( accept, alice );
+    } ).then( function() {
+        return inviteJoinTeam( invite, bob );
     } ).then( function( blah ) {
         log( 'Finally', blah );
     } )
