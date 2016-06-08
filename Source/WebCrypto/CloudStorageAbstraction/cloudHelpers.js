@@ -54,7 +54,7 @@ function initializeVersionFile(cloudStorage, pathToVersionFile) {
 
 // This function will run continuously in the background to check if the give versionFile has been updated
 // It will check every <timeBetweenChecks> milliseconds, and call <callbackOnUpdate> whenever the version
-// changed.
+// changedCount.
 function startUpdateCheck(versionFileAccessor, timeBetweenChecks, callbackOnUpdate, lastVersion) {
     if (typeof lastVersion != "string")
         lastVersion = "-1";

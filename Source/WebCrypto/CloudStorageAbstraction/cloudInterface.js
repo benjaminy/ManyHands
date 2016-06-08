@@ -2,8 +2,8 @@
 // http://stackoverflow.com/a/12965194/2946480
 
 longToByteArray = function(/*long*/long) {
-    // we want to represent the input as a 8-bytes array
-    var byteArray = [0, 0, 0, 0, 0, 0, 0, 0];
+    // we want to represent the input as an 8-bytes array
+    var byteArray = new Uint8Array(8);
 
     for ( var index = 0; index < byteArray.length; index ++ ) {
         var byte = long & 0xff;
@@ -15,6 +15,8 @@ longToByteArray = function(/*long*/long) {
 };
 
 byteArrayToLong = function(/*byte[]*/byteArray) {
+    if (byteArray instanceof ArrayBuffer)
+        byteArray = new Uint8Array(byteArray);
     var value = 0;
     for ( var i = byteArray.length - 1; i >= 0; i--) {
         value = (value * 256) + byteArray[i];
@@ -23,11 +25,26 @@ byteArrayToLong = function(/*byte[]*/byteArray) {
     return value;
 };
 
+function fromUint8Array(uint8array) {
+    var result = [];
+    for (var i = 0; i < uint8array.length; ++i) {
+        result[i] = uint8array[i];
+    }
+}
+
+function toUint8Array(array) {
+    var result = new Uint8Array(array.length);
+    for (var i = 0; i < array.length; ++i) {
+        result[i] = array[i];
+    }
+}
+
 //TODO: bring those back soon
-//var encoding = 'utf-8';
-//var [ encode, decode ] = encodeDecodeFunctions( encoding );
+var encoding = 'utf-8';
+var [ encode, decode ] = encodeDecodeFunctions( encoding );
 
 // This function encodes an ASCII string into a byte array
+/*
 function encode(string) {
     var bytes = [];
     for (var i = 0; i < string.length; ++i) {
@@ -43,7 +60,7 @@ function decode(bytes) {
         string += String.fromCharCode(bytes[i]);
     }
     return string;
-}
+}*/
 
 // Interface which requires a given object to be convertible to and from byte arrays
 var Bytable = function() {
@@ -85,7 +102,7 @@ var SharedFile = function(cloudStorage, accessData, path) {
     // checking if the received parameters are just a byte array, or
     // cloudStorage name and accessData
 
-    // if we received just one parameter, we need to derive cloudStorage and accessData from
+    // if we received just one parameter, we need to derive cloudStorage, accessData and path from
     // the first parameter which is a byte array
     if (typeof accessData == 'undefined') {
         var bytes = cloudStorage;
@@ -110,9 +127,9 @@ var SharedFile = function(cloudStorage, accessData, path) {
     /// using the SharedFile() constructing function
     this.encode = function () {
         var cloudName = findCloudStorageName(this.cloudStorage);
-        return (longToByteArray(cloudName.length)).concat(
-        (encode(cloudName))).concat(longToByteArray(this.path.length)).
-        concat(encode(this.path)).concat((accessData.toByteArray()));
+        return mergeUint8Arrays(longToByteArray(cloudName.length),
+        encode(cloudName),longToByteArray(this.path.length),
+        encode(this.path),accessData.toByteArray());
     };
 };
 

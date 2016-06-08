@@ -32,3 +32,24 @@ function arrayUnique(array) {
 function mergeUnique(arr1, arr2) {
     return arrayUnique(arr1.concat(arr2));
 }
+
+function mergeUint8Arrays(arrays) {
+    var input;
+    if (!(arrays instanceof Array)) {
+        input = arguments;
+    } else {
+        input = arrays;
+    }
+    var size = 0;
+    for (var i = 0; i < input.length; ++i) {
+        size += input[i].length;
+    }
+    var res = new Uint8Array(size);
+    var curr = 0;
+    for (var i = 0; i < input.length; ++i) {
+        for (var j = 0; j < input[i].length; ++j, ++curr) {
+            res[curr] = input[i][j];
+        }
+    }
+    return res;
+}
