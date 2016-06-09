@@ -1,12 +1,3 @@
-// TODO: I redesigned the transaction system slightly. Since I was concerned for
-// using the correct timestamp in the Transaction file (the timestamp for when the
-// link to the last Transaction has been made available). Instead of current system
-// I will use an additional file that stores timestamps of transactions.
-// File system, S means shared:
-// t1 (S), t2 (S), t3 (S), t4 (S), ... (S), timeStamps (S), lastTransactionNumber
-// If we decide that downloading the timeStamps file all the time is inefficient,
-// we can use the approach with the pointer to the next file.
-
 // DEBUG:
 console.log2 = function() {
     var args = [];
@@ -37,63 +28,6 @@ function loadUsersOnTheTeam(cloudStorage, teamCatalog) {
     return Promise.resolve([]);
 }
 
-var Lock = function() {
-    this.locked = false;
-    this.waitingList = [];
-    this.unlock = function() {
-        console.log2("unlock");
-        var thisLock = this;
-        if (this.waitingList.length > 0) {
-            var action = this.waitingList[0];
-            var result = action.method();
-            // check if result is a promise
-            if (result.then != null) {
-                result.then(function(r) {
-                    thisLock.unlock();
-                    action.resolve(r);
-                }, function(r) {
-                    thisLock.unlock();
-                    action.reject(r);
-                });
-            } else {
-                this.unlock();
-                action.resolve(result);
-            }
-            this.waitingList.splice(0,1);
-        } else {
-            this.locked = false;
-        }
-    };
-
-    this.lock = function(method) {
-        var thisLock = this;
-        if (!this.locked) {
-            this.locked = true;
-            var result = method();
-            // check if result is a promise
-            if (result.then != null) {
-                return result.then(function(r) {
-                    thisLock.unlock();
-                    return Promise.resolve(r);
-                }, function(r) {
-                    thisLock.unlock();
-                    return Promise.reject(r);
-                });
-            } else {
-                this.unlock();
-                return result;
-            }
-        } else {
-            return new Promise(function(resolve, reject) {
-                thisLock.waitingList.push({resolve: resolve, reject: reject, method: method});
-            });
-        }
-    };
-};
-
-
-// Class created to eliminate the need to pass cloudStorage and teamCatalog to functions working
-// on the transaction system
 var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
     // properties used to access the data of a given team - cloud handle and the link to the team
     // catalog:
@@ -114,6 +48,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
 
     // States of the database
     this.currentDBs = [];
+    
+    this.linkFactory = new SharedFileFactory();
 
     this.lock = new Lock();
 
@@ -179,10 +115,7 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
         // those variables will hold the state of the DB before the last change
         var previousDB = newDB.clone();
         var previousChain = newChain.slice(0);
-
-        // TODO: remove this line when function seems to work
-        //transactions = transactions.slice(0);
-
+        
         for (var i = 0; i < transactions.length; ++i) {
             var conditionsMet = transactions[i].checkConditionsForEvents(newChain, newDB);
             if (conditionsMet) {
@@ -279,7 +212,7 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             return t1.compareChronology(t2);
         });
 
-        //manager.resolveConflicts(mergedTransactions, diff.indexOfFirstDifference);
+        manager.resolveConflicts(mergedTransactions, diff.indexOfFirstDifference);
 
         if (mergedTransactions.length > 0)
             mergedTransactions[0].previousTransactionLink = null;
@@ -305,8 +238,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
         var uploadAfter = diff.indexOfFirstDifference < manager.currentChain.length ?
             manager.currentChain[diff.indexOfFirstDifference].previousTransactionLink :
             manager.currentLastTransactionLink;
-        if (uploadAfter != null && !(uploadAfter instanceof SharedFile))
-            uploadAfter = new SharedFile(encode(uploadAfter));
+        if (uploadAfter != null && !(uploadAfter instanceof Link))
+            uploadAfter = manager.linkFactory.createFromBytes(encodeAscii(uploadAfter));
         var previousLastTransaction = manager.currentLastTransactionLink;
 
         return uploadNext(0, uploadAfter).then(function (lastTransactionAccessor) {
@@ -332,12 +265,12 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             if (removalPromises == null)
                 removalPromises = [];
             return from.retrieve().then(function (t_contents) {
-                var t = Transaction.fromString(decode(t_contents));
+                var t = Transaction.fromString(decodeAscii(t_contents));
                 removalPromises.push(manager.cloudStorage.removeFile(from.path));
                 if (t.previousTransactionLink == null)
                     return Promise.all(removalPromises);
-                var nextToRemoveEncoded = encode(t.previousTransactionLink);
-                var nextToRemove = new SharedFile(nextToRemoveEncoded);
+                var nextToRemoveEncoded = encodeAscii(t.previousTransactionLink);
+                var nextToRemove = manager.linkFactory.createFromBytes(nextToRemoveEncoded);
                 if (to != null && nextToRemove.path == to.path) {
                     return Promise.all(removalPromises);
                 } else {
@@ -352,20 +285,14 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
         var manager = this;
         var linksFileResources = {};
         manager.currentLastTransactionLink = newLastTransaction;
-        return readMultipleSharedResourcesFromFile(manager.cloudStorage, manager.teamCatalog + "/links")
-            .then(function (resources) {
-                linksFileResources = resources;
-                linksFileResources["latestTransaction"] = newLastTransaction;
-                return shareMultipleResources(linksFileResources, manager.teamCatalog + "/links", manager.cloudStorage);
-            }, function (accessor) {
-                linksFileResources["latestTransaction"] = newLastTransaction;
-                return shareMultipleResources(linksFileResources, manager.teamCatalog + "/links", manager.cloudStorage);
-            }).then(function () {
+        return manager.cloudStorage.uploadFile(newLastTransaction.encode(), manager.teamCatalog + "/last_transact")
+            .then(function () {
                 return manager.ownVersionFile.advance();
             });
     };
 
     this.loadTransactionChain = function (lastTransactionLink, setTimestamps) {
+        var manager = this;
         var timestamp = null;
         return this.lock.lock(function() {
             // this variable will hold the result
@@ -378,7 +305,7 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             function retrieveRestOfTheChain(transactionLink, transactionChain) {
                 return transactionLink.retrieve().then(function (transactionData) {
                     // Convert the file contents to a Transaction object
-                    var transactionJsonText = decode(transactionData);
+                    var transactionJsonText = decodeAscii(transactionData);
                     var t = Transaction.fromString(transactionJsonText);
                     // set up the timestamp of this transaction
                     var promise;
@@ -396,7 +323,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                         transactionChain.unshift(t);
                         // If there is more transactions in this chain fetch them
                         if (t.previousTransactionLink != null) {
-                            return retrieveRestOfTheChain(new SharedFile(encode(t.previousTransactionLink)), transactionChain);
+                            return retrieveRestOfTheChain(manager.linkFactory.createFromBytes(
+                                encodeAscii(t.previousTransactionLink)), transactionChain);
                         } else {
                             // if this is the last transaction, the chain may be returned
                             return Promise.resolve(transactionChain);
@@ -421,8 +349,7 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
     };
 
     // This method pulls the transaction chain of a different user using the link to the latest
-    // transaction in that user's chain (an instance of SharedFile). Returned is a promise with
-    // the chain.
+    // transaction in that user's chain. Returned is a promise with the chain.
     this.loadForeignTransactionChain = function(lastTransactionLink) {
         return this.loadTransactionChain(lastTransactionLink, true);
     };
@@ -472,14 +399,15 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
 
                 foreignTransactionChain.unshift(transaction);
                 if (transaction.previousTransactionLink != null)
-                    return loadRestOfTheChain(new SharedFile(encode(transaction.previousTransactionLink)), manager);
+                    return loadRestOfTheChain(manager.linkFactory.createFromBytes(
+                        encodeAscii(transaction.previousTransactionLink)), manager);
                 else
                     return returnDiffObject();
             }
 
             // retrieve the linked transaction
             return transactionLink.retrieve().then(function (data) {
-                var transactionJsonText = decode(data);
+                var transactionJsonText = decodeAscii(data);
                 currentTransaction = JSON.parse(transactionJsonText);
 
                 // if this is the first call to our recursive function
@@ -541,17 +469,15 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             var filename;
             return manager.findAFreeTransactionFileName().then(function(path) {
                 filename = path;
-                return manager.cloudStorage.uploadTextFile(t.exportToString(), filename)
-            }).then(function(){
-                return manager.cloudStorage.shareFile(filename);
+                return manager.linkFactory.uploadAndShare(manager.cloudStorage, filename, t.exportToString());
             });
         }
 
 
         if (linkToTransactionBefore != null) {
-            transaction.previousTransactionLink = decode(linkToTransactionBefore.encode());
+            transaction.previousTransactionLink = decodeAscii(linkToTransactionBefore.encode());
             return linkToTransactionBefore.retrieve().then(function (transactionContents) {
-                var contentsStringified = decode(transactionContents);
+                var contentsStringified = decodeAscii(transactionContents);
                 var t = Transaction.fromString(contentsStringified);
                 transaction.index = t.index + 1;
                 if (transaction.initialIndex == null)
@@ -577,26 +503,17 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             transaction.owner = manager.userId;
                 var lastTransactionNumber;
                 var linksFileResources = {};
-                // first we need to fetch the current latest transaction link, since it will be previous
-                // to the newly uploaded transaction
-                return readMultipleSharedResourcesFromFile(manager.cloudStorage, manager.teamCatalog + "/links")
-                    .then(function (resources) {
-                        linksFileResources = resources;
-                        var linkToLastTransaction = resources["latestTransaction"];
-                        return manager.uploadTransactionAfter(transaction, linkToLastTransaction);
-                    }, function () {
-                        return manager.uploadTransactionAfter(transaction, null);
-                    }).then(function (accessor) {
-                        manager.currentChain.push(transaction);
-                        var newDBState = (manager.currentDBs.length > 0 ?
-                            manager.currentDBs[manager.currentDBs.length - 1].clone() : new DB());
-                        transaction.applyOn(newDBState);
-                        manager.currentDBs.push(newDBState);
-                        linksFileResources["latestTransaction"] = accessor;
-                        return shareMultipleResources(linksFileResources, manager.teamCatalog + "/links", manager.cloudStorage);
-                    }).then(function () {
-                        return Promise.resolve();
-                    });
+
+                return manager.uploadTransactionAfter(transaction, manager.currentLastTransactionLink).then(function (accessor) {
+                    manager.currentChain.push(transaction);
+                    var newDBState = (manager.currentDBs.length > 0 ?
+                        manager.currentDBs[manager.currentDBs.length - 1].clone() : new DB());
+                    transaction.applyOn(newDBState);
+                    manager.currentDBs.push(newDBState);
+                    return manager.setNewLastTransaction(accessor);
+                }).then(function () {
+                    return Promise.resolve();
+                });
         });
     };
 };
@@ -606,11 +523,9 @@ var EventInfo = function(eventCode, eventParams, eventId) {
     this.params = eventParams;
     this.id = eventId;
     this.condition = function(transactionChain, currentStateOfDb) {
-        return true;
         throw new AbstractMethodCallError("Called an abstract method", "EventInfo");
     };
     this.applyOn = function(dbState) {
-        return;
         throw new AbstractMethodCallError("Called an abstract method", "EventInfo");
     }
 };
@@ -741,6 +656,12 @@ var Transaction = function(events) {
     };
 };
 
+Transaction.retrieveLast = function(lastPointer) {
+    return lastPointer.retrieve().then(function(fileContents) {
+        return Promise.resolve(Transaction.fromString(decodeA(fileContents)));
+    });
+};
+
 Transaction.fromString = function(string){
     var transactionJson = JSON.parse(string);
     return Transaction.fromJSON(transactionJson);
@@ -800,13 +721,13 @@ var TaskCreatedEvent = function(taskName, id) {
     this.code = "task_create";
     this.params = {name: taskName};
     this.id = id;
-    // this.condition = function(transactionChain, dbState) {
-    //     var event = this;
-    //     return (dbState.tasks.findIndex(function(t) { return t.id == event.id; }) == -1);
-    // };
-    // this.applyOn = function(db) {
-    //     db.tasks.push(new Task(this.params.name, this.id));
-    // };
+    this.condition = function(transactionChain, dbState) {
+        var event = this;
+        return (dbState.tasks.findIndex(function(t) { return t.id == event.id; }) == -1);
+    };
+    this.applyOn = function(db) {
+        db.tasks.push(new Task(this.params.name, this.id));
+    };
 };
 TaskCreatedEvent.prototype = EventInfo.prototype;
 
@@ -814,29 +735,29 @@ var TaskCompletedEvent = function(userId, taskId) {
     EventInfo.call(this);
     this.code = "task_complete";
     this.params = {userId: userId, taskId: taskId};
-    // this.applyOn = function(db) {
-    //     var event = this;
-    //     var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
-    //     if (taskIndex == -1)
-    //         throw new NotFoundError("The task cannot be completed, since it does not exist");
-    //     else {
-    //         if (db.tasks[taskIndex].completedBy != null) {
-    //             throw new Error("the task has already been completed");
-    //         } else {
-    //             db.tasks[taskIndex].completedBy = this.params.userId;
-    //         }
-    //     }
-    // };
-    //
-    // this.condition = function(chain, db) {
-    //     var event = this;
-    //     var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
-    //     if (taskIndex == -1)
-    //         return false;
-    //     else {
-    //         return db.tasks[taskIndex].completedBy == null;
-    //     }
-    // };
+    this.applyOn = function(db) {
+        var event = this;
+        var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
+        if (taskIndex == -1)
+            throw new NotFoundError("The task cannot be completed, since it does not exist");
+        else {
+            if (db.tasks[taskIndex].completedBy != null) {
+                throw new Error("the task has already been completed");
+            } else {
+                db.tasks[taskIndex].completedBy = this.params.userId;
+            }
+        }
+    };
+    
+    this.condition = function(chain, db) {
+        var event = this;
+        var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
+        if (taskIndex == -1)
+            return false;
+        else {
+            return db.tasks[taskIndex].completedBy == null;
+        }
+    };
 };
 TaskCompletedEvent.prototype = EventInfo.prototype;
 
@@ -845,21 +766,21 @@ var TaskRemovedEvent = function(taskId) {
     EventInfo.call(this);
     this.code = "task_remove";
     this.params = {id: taskId};
-    // this.applyOn = function(db) {
-    //     var event = this;
-    //     var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
-    //     if (taskIndex == -1)
-    //         throw new NotFoundError("The task cannot be removed, since it does not exist");
-    //     else {
-    //         db.tasks.splice(taskIndex,1);
-    //     }
-    // };
-    //
-    // this.condition = function(chain, db) {
-    //     var event = this;
-    //     var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
-    //     return taskIndex != -1;
-    // };
+    this.applyOn = function(db) {
+        var event = this;
+        var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
+        if (taskIndex == -1)
+            throw new NotFoundError("The task cannot be removed, since it does not exist");
+        else {
+            db.tasks.splice(taskIndex,1);
+        }
+    };
+    
+    this.condition = function(chain, db) {
+        var event = this;
+        var taskIndex = db.tasks.findIndex(function(t) { return t.id == event.params.taskId; });
+        return taskIndex != -1;
+    };
 };
 TaskRemovedEvent.prototype = EventInfo.prototype;
 
@@ -888,4 +809,46 @@ var Task = function(name, id) {
     this.name = name;
     this.id = id;
     this.completedBy = null;
+};
+
+var EncryptedTransaction = function(cipherText, iv) {
+    this.cipherText = cipherText;
+    this.iv = iv;
+
+    this.decrypt = function(aes_key) {
+        return decrypt_aes_cbc(this.iv, aes_key, this.cipherText).then(function(plainText) {
+            var byte_array = new Uint8Array(plainText);
+            return Promise.resolve(Transaction.fromString(decodeAscii(byte_array)));
+        });
+    };
+
+    this.saveToFile = function(cloud, path) {
+        var cipherTextArray = new Uint8Array(this.cipherText);
+        return cloud.uploadFile(mergeUint8Arrays(this.iv, cipherTextArray), path);
+    }
+};
+
+EncryptedTransaction.fromFile = function (cloud, path) {
+    return cloud.downloadFile(path).then(function(fileContents) {
+        var iv = fileContents.slice(0, 16);
+        var cipher = fileContents.slice(16);
+        return Promise.resolve(new EncryptedTransaction(cipher, iv));
+    });
+};
+
+EncryptedTransaction.decryptFromFile = function (cloud, path, aes_key) {
+    return EncryptedTransaction.fromFile(cloud, path).then(function(enc_t) {
+        return enc_t.decrypt(aes_key);
+    });
+};
+
+EncryptedTransaction.make = function (transaction, aes_key, iv = null) {
+    if (iv == null) {
+        var newIv = new Uint8Array(16);
+        window.crypto.getRandomValues(newIv);
+        iv = newIv;
+    }
+    return encrypt_aes_cbc(iv, aes_key, encodeAscii(transaction.exportToString())).then(function(cipherText){
+        return Promise.resolve(new EncryptedTransaction(cipherText,iv));
+    });
 };

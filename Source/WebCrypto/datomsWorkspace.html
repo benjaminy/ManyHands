@@ -6,13 +6,37 @@
     <scriptsss src="//cdn.jsdelivr.net/bluebird/3.4.0/bluebird.js"></scriptsss>
     <script type="text/javascript" src="murmurHash3.min.js" ></script>
     <script type="text/javascript" src="mh_utilities.js" ></script>
+    <script type="text/javascript" src="crypto_preliminaries.js" ></script>
     <script type="text/javascript" src="utils.js" ></script>
     <script type="text/javascript" src="CloudStorageAbstraction/cloudInterface.js" ></script>
     <script type="text/javascript" src="CloudStorageAbstraction/cloudHelpers.js" ></script>
     <script type="text/javascript" src="CloudStorageAbstraction/dropboxImplementation.js" ></script>
     <script type="text/javascript" src="CloudStorageAbstraction/simpleFileServerImplementation.js" ></script>
+    <script type="text/javascript" src="CloudStorageAbstraction/fileLinks.js" ></script>
     <script type="text/javascript" src="transactions.js" ></script>
     <script>
+        var common_key;
+        generateRandomAesKey().then(function(key) {
+            common_key = key;
+        });
+
+        function testCryptoT() {
+            var k;
+            var iv;
+            var t1 = new Transaction([new TaskCreatedEvent("Mowed the lawn", 1)]);
+            return generateRandomAesKey().then(function(key) {
+                k = key;
+                return EncryptedTransaction.make(t1, k);
+            }).then(function (enc_t) {
+                iv = enc_t.iv;
+                console.log(decodeAscii(enc_t.cipherText));
+                return enc_t.saveToFile(cloud, "stuff/enc_T1");
+            }).then(function () {
+                return EncryptedTransaction.decryptFromFile(cloud, "stuff/enc_T1", k);
+            }).then(function(t) {
+                console.log(t);
+            });
+        }
         function initVars2() {
             var manager1, manager2, manager3;
             var p = [];
@@ -46,21 +70,23 @@
             return copy;
         }
 
-        //var cloud = new SimpleFileServer('user2');
-        var cloud = new Dropbox("rwovrjf7g18ya3b");
+        var cloud = new SimpleFileServer('user2');
+        //var cloud = new Dropbox("rwovrjf7g18ya3b");
         cloud.authenticate("ecJ2oWRI0wUAAAAAAAABN9fb2Hx2nyDqp-4BbaVK6p3kLVZgZM3M1NDcwCtl-2aV");
 
         function fullTest() {
             var manager1, manager2, manager3;
-            return prepareTeams().then(function() {
-                var p = [];
-                manager1 = new TransactionManager(cloud, "team1", "1");
-                p[0] = manager1.initialize();
-                manager2 = new TransactionManager(cloud, "team2", "2");
-                p[1] = manager2.initialize();
-                manager3 = new TransactionManager(cloud, "team3", "3");
-                p[2] = manager3.initialize();
-                return Promise.all(p);
+            manager1 = new TransactionManager(cloud, "team1", "1");
+            manager2 = new TransactionManager(cloud, "team2", "2");
+            manager3 = new TransactionManager(cloud, "team3", "3");
+            var factory = new EncLinkFactory(common_key);
+            manager1.linkFactory = manager2.linkFactory = manager3.linkFactory = factory;
+            var p = [];
+            p[0] = manager1.initialize();
+            p[1] = manager2.initialize();
+            p[2] = manager3.initialize();
+            Promise.all(p).then(function() {
+                return prepareTeams(manager1,manager2);
             }).then(function() {
                 startUpdateCheck(manager1.ownVersionFile.sharedResourceAccessor,100,function() {cds1(manager2)});
                 startUpdateCheck(manager2.ownVersionFile.sharedResourceAccessor,100,function() {cds2(manager3)});
@@ -69,32 +95,37 @@
                 startUpdateCheck(manager2.ownVersionFile.sharedResourceAccessor,100,function() {cds2(manager1)});
                 startUpdateCheck(manager3.ownVersionFile.sharedResourceAccessor,100,function() {cds3(manager2)});
             });
+            return [manager1, manager2, manager3];
         }
-        function prepareTeams() {
-            var manager1 = new TransactionManager(cloud, "team1", "1");
-            var manager2 = new TransactionManager(cloud, "team2", "2");
+        function prepareTeams(manager1, manager2) {
             Transaction.prototype.clone = function() {
                 return Transaction.fromString(this.exportToString());
             };
-            var t1 = Transaction.fromString(test());
-            var t2 = Transaction.fromString(test());
-            t2.events[0].id = 1234;
-            return manager1.uploadTransactionToChain(t1.clone()).then(function(){
-                return manager1.uploadTransactionToChain(t1.clone());
+            var t1 = new Transaction([new TaskCreatedEvent("Mowed the lawn", 1)]);
+            var t2 = new Transaction([new TaskCreatedEvent("Ate spinach", 2)]);
+            var t3 = new Transaction([new TaskCreatedEvent("Fixed the bugs", 3)]);
+            var t4 = new Transaction([new TaskCreatedEvent("Cooked dinner", 4)]);
+            var t5 = new Transaction([new TaskCreatedEvent("Played video games", 5)]);
+            var t6 = new Transaction([new TaskCompletedEvent(1, 1)]);
+            var t7 = new Transaction([new TaskCompletedEvent(2, 2)]);
+            var t8 = new Transaction([new TaskCompletedEvent(1, 3)]);
+            var t9 = new Transaction([new TaskCompletedEvent(2, 4)]);
+            return manager1.uploadTransactionToChain(t1).then(function(){
+                return manager1.uploadTransactionToChain(t3);
             }).then(function(){
-                return manager1.uploadTransactionToChain(t1.clone());
+                return manager1.uploadTransactionToChain(t6);
             }).then(function(){
-                return manager1.uploadTransactionToChain(t2.clone());
+                return manager1.uploadTransactionToChain(t8);
             }).then(function(){
-                return manager2.uploadTransactionToChain(t1.clone());
+                return manager2.uploadTransactionToChain(t2);
             }).then(function(){
-                return manager2.uploadTransactionToChain(t2.clone());
+                return manager2.uploadTransactionToChain(t4);
             }).then(function(){
-                return manager2.uploadTransactionToChain(t1.clone());
+                return manager2.uploadTransactionToChain(t5);
             }).then(function(){
-                return manager2.uploadTransactionToChain(t2.clone());
+                return manager2.uploadTransactionToChain(t7);
             }).then(function(){
-                return manager2.uploadTransactionToChain(t1.clone());
+                return manager2.uploadTransactionToChain(t9);
             }).then(function() {
                 console.log("uploads finished!");
             });
@@ -124,21 +155,21 @@
         }
 
         function cds1(manager) {
-            return retrieveLastTransaction("team1").then(function(accessor) {
+            return retrieveLastTransaction(manager,"team1").then(function(accessor) {
                 if (accessor != null)
                     accessor.owned_by = 1;
                 return manager.updateFromOtherUser(accessor);
             });
         }
         function cds2(manager) {
-            return retrieveLastTransaction("team2").then(function(accessor) {
+            return retrieveLastTransaction(manager,"team2").then(function(accessor) {
                 if (accessor != null)
                     accessor.owned_by = 2;
                 return manager.updateFromOtherUser(accessor);
             });
         }
         function cds3(manager) {
-            return retrieveLastTransaction("team3").then(function(accessor) {
+            return retrieveLastTransaction(manager,"team3").then(function(accessor) {
                 if (accessor != null)
                     accessor.owned_by = 3;
                 return manager.updateFromOtherUser(accessor);
@@ -173,13 +204,10 @@
             return t.exportToString();
         }
 
-        function retrieveLastTransaction(teamCatalog) {
-            return readMultipleSharedResourcesFromFile(cloud, teamCatalog + "/links").then(function(resources) {
-                console.log(resources["latestTransaction"]);
-                return Promise.resolve(resources["latestTransaction"]);
-            }, function() {
-                return Promise.resolve(null);
-            });
+        function retrieveLastTransaction(caller, teamCatalog) {
+            return cloud.downloadFile(teamCatalog + "/last_transact").then(function(contents) {
+                return Promise.resolve(caller.linkFactory.createFromBytes(contents));
+            }, function() { return Promise.resolve(null); });
         }
 
     </script>

@@ -40,27 +40,30 @@ function toUint8Array(array) {
 }
 
 //TODO: bring those back soon
+/*
 var encoding = 'utf-8';
-var [ encode, decode ] = encodeDecodeFunctions( encoding );
+var [ encodeAscii, decodeAscii ] = encodeDecodeFunctions( encoding );*/
 
 // This function encodes an ASCII string into a byte array
-/*
-function encode(string) {
-    var bytes = [];
+function encodeAscii(string) {
+    var bytes = new Uint8Array(string.length);
     for (var i = 0; i < string.length; ++i) {
-        bytes.push(string.charCodeAt(i));
+        bytes[i] = string.charCodeAt(i);
     }
     return bytes;
 }
 
 // this function decodes an ASCII string from a byte array
-function decode(bytes) {
+function decodeAscii(bytes) {
     var string = "";
     for (var i = 0; i < bytes.length; ++i) {
         string += String.fromCharCode(bytes[i]);
     }
     return string;
-}*/
+}
+
+var encodeA = encodeAscii;
+var decodeA = decodeAscii;
 
 // Interface which requires a given object to be convertible to and from byte arrays
 var Bytable = function() {
@@ -78,14 +81,14 @@ Bytable.fromByteArray = function(byteArray) {
 var BytableString = function(string) {
     this.string = string;
     this.toByteArray = function() {
-        return encode(this.string);
+        return encodeAscii(this.string);
     };
     this.toString = function () {
         return this.string;
     }
 };
 BytableString.fromByteArray = function(byteArray) {
-    return new BytableString(decode(byteArray));
+    return new BytableString(decodeAscii(byteArray));
 };
 
 
@@ -107,9 +110,9 @@ var SharedFile = function(cloudStorage, accessData, path) {
     if (typeof accessData == 'undefined') {
         var bytes = cloudStorage;
         var lengthOfCloudName = byteArrayToLong(bytes.slice(0,8));
-        cloudStorage = cloudStorages[decode(bytes.slice(8,8+lengthOfCloudName))];
+        cloudStorage = cloudStorages[decodeAscii(bytes.slice(8,8+lengthOfCloudName))];
         var lengthOfLink = byteArrayToLong(bytes.slice(8+lengthOfCloudName,16+lengthOfCloudName));
-        path = decode(bytes.slice(16+lengthOfCloudName,16+lengthOfCloudName+lengthOfLink));
+        path = decodeAscii(bytes.slice(16+lengthOfCloudName,16+lengthOfCloudName+lengthOfLink));
         accessData = cloudStorage.sharedDataAccessType.fromByteArray(bytes.slice(16+lengthOfCloudName+lengthOfLink));
     }
 
@@ -128,8 +131,8 @@ var SharedFile = function(cloudStorage, accessData, path) {
     this.encode = function () {
         var cloudName = findCloudStorageName(this.cloudStorage);
         return mergeUint8Arrays(longToByteArray(cloudName.length),
-        encode(cloudName),longToByteArray(this.path.length),
-        encode(this.path),accessData.toByteArray());
+            encodeAscii(cloudName),longToByteArray(this.path.length),
+            encodeAscii(this.path),accessData.toByteArray());
     };
 };
 
@@ -148,7 +151,7 @@ var CloudStorage = function() {
     /// a string
     this.downloadTextFile = function (downloadUrl) {
         return this.downloadFile(downloadUrl).then(function(fileContents){
-            return Promise.resolve(decode(fileContents));
+            return Promise.resolve(decodeAscii(fileContents));
         });
     };
 
@@ -161,7 +164,7 @@ var CloudStorage = function() {
     /// this function uploads a file to a specified url within the cloud. File is created
     /// out of a string
     this.uploadTextFile = function (fileContents, url) {
-        return this.uploadFile(encode(fileContents), url).then(function(result) {
+        return this.uploadFile(encodeAscii(fileContents), url).then(function(result) {
             return Promise.resolve(result);
         });
     };

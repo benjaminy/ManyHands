@@ -45,7 +45,7 @@ var Dropbox = function(appkey) {
                 var httpRequest = new XMLHttpRequest();
                 var onDownloaded = function () {
                     if (httpRequest.status == 200) {
-                        resolve(encode(httpRequest.responseText));
+                        resolve(encodeAscii(httpRequest.responseText));
                     } else {
                         reject();
                     }
@@ -77,7 +77,7 @@ var Dropbox = function(appkey) {
 
                 httpRequest.open("POST", "https://content.dropboxapi.com/1/files_put/auto/" + fileUrl + "?overwrite=true", true);
                 httpRequest.setRequestHeader("Authorization", " Bearer " + accessToken);
-                httpRequest.send(decode(fileContents));
+                httpRequest.send(decodeAscii(fileContents));
             });
         }
         return wrapper(this.accessToken);
@@ -117,7 +117,7 @@ Dropbox.retrieveSharedFile = function(fileUrl) {
 
         var onFileRetrieved = function() {
             if (httpRequest.status == 200) {
-                resolve(encode(httpRequest.response));
+                resolve(encodeAscii(httpRequest.response));
             } else {
                 reject("Download unsuccessful");
             }

@@ -18,6 +18,21 @@ function InputValueError(message) {
 InputValueError.prototype = Object.create(Error.prototype);
 InputValueError.prototype.constructor = InputValueError;
 
+function generateRandomAesKey(length = 256) {
+    return C.generateKey(
+        {
+            name: "AES-CBC",
+            length: length
+        },
+        true,
+        ["encrypt", "decrypt"]
+    ).then(function(key){
+        return Promise.resolve(key);
+    }).catch(function(err){
+        return Promise.reject(new CryptoError("Could not generate AES key"));
+    });
+}
+
 function arrayUnique(array) {
     var a = array.concat();
     for(var i=0; i<a.length; ++i) {
@@ -53,3 +68,56 @@ function mergeUint8Arrays(arrays) {
     }
     return res;
 }
+
+var Lock = function() {
+    this.locked = false;
+    this.waitingList = [];
+    this.unlock = function() {
+        var thisLock = this;
+        if (this.waitingList.length > 0) {
+            var action = this.waitingList[0];
+            var result = action.method();
+            // check if result is a promise
+            if (result.then) {
+                result.then(function(r) {
+                    thisLock.unlock();
+                    action.resolve(r);
+                }, function(r) {
+                    thisLock.unlock();
+                    action.reject(r);
+                });
+            } else {
+                this.unlock();
+                action.resolve(result);
+            }
+            this.waitingList.splice(0,1);
+        } else {
+            this.locked = false;
+        }
+    };
+
+    this.lock = function(method) {
+        var thisLock = this;
+        if (!this.locked) {
+            this.locked = true;
+            var result = method();
+            // check if result is a promise
+            if (result.then) {
+                return result.then(function(r) {
+                    thisLock.unlock();
+                    return Promise.resolve(r);
+                }, function(r) {
+                    thisLock.unlock();
+                    return Promise.reject(r);
+                });
+            } else {
+                this.unlock();
+                return result;
+            }
+        } else {
+            return new Promise(function(resolve, reject) {
+                thisLock.waitingList.push({resolve: resolve, reject: reject, method: method});
+            });
+        }
+    };
+};

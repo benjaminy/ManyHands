@@ -60,7 +60,7 @@ function startUpdateCheck(versionFileAccessor, timeBetweenChecks, callbackOnUpda
         lastVersion = "-1";
     versionFileAccessor.retrieve().then(
         function(versionFileContents) {
-            var contentsStringified = decode(versionFileContents);
+            var contentsStringified = decodeAscii(versionFileContents);
             if (contentsStringified != lastVersion) {
                 callbackOnUpdate();
                 lastVersion = contentsStringified;
@@ -82,7 +82,7 @@ function shareMultipleResources(resources, pathToStore, cloudStorage) {
         // we need to escape the delimiter (\n), since resources are binary data, and might
         // contain "\n" in them
         if (resources[key] != null) {
-            accessFileContents += key + "\n" + decode(resources[key].encode()).
+            accessFileContents += key + "\n" + decodeAscii(resources[key].encode()).
                 replace("\\", "\\\\").replace("\n", "\\n") + "\n";
         }
     }
@@ -120,7 +120,7 @@ function revertEscapeCharacters(escapedString) {
 // values are their accessors).
 function readMultipleSharedResourcesFromAccessor(resourcesAccessor) {
     return resourcesAccessor.retrieve().then(function(accessFileContents) {
-        var contentsStringified = decode(accessFileContents);
+        var contentsStringified = decodeAscii(accessFileContents);
         return Promise.resolve(readMultipleSharedResourcesFromText(contentsStringified));
     });
 }
@@ -131,7 +131,7 @@ function readMultipleSharedResourcesFromText(contentsStringified) {
     for (var i = 0; i < records.length; i+=2) {
         records[i] = revertEscapeCharacters(records[i]);
         records[i+1] = revertEscapeCharacters(records[i+1]);
-        result[records[i]]= new SharedFile(encode(records[i+1]));
+        result[records[i]]= new SharedFile(encodeAscii(records[i+1]));
     }
     return result;
 }
