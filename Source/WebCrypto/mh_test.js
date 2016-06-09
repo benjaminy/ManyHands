@@ -1,8 +1,9 @@
 function test01()
 {
-    var alice = null;
-    var bob = null;
-    var team_id_hack = null;
+    var alice;
+    var bob;
+    var team_id_hack;
+    var step1_pub;
     register( 'alice', 'p' )
     .then( function( _ ) {
         return register( 'bob', 'p' );
@@ -20,12 +21,13 @@ function test01()
     } ).then( function( u ) {
         alice = u;
         return makeInvite( 'bob', team_id_hack, alice );
-    } ).then( function( invite ) {
-        return inviteAccept( invite, bob );
+    } ).then( function( s ) {
+        step1_pub = s;
+        return inviteAccept( step1_pub, bob );
     } ).then( function( accept ) {
         return inviteAddToTeam( accept, alice );
     } ).then( function() {
-        return inviteJoinTeam( invite, bob );
+        return inviteJoinTeam( step1_pub, bob );
     } ).then( function( blah ) {
         log( 'Finally', blah );
     } )

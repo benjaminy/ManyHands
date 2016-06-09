@@ -7,6 +7,9 @@ var signing_salgo = { name: 'ECDSA', hash: { name:'SHA-256' } };
 var pub_enc_algo  = { name: 'ECDH', namedCurve: 'P-521' };
 var sym_enc_algo  = { name: 'AES-CBC', length: 256  };
 
+/* XXX eventually this should not be needed */
+var bad_salt = new Uint8Array( 16 );
+
 function importKeyEncrypt( k )
 { return C.importKey( 'jwk', JSON.parse( k ),  pub_enc_algo, true, [] ); }
 function importKeyDecrypt( k )
@@ -27,6 +30,14 @@ function encrypt_and_sign( e_algo, s_algo, e_key, s_key, d )
     } ).then( function( [ s, m ] ) {
         return P.resolve( typedArrayConcat( s, m ) );
     } ).catch( domToCrypto );
+}
+
+function scramble_id( id, salt )
+{
+    return C.digest( 'SHA-256', typedArrayConcat( encode( id ), salt ) )
+    .then( function( d ) {
+        return P.resolve( bufToHex( d ) );
+    } );
 }
 
 function verify_and_decrypt( e_algo, s_algo, e_key, s_key, d, s_bytes )
@@ -51,7 +62,7 @@ function encrypt_and_sign_ac_ed( e_key, s_key, d, iv )
         e_key, s_key, d );
 }
 
-function verify_and_decrypt_ac_ed( e_key, s_key, iv, d )
+function verify_and_decrypt_ac_ed( e_key, s_key, d, iv )
 {
     return P.all( [ C.exportKey( 'jwk', e_key ), C.exportKey( 'jwk', s_key ) ] )
     .then( function( [ e, s ] ) {

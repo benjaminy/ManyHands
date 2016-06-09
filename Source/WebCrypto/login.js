@@ -102,8 +102,8 @@ function loginCloud( user )
         log( '[Login] Imported public keys' );
         user.encrypt_pair.publicKey = e;
         user.signing_pair.publicKey = v;
-        return verify_and_decrypt_ac_ed( user.login_key, user.signing_pair.publicKey,
-                                         new Uint8Array( 16 ), d );
+        return verify_and_decrypt_ac_ed(
+            user.login_key, user.signing_pair.publicKey, d, bad_salt );
     } ).then( function( d ) {
         log( '[Login] Decrypted decryption key', d );
         return importKeyDecrypt( decode( d ) );
@@ -124,8 +124,8 @@ function loginCloud( user )
         user.main_key = k
         user.salt = salt;
         function decrypt( d )
-        { return verify_and_decrypt_ac_ed( user.main_key, user.signing_pair.publicKey,
-                                           new Uint8Array( 16 ), d ); }
+        { return verify_and_decrypt_ac_ed(
+            user.main_key, user.signing_pair.publicKey, d, bad_salt ); }
         return P.all( [ s, manifest, i ].map( decrypt ) );
     } ).then( function( [ s, manifest, invites ] ) {
         log( '[Login] Decrypted signing key', decode( manifest ), i );
@@ -159,22 +159,21 @@ return function( team_id )
     var download = null
     var bad_salt = new Uint8Array( 16 );
     var team = {};
-    return C.digest(
-        'SHA-256', typedArrayConcat( encode( team_id ), user.salt ) )
+    return scramble_id( team_id, user.salt )
     .then( function( team_dir ) {
-        team.team_dir = team_dir;
+        team.dir = team_dir;
         download = function( [ p, t ] )
         {
             if( !Array.isArray( p ) )
                 p = [ p ];
-            p.unshift( bufToHex( team_dir ) );
+            p.unshift( team.dir );
             p.unshift( 'Teams' );
             return downloadFile( user.cloud_text, p, t );
         }
         return download( [ 'key_team' ] );
     } ).then( function( team_key ) {
         return verify_and_decrypt_ac_ed(
-            user.main_key, user.signing_pair.publicKey, bad_salt, team_key );
+            user.main_key, user.signing_pair.publicKey, team_key, bad_salt );
     } ).then( function( team_key ) {
         return importKeySym( decode( team_key ) );
     } ).then( function( team_key ) {
@@ -201,7 +200,7 @@ return function( team_id )
                            [ user.main_key, teammates_manifest ] ];
         function decrypt( [ k, x ] )
         { return verify_and_decrypt_ac_ed(
-            k, user.signing_pair.publicKey, bad_salt, x ); }
+            k, user.signing_pair.publicKey, x, bad_salt ); }
         return P.all( [ ep, vp ].concat( to_decrypt.map( decrypt ) ) );
     } ).then( function( [ e, v, d, s, user_team_id, data, teammates_manifest ] ) {
         log( '[LoginTeam]',team_id,'Imported and decrypted', new Uint8Array( teammates_manifest ) );
@@ -222,23 +221,6 @@ return function( team_id )
         return P.resolve();
     } )
 }
-}
-
-/* Concatenate team and path */
-function in_team_dir( team, path )
-{
-    var p;
-    if( Array.isArray( path ) )
-    {
-        p = path.slice();
-    }
-    else
-    {
-        p = [ path ];
-    }
-    p.unshift( team );
-    p.unshift( 'Teams' );
-    return p;
 }
 
 function createTeam( team_name, user )
@@ -291,17 +273,16 @@ function createTeam( team_name, user )
               [ user.main_key, encode( team.self_id ), bad_salt ],
               [ user.main_key, encode( '{}' ), bad_salt ] ];
         var promises = to_encrypt.map( encrypt );
-        var team_dir = C.digest(
-            'SHA-256', typedArrayConcat( encode( team_id ), user.salt ) );
-        promises.push( team_dir );
+        promises.push( scramble_id( team_id, user.salt ) );
         return P.all( promises );
     } ).then( function( [ d, s, team_db, manifest, main, self_id, teammates_manifest, team_dir ] ) {
         log( '[TeamCreate] Encrypted keys' );
+        team.dir = team_dir;
         function upload( [ p, c, t ] )
         {
             if( !Array.isArray( p ) )
                 p = [ p ];
-            p.unshift( bufToHex( team_dir ) );
+            p.unshift( team.dir );
             p.unshift( 'Teams' );
             return uploadFile( user.cloud_text, p, c, t );
         }
