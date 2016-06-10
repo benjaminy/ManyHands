@@ -90,14 +90,6 @@ function downloadFile( user, path, isText )
     } );
 }
 
-function uploadFileTo( cloud )
-{
-    return function( path, content, content_type )
-    {
-        return uploadFile( cloud, path, content, content_type );
-    }
-}
-
 function downloadFileFrom( cloud )
 {
     return function( path, text )

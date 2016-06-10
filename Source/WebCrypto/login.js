@@ -60,11 +60,14 @@ function getRegistrationInfo( uid, passwd, user )
         log( '[Login] registration info', registration_info );
         user.login_salt = hexToBuf( registration_info.salt );
         enc_link = hexToBuf( registration_info.encrypted_link );
-        return makeLoginKey( uid, passwd, user.login_salt );
-    } ).then( function( k ) {
-        user.login_key = k;
+        return makeLoginKeys( uid, passwd, user.login_salt );
+    } ).then( function( [ login_sym, login_verify, login_sign ] ) {
+        user.login_sym    = login_sym;
+        user.login_verify = login_verify;
+        user.login_sign   = login_sign;
         log( '[Login] Made login key' );
-        return decrypt_aes_cbc( user.login_salt.slice( 0, 16 ), user.login_key, enc_link );
+        return aes_cbc_ecdsa.verify_then_decrypt_salted(
+            user.login_sym, user.login_verify, enc_link );
     } ).then( function( l ) {
         user.cloud_bits = l;
         user.cloud_text = bufToHex( user.cloud_bits );
@@ -81,8 +84,6 @@ function getRegistrationInfo( uid, passwd, user )
 
 function loginCloud( user )
 {
-    user.encrypt_pair = {};
-    user.signing_pair = {};
     var download = downloadFileFrom( user.cloud_text );
     var ep = download( 'key_encrypt', true );
     var vp = download( 'key_verify' , true );
@@ -100,47 +101,47 @@ function loginCloud( user )
         return p_all_resolve( [ ep, vp ], [ d ] );
     } ).then( function( [ e, v, d ] ) {
         log( '[Login] Imported public keys' );
-        user.encrypt_pair.publicKey = e;
-        user.signing_pair.publicKey = v;
+        user.encrypt_key = e;
+        user.verify_key  = v;
         return verify_and_decrypt_ac_ed(
-            user.login_key, user.signing_pair.publicKey, d, bad_salt );
+            user.login_key, user.verify_key, d, zeros );
     } ).then( function( d ) {
         log( '[Login] Decrypted decryption key', d );
         return importKeyDecrypt( decode( d ) );
     } ).then( function( d ) {
         log( '[Login] Imported decryption key', d );
-        user.encrypt_pair.privateKey = d;
+        user.decrypt_key = d;
         var kp = C.deriveKey(
-            { name: 'ECDH', namedCurve: 'P-521', public: user.encrypt_pair.publicKey },
-            user.encrypt_pair.privateKey,
+            { name: 'ECDH', namedCurve: 'P-521', public: user.encrypt_key },
+            user.decrypt_key,
             sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
         var sp = download( 'key_sign' );
         var salt = download( 'salt' );
         var tp = download( [ 'Teams', 'manifest' ] );
         var ip = download( [ 'Invites', 'manifest' ] );
         return P.all( [ kp, sp, salt, tp, ip ] );
-    } ).then( function( [ k, s, salt, manifest, i ] ) {
-        log( '[Login] Downloaded signing key and derived main key' );
+    } ).then( function( [ k, s, salt, teams_manifest, invites_manifest ] ) {
+        log( '[Login] Downloaded signing key and derived main key', new Uint8Array( teams_manifest ) );
         user.main_key = k
         user.salt = salt;
         function decrypt( d )
         { return verify_and_decrypt_ac_ed(
-            user.main_key, user.signing_pair.publicKey, d, bad_salt ); }
-        return P.all( [ s, manifest, i ].map( decrypt ) );
-    } ).then( function( [ s, manifest, invites ] ) {
-        log( '[Login] Decrypted signing key', decode( manifest ), i );
-        var manifest = JSON.parse( decode( manifest ) );
-        log( '[Login] Team manifest', manifest );
+            user.main_key, user.verify_key, d, zeros ); }
+        return P.all( [ s, teams_manifest, invites_manifest ].map( decrypt ) );
+    } ).then( function( [ s, teams_manifest, invites_manifest ] ) {
+        log( '[Login] Decrypted signing key', decode( teams_manifest ) );
+        var teams_manifest = JSON.parse( decode( teams_manifest ) );
+        log( '[Login] Team manifest', teams_manifest );
         user.teams = {};
-        for( var i in manifest )
+        for( var dir in teams_manifest )
         {
-            user.teams[ manifest[ i ] ] = {};
+            user.teams[ dir ] = { self_id: manifest[ dir ], dir: dir };
         }
-        user.invites = JSON.parse( decode( invites ) );
+        user.invites = JSON.parse( decode( invites_manifest ) );
         return importKeySign( decode( s ) );
     } ).then( function( s ) {
         log( '[Login] Imported signing key', user.teams );
-        user.signing_pair.privateKey = s;
+        user.signing_key = s;
         return P.all( Object.keys( user.teams ).map( loginReadTeam( user ) ) );
     } ).then( function( _ ) {
         log( '[Login] Read teams', user.teams );
@@ -152,28 +153,72 @@ function loginCloud( user )
     } );
 }
 
+/*
+ * Cloud:
+ * -- Teams/
+ *    |-- manifest (encrypted w user key)
+ *    |-- salt     (IVs for encrypting various user files)
+ *    |-- XYZ/
+ *    |   |-- team_key           (encrypted w user key)
+ *    |   |-- salt               (IV for encrypting team_key)
+ *    |   |-- pub/priv key-pairs (not currently used)
+ *    |   |-- Data/
+ *    |   |   |-- ... TBD ... (encrypted w team key)
+ *    |   |-- Teammates/
+ *    |   |   |-- manifest (encrypted w user key)
+ *    |   |   |-- ABC/
+ *    |   |   |   |-- team_key   (encrypted w shared key)
+ *    |   |   |   |-- salt       (IV for encrypting team_key)
+ *    |   |   |-- DEF/
+ *    |   |   |   |-- team_key   (encrypted w shared key)
+ *    |   |   |   |-- salt       (IV for encrypting team_key)
+ *
+ * Notes:
+ * - Team directory names (e.g. XYZ) are randomly chosen when a user
+ *   creates or joins a team.  Teammates can (and generally do) have
+ *   different directory names for the same team.  A user's own team
+ *   directory names are stored in the team manifest.  Teammates'
+ *   directory names are stored in the team DB (for remote fetching).
+ * - Teammate directory names (e.g. ABC, DEF) are randomly chosen when
+ *   a user is added to a team.  Each user's teammate directory can be
+ *   (and generally is) different in each teammate's copy of the team.
+ */
+
+function uploadToTeam( cloud, team )
+{
+return function( [ p, c, t ] )
+{
+    if( !Array.isArray( p ) )
+        p = [ p ];
+    p.unshift( team );
+    p.unshift( 'Teams' );
+    return uploadFile( cloud, p, c, t );
+}
+}
+
+function downloadFromTeam( cloud, team )
+{
+return function( [ p, t ] )
+{
+    if( !Array.isArray( p ) )
+        p = [ p ];
+    p.unshift( team );
+    p.unshift( 'Teams' );
+    return downloadFile( cloud, p, t );
+}
+}
+
 function loginReadTeam( user )
 {
-return function( team_id )
+return function( team_dir )
 {
     var download = null
-    var bad_salt = new Uint8Array( 16 );
-    var team = {};
-    return scramble_id( team_id, user.salt )
-    .then( function( team_dir ) {
-        team.dir = team_dir;
-        download = function( [ p, t ] )
-        {
-            if( !Array.isArray( p ) )
-                p = [ p ];
-            p.unshift( team.dir );
-            p.unshift( 'Teams' );
-            return downloadFile( user.cloud_text, p, t );
-        }
-        return download( [ 'key_team' ] );
-    } ).then( function( team_key ) {
+    var team = user[ team_dir ];
+    return download( [ 'key_team' ] )
+    .then( function( team_key ) {
+        team.main_key_exported = team_key;
         return verify_and_decrypt_ac_ed(
-            user.main_key, user.signing_pair.publicKey, team_key, bad_salt );
+            user.main_key, user.verify_key, team_key, zeros );
     } ).then( function( team_key ) {
         return importKeySym( decode( team_key ) );
     } ).then( function( team_key ) {
@@ -200,7 +245,7 @@ return function( team_id )
                            [ user.main_key, teammates_manifest ] ];
         function decrypt( [ k, x ] )
         { return verify_and_decrypt_ac_ed(
-            k, user.signing_pair.publicKey, x, bad_salt ); }
+            k, user.verify_key, x, zeros ); }
         return P.all( [ ep, vp ].concat( to_decrypt.map( decrypt ) ) );
     } ).then( function( [ e, v, d, s, user_team_id, data, teammates_manifest ] ) {
         log( '[LoginTeam]',team_id,'Imported and decrypted', new Uint8Array( teammates_manifest ) );
@@ -223,89 +268,105 @@ return function( team_id )
 }
 }
 
-function createTeam( team_name, user )
+function initTeamState( team_name, user )
 {
     var team = {
-        name: team_name,
-        salt: getRandomBytes( 16 ),
-        self_id: makeUniqueId( {} ) };
-    var upload = uploadFileTo( user.cloud_text );
-    var team_id = makeUniqueId( user.teams );
-
-    log( '[TeamCreate] Starting', team_name, team_id );
-    var key_gen_promises =
-        [ C.generateKey(  pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] ),
-          C.generateKey( signing_kalgo, true, [ 'sign', 'verify' ] ),
-          C.generateKey(  sym_enc_algo, true, [ 'encrypt', 'decrypt' ] ) ]
-    return P.all( key_gen_promises )
+        name:          team_name,
+        salt:          getRandomBytes( 16 ), /* TODO: make it bigger */
+        dir:           makeUniqueId( user.teams ),
+        self_id:       makeUniqueId( {} ),
+        teammates:     {},
+        db:            db_new() };
+    var team_id = db_new_entity( team.db );
+    var datoms = [ db_build_datom( team_id, 'team:name', team_name ) ];
+    var teammate_id = db_new_entity( team.db );
+    teammate_ds = [ [ 'id',    team.self_id ],
+                    [ 'cloud', user.cloud_text ],
+                    [ 'dir',   team.dir ],
+                    [ 'key',   user.verify_key_exported ] ];
+    datoms = datoms.concat( teammate_ds.map( function( [ a, v ] ) {
+        return db_build_datom( teammate_id, 'teammate:'+a, v ); } ) );
+    db_apply_txn( team.db, db_build_txn( [], datoms ) );
+    user.teams[ team.dir ] = team;
+    function generate( [ a, ops ] ) { return C.generateKey( a, true, ops ); }
+    var keys =
+        [ [  pub_enc_algo, [ 'deriveKey', 'deriveBits' ] ],
+          [ signing_kalgo, [ 'sign', 'verify' ] ],
+          [  sym_enc_algo, [ 'encrypt', 'decrypt' ] ] ];
+    return P.all( keys.map( generate ) )
     .then( function( key_pairs ) {
         log( '[TeamCreate] Generated keys' );
-        [ team.encrypt_pair, team.signing_pair, team.main_key ] = key_pairs;
-        var keys = [ team.encrypt_pair.privateKey, team.encrypt_pair.publicKey,
-                     team.signing_pair.privateKey, team.signing_pair.publicKey,
-                     team.main_key, user.signing_pair.publicKey ];
-        return P.all(
-            keys.map( function( k ) { return C.exportKey( 'jwk', k ) } ) );
+        team.encrypt_key = key_pairs[0].publicKey;
+        team.decrypt_key = key_pairs[0].privateKey;
+        team.verify_key  = key_pairs[1].publicKey;
+        team.signing_key = key_pairs[1].privateKey;
+        team.main_key    = key_pairs[2];
+        function exportKey( k ) { return C.exportKey( 'jwk', k ) }
+        var keys = [ team.encrypt_key, team.decrypt_key,
+                     team.verify_key, team.signing_key, team.main_key ];
+        return P.all( keys.map( exportKey ) );
     } ).then( function( keys ) {
-        log( '[TeamCreate] exported keys' );
-        var bad_salt = new Uint8Array( 16 );
-        var teammates = {}
-        teammates[ team.self_id ] =
-            { uid: user.uid, cloud: user.cloud_text, key: keys[5] };
-        var team_db = { name: team_name, teammates: teammates };
-        /* This loop could be a performance bug, but team creation
-         * should be infrequent, so not urgent */
-        var manifest = [];
-        for( var old_id in user.teams )
-            manifest.push( old_id );
-        manifest.push( team_id );
-        team.encrypt_pair.publicKeyExported = keys[1];
-        team.signing_pair.publicKeyExported = keys[3];
+        team.encrypt_key_exported = keys[0];
+        team.decrypt_key_exported = keys[1];
+        team.verify_key_exported  = keys[2];
+        team.signing_key_exported = keys[3];
+        team.main_key_exported    = keys[4];
+        return P.resolve( team );
+    } );
+}
 
-        function encrypt( [ k, d, s ] )
-        { return encrypt_and_sign_ac_ed( k, user.signing_pair.privateKey, d, s ); }
-        var to_encrypt =
-            [ [ team.main_key, encode( JSON.stringify( keys[0] ) ), bad_salt ],
-              [ team.main_key, encode( JSON.stringify( keys[2] ) ), bad_salt ],
-              [ team.main_key, encode( JSON.stringify( team_db ) ), bad_salt ],
-              [ user.main_key, encode( JSON.stringify( manifest ) ), bad_salt ],
-              [ user.main_key, encode( JSON.stringify( keys[4] ) ), bad_salt ],
-              [ user.main_key, encode( team.self_id ), bad_salt ],
-              [ user.main_key, encode( '{}' ), bad_salt ] ];
-        var promises = to_encrypt.map( encrypt );
-        promises.push( scramble_id( team_id, user.salt ) );
-        return P.all( promises );
-    } ).then( function( [ d, s, team_db, manifest, main, self_id, teammates_manifest, team_dir ] ) {
-        log( '[TeamCreate] Encrypted keys' );
-        team.dir = team_dir;
-        function upload( [ p, c, t ] )
-        {
-            if( !Array.isArray( p ) )
-                p = [ p ];
-            p.unshift( team.dir );
-            p.unshift( 'Teams' );
-            return uploadFile( user.cloud_text, p, c, t );
-        }
+function uploadTeam( team, user )
+{
+    /* This loop is a scalability bug, but team creation should be
+     * infrequent, so it's not urgent.  Could be made incremental at
+     * non-trivial cost in code complexity. */
+    var tm = {};
+    for( var d in user.teams )
+        tm[ d ] = team.self_id;
+
+    function encrypt( [ k, d, s ] )
+    { return encrypt_and_sign_ac_ed( k, user.signing_key, d, s ); }
+    function encd_jstr(x) { return encode( JSON.stringify( x ) ) };
+    var to_encrypt =
+        [ [ team.main_key, encd_jstr( team.db ), team.salt ],
+          [ team.main_key, encd_jstr( team.decrypt_key_exported ), team.salt ],
+          [ team.main_key, encd_jstr( team.signing_key_exported ), team.salt ],
+          [ user.main_key, encd_jstr( team.main_key_exported ), team.salt ],
+          [ user.main_key, encd_jstr( tm ), user.salt ],
+          [ user.main_key, encode( '{}' ), team.salt ],
+          [ user.main_key, team.salt, zeros ] ];
+    return P.all( to_encrypt.map( encrypt ) )
+    .then( function( [ db, kd, ks, km, teams_manifest, teammates_manifest, salt ] ) {
+        log( '[TeamCreate] Encrypted files', new Uint8Array( teams_manifest ) );
         var files = [
-            [ 'key_encrypt', JSON.stringify( team.encrypt_pair.publicKeyExported ),
-              'application/json' ],
-            [ 'key_verify',  JSON.stringify( team.signing_pair.publicKeyExported ),
-              'application/json' ],
-            [ 'key_decrypt', d ],
-            [ 'key_sign',    s ],
-            [ 'key_team',    main ],
-            [ 'self_id',     self_id ],
+            [ 'key_encrypt', JSON.stringify( team.encrypt_key_exported ), 'application/json' ],
+            [ 'key_verify',  JSON.stringify( team.verify_key_exported ), 'application/json' ],
+            [ 'key_decrypt', kd ],
+            [ 'key_sign',    ks ],
+            [ 'key_team',    km ],
             [ [ 'Teammates', 'manifest' ], teammates_manifest ],
             [ [ 'Teammates', 'salt' ], bufToHex( team.salt ), 'text/plain' ],
-            [ [ 'Data', 'data' ], team_db ],
+            [ [ 'Data', 'data' ], db ],
         ];
-        var promises = files.map( upload );
-        promises.push( uploadFile( user.cloud_text, [ 'Teams', 'manifest' ], manifest ) );
+        var promises = files.map( uploadToTeam( user.cloud_text, team.dir ) );
+        promises.push( uploadFile( user.cloud_text, [ 'Teams', 'manifest' ], teams_manifest ) );
         return P.all( promises );
+    } );
+}
+
+function createTeam( team_name, user )
+{
+    var team;
+    log( '[TeamCreate] Starting', team_name );
+    return initTeamState( team_name, user )
+    .then( function( t ) {
+        team = t;
+        log( '[TeamCreate] Initialized team state' );
+        return uploadTeam( team , user )
+
     } ).then( function( [ e, v, d, s, t, c ] ) {
         log( '[TeamCreate] Team created' );
-        user.teams[ team_id ] = team;
-        return P.resolve( team_id );
+        return P.resolve( team.dir );
     } );
 }
 

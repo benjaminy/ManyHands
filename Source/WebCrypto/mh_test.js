@@ -20,14 +20,14 @@ function test01()
         return login( 'alice', 'p' );
     } ).then( function( u ) {
         alice = u;
-        return makeInvite( 'bob', team_id_hack, alice );
+        return inviteStep1( 'bob', team_id_hack, alice );
     } ).then( function( s ) {
         step1_pub = s;
-        return inviteAccept( step1_pub, bob );
+        return inviteStep2( step1_pub, bob );
     } ).then( function( accept ) {
-        return inviteAddToTeam( accept, alice );
+        return inviteStep3( accept, alice );
     } ).then( function() {
-        return inviteJoinTeam( step1_pub, bob );
+        return inviteStep4( step1_pub, bob );
     } ).then( function( blah ) {
         log( 'Finally', blah );
     } )
