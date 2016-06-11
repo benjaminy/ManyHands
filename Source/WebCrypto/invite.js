@@ -23,8 +23,9 @@
  *    - Copy the state of the team from Alice
  */
 
-function inviteStep1( invite_user, team_id, alice )
+function inviteStep1( invite_user, team_id, alice, log_ctx )
 {
+    log_ctx = log_ctx.push( 'Step1' );
     var invite_id   = makeUniqueId( alice.invites );
     var invite_salt = getRandomBytes( 16 );
     var step1_priv  = JSON.stringify( { bob: invite_user, team: team_id } );
@@ -33,13 +34,13 @@ function inviteStep1( invite_user, team_id, alice )
     var to_ecrypt = [ [ encode( step1_priv ), invite_salt ], [ invite_salt, zeros ] ];
     return P.all( to_encrypt.map( encrypt ) )
     .then( function( [ step1_priv, salt ] ) {
-        log( '[Invite] Encrypted step1_priv and salt' );
+        log( log_ctx, 'Encrypted step1_priv and salt' );
         function upload( [ d, n, t ] )
         { return uploadFile( alice.cloud_text, [ 'Invites', invite_id, n ], d, t ); }
         fs = [ [ step1_priv, 'step1' ], [ salt, 'salt' ], [ '', 'step3', 'text/plain' ] ];
         return P.all( fs.map( upload ) );
     } ).then( function() {
-        log( '[Invite] Uploaded step1_priv, salt and dummy step3' );
+        log( log_ctx, 'Uploaded step1_priv, salt and dummy step3' );
         var step1_pub = JSON.stringify( { cloud: alice.cloud_text, invite_id: invite_id } );
         return P.resolve( step1_pub );
     } );
@@ -47,6 +48,7 @@ function inviteStep1( invite_user, team_id, alice )
 
 function inviteStep2( step1_pub_text, bob )
 {
+    log_ctx = log_ctx.push( 'Step2' );
     var step1_pub = JSON.parse( step1_pub_text );
     var invite_id = makeUniqueId( bob.invites );
     return downloadFile( step1_pub.cloud, 'key_encrypt', true )

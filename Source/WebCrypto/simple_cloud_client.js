@@ -15,12 +15,13 @@ function encode_path( user, path )
 }
 
 /* Returns a Promise that either rejects, or fulfills the response object */
-function uploadFile( user, path, content, content_type )
+function uploadFile( user, path, content, content_type, log_ctx )
 {
     /* assert( Array.isArray( path ) || typeof( path ) == 'string' ) */
     /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == 'string' ) */
     /* assert( typeof( user ) == 'string' ) */
     /* assert( typeof( content ) is whatever fetch accepts ) */
+    if( log_ctx ) log_ctx = log_ctx.push( 'Upload' );
     var pu = encode_path( user, path );
     var headers = new Headers( { 'Content-Length': '' + content.length } );
     if( content_type )
@@ -33,8 +34,7 @@ function uploadFile( user, path, content, content_type )
                     body    : content,
                     headers : headers }
     ).then( function( resp ) {
-        log( 'uploadFile response:', resp.status, resp.statusText );
-        /* log( 'uploadFile response', resp ); */
+        log( 'Response', log_ctx, resp.status, resp.statusText );
         if( !resp.ok )
         {
             return new Promise( function( resolve, reject )
@@ -55,15 +55,16 @@ function uploadFile( user, path, content, content_type )
 }
 
 /* Returns a Promise that either rejects, or fulfills the downloaded file's text */
-function downloadFile( user, path, isText )
+function downloadFile( user, path, isText, log_ctx )
 {
     /* assert( Array.isArray( path ) || typeof( path ) == 'string' ) */
     /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == 'string' ) */
     /* assert( typeof( user ) == 'string' ) */
+    if( log_ctx ) log_ctx = log_ctx.push( 'Download' );
     var pu = encode_path( user, path );
     return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p
     ).then( function( resp ) {
-        log( 'downloadFile response:', resp.status, resp.statusText );
+        log( 'Response', log_ctx, resp.status, resp.statusText, path );
         if( !resp.ok )
         {
             return new Promise( function( resolve, reject )
@@ -88,12 +89,4 @@ function downloadFile( user, path, isText )
                 return resp.arrayBuffer();
         }
     } );
-}
-
-function downloadFileFrom( cloud )
-{
-    return function( path, text )
-    {
-        return downloadFile( cloud, path, text );
-    }
 }

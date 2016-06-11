@@ -5,7 +5,6 @@
 var P               = Promise;
 var C               = window.crypto.subtle;
 var getRandomValues = window.crypto.getRandomValues.bind( window.crypto );
-var log             = console.log.bind( console );
 var uniqueIdDefaultLength = 5;
 
 var encoding = 'utf-8';
