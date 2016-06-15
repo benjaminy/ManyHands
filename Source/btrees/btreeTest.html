@@ -1,0 +1,216 @@
+<script type="text/javascript" src="btree.js" ></script>
+<script>
+    BTree.prototype.view = function(digitsPerKey) {
+        function Separator() {
+            this.level = 1;
+        }
+        function retrieveLevels(treeNode, levelsArray, currentLevel) {
+            if (!(currentLevel in levelsArray)) {
+                levelsArray[currentLevel] = [];
+            }
+            for (var i = 0; i < treeNode.keyValuePairs.length; ++i) {
+                levelsArray[currentLevel].push(treeNode.keyValuePairs[i].key);
+            }
+            levelsArray[currentLevel].push(new Separator());
+            if (treeNode.children != null) {
+                for (var i = 0; i < treeNode.children.length; ++i) {
+                    retrieveLevels(treeNode.children[i], levelsArray, currentLevel + 1);
+                }
+                // last value in the next level is now a separator
+                levelsArray[currentLevel+1][levelsArray[currentLevel+1].length - 1].level++;
+            }
+        }
+        var levelsArray = [];
+        retrieveLevels(this.root, levelsArray, 0);
+
+        var outputString = "";
+
+        var freeSpots = [];
+        var lastRow = levelsArray.length - 1;
+        for (var i = lastRow; i >= 0; --i) {
+            if (i == lastRow) {
+                for (var j = 0; j < levelsArray[i].length; ++j) {
+                    if (levelsArray[i][j] instanceof Separator) {
+                        outputString += new Array(digitsPerKey+2/*1 + 2*levelsArray[i][j].level*/).join(' ');
+                        freeSpots.push(j);
+                    } else {
+                        var numberString = "" + levelsArray[i][j];
+                        numberString = new Array(digitsPerKey - numberString.length + 1).join('0') + numberString;
+                        outputString += numberString + " ";
+                    }
+                }
+            } else {
+                var currentPosition = 0;
+                var toSplice = [];
+                for (var j = 0; j < levelsArray[i].length; ++j) {
+                    outputString += new Array((digitsPerKey+1)*(freeSpots[j]-currentPosition)+1).join(' ');
+                    currentPosition = freeSpots[j]+1;
+                    if (levelsArray[i][j] instanceof Separator) {
+                        outputString += new Array(digitsPerKey+2/*1 + 2*levelsArray[i][j].level*/).join(' ');
+                    } else {
+                        var numberString = "" + levelsArray[i][j];
+                        numberString = new Array(digitsPerKey - numberString.length + 1).join('0') + numberString;
+                        outputString += numberString + " ";
+                        toSplice.push(j);
+                    }
+                }
+                for (var j = toSplice.length-1; j >= 0; --j) {
+                    freeSpots.splice(toSplice[j],1);
+                }
+            }
+            outputString += "\n";
+        }
+        return outputString;
+    };
+    BTree.prototype.insert_test = function(key,value) {
+        if (!this.expected_content) {
+            this.expected_content = [];
+        }
+        this.expected_content.push({key: key, value: value});
+        this.insert(key,value);
+        return check(this);
+    };
+    BTree.prototype.remove_test = function(key) {
+        this.expected_content.splice(this.expected_content.findIndex(function(e){ return e.key == key; }), 1);
+        this.remove(key);
+        if (this.get(key) != null) {
+            return 'Removal left the object in the tree';
+        }
+        return check(this);
+    };
+
+    function shuffle(array) {
+        var currentIndex = array.length, temporaryValue, randomIndex;
+
+        // While there remain elements to shuffle...
+        while (0 !== currentIndex) {
+
+            // Pick a remaining element...
+            randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex -= 1;
+
+            // And swap it with the current element.
+            temporaryValue = array[currentIndex];
+            array[currentIndex] = array[randomIndex];
+            array[randomIndex] = temporaryValue;
+        }
+
+        return array;
+    }
+
+    function checkNodeIntegrity(btree_node) {
+        for (var i = 1; i < btree_node.keyValuePairs.length; ++i) {
+            if (btree_node.keyValuePairs[i].key < btree_node.keyValuePairs[i-1].key) {
+                return 'Wrong order in the node';
+            }
+        }
+
+        if (btree_node.children != null) {
+            if (btree_node.keyValuePairs.length + 1 != btree_node.children.length) {
+                return 'Number of keys does not mach the number of children';
+            }
+        }
+        if (btree_node.parent != null) {
+            if (btree_node.keyValuePairs.length < btree_node.minValues) {
+                return 'Tree has less than minimum keys';
+            }
+            if (btree_node.keyValuePairs.length > btree_node.maxValues) {
+                return 'Tree has more than maximum keys';
+            }
+            if (btree_node.parent.keyValuePairs.length == 0) {
+                return 'Parent link corrupted, when checking self';
+            }
+        }
+        if (btree_node.children != null) {
+            for (var i = 0; i < btree_node.children.length; ++i) {
+                var c = btree_node.children[i];
+                if (c.parent != btree_node) {
+                    return 'Parent link corrupted, when checking children';
+                }
+                var result = checkNodeIntegrity(c);
+                if (result != 'OK') {
+                    return result;
+                }
+            }
+        }
+        return 'OK';
+    }
+
+    function count_keys(tree_node) {
+        var count = 0;
+        count += tree_node.keyValuePairs.length;
+        if (tree_node.children != null) {
+            for (var i = 0; i < tree_node.children.length; ++i) {
+                count += count_keys(tree_node.children[i]);
+            }
+        }
+        return count;
+    }
+
+    function check(tree) {
+        var result = checkNodeIntegrity(tree.root);
+        if (result != 'OK')
+            return result;
+        for (var i = 0; i < tree.expected_content.length; ++i) {
+            if (tree.get(tree.expected_content[i].key) != tree.expected_content[i].value)
+                return 'Unreachable values';
+        }
+        if (tree.expected_content.length != count_keys(tree.root)) {
+            return 'The number of elements in the tree is not as expected';
+        }
+        return 'OK';
+    }
+
+    function comprehensive(orders, maxOrder, withinOrder) {
+        for (var i = 0; i < orders; ++i) {
+            var order = Math.random()*(maxOrder-3);
+            order += 3;
+            order = Math.floor(order);
+            for (var j = 0; j < withinOrder; ++j) {
+                var numberOfElements = Math.floor(order*(2 + 8*Math.random()));
+                var tree = initializeWithValues(order, numberOfElements);
+                testRemove(tree);
+            }
+        }
+    }
+
+    function range(start, end, increment) {
+        var arr = [];
+        for (var i = start; i <= end; i += increment) {
+            arr.push(i);
+        }
+        return arr;
+    }
+    function initializeWithValuesPerformance(order, number) {
+        var t = new BTree(order);
+        var keys = range(1, number, 1);
+        keys = shuffle(keys);
+        for (var i = 0; i < keys.length; ++i) {
+            t.insert(keys[i], keys[i]);
+        }
+        return t;
+    }
+
+    function initializeWithValues(order, number) {
+        var t = new BTree(order);
+        var keys = range(1, number, 1);
+        keys = shuffle(keys);
+        for (var i = 0; i < keys.length; ++i) {
+            t.insert_test(keys[i], keys[i]);
+            var result = check(t, i);
+            if (result != 'OK') {
+                throw new Error("OOPS");
+            }
+        }
+        return t;
+    }
+    function testRemove(tree) {
+        var expected = tree.expected_content.slice();
+        for (var i = 0; i < expected.length; ++i) {
+            var result = tree.remove_test(expected[i].key);
+            if (result != 'OK') {
+                throw new Error(result);
+            }
+        }
+    }
+</script>
