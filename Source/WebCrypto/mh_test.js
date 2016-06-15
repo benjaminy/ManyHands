@@ -1,31 +1,34 @@
 function test01()
 {
-    var alice = null;
-    var bob = null;
-    var team_id_hack = null;
-    register( 'alice', 'p' )
+    var log_ctx = new LogEnv( [], 'Test01' );
+    var alice;
+    var bob;
+    var team_id_hack;
+    var step1_pub;
+    register( 'alice', 'p', log_ctx )
     .then( function( _ ) {
-        return register( 'bob', 'p' );
+        return register( 'bob', 'p', log_ctx );
     } ).then( function( _ ) {
-        return login( 'alice', 'p' );
+        return login( 'alice', 'p', log_ctx );
     } ).then( function( u ) {
         alice = u;
-        return login( 'bob', 'p' );
+        return login( 'bob', 'p', log_ctx );
     } ).then( function( u ) {
         bob = u;
-        return createTeam( 'ATeam', alice );
+        return createTeam( 'ATeam', alice, log_ctx );
     } ).then( function( team_id ) {
         team_id_hack = team_id;
-        return login( 'alice', 'p' );
+        return login( 'alice', 'p', log_ctx );
     } ).then( function( u ) {
         alice = u;
-        return makeInvite( 'bob', team_id_hack, alice );
-    } ).then( function( invite ) {
-        return inviteAccept( invite, bob );
+        return inviteStep1( 'bob', team_id_hack, alice, log_ctx );
+    } ).then( function( s ) {
+        step1_pub = s;
+        return inviteStep2( step1_pub, bob, log_ctx );
     } ).then( function( accept ) {
-        return inviteAddToTeam( accept, alice );
+        return inviteStep3( accept, alice, log_ctx );
     } ).then( function() {
-        return inviteJoinTeam( invite, bob );
+        return inviteStep4( step1_pub, bob, log_ctx );
     } ).then( function( blah ) {
         log( 'Finally', blah );
     } )

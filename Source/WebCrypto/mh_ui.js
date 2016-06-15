@@ -96,7 +96,7 @@ function onInvite()
         alert( 'Must select valid team' );
         return;
     }
-    return makeInvite( elemInviteName.value, team_id, logged_in_user )
+    return inviteStep1( elemInviteName.value, team_id, logged_in_user )
     .then( function( i ) {
         elemInvite.innerText = i;
     } ).catch( function( err ) {
@@ -111,7 +111,7 @@ function onInviteAccept()
         alert( 'Must login first' );
         return;
     }
-    return inviteAccept( elemInviteInput.value, logged_in_user )
+    return inviteStep2( elemInviteInput.value, logged_in_user )
     .then( function( i ) {
         elemInvite.innerText = i;
     } );
@@ -124,5 +124,5 @@ function onInviteAddToTeam()
         alert( 'Must login first' );
         return;
     }
-    return inviteAddToTeam( elemInviteInput.value, logged_in_user );
+    return inviteStep3( elemInviteInput.value, logged_in_user );
 }
