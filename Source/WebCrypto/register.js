@@ -53,30 +53,28 @@ function initializeUserAccount( uid, passwd, user, log_ctx )
         return P.all( keys )
     } ).then( function( keys ) {
         log( 'GeneratedKeys', log_ctx, keys.map( function( x ){ return typeof( x ); } ) );
-        user.encrypt_key = keys[0].publicKey;
-        user.decrypt_key = keys[0].privateKey;
-        user.signing_key = keys[1].privateKey;
-        user.verify_key  = keys[1].publicKey;
-        user.login_key   = keys[2];
-        return C.deriveKey(
-            { name: 'ECDH', namedCurve: 'P-521', public: user.encrypt_key },
-            user.decrypt_key, sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
+        user.key_encrypt = keys[0].publicKey;
+        user.key_decrypt = keys[0].privateKey;
+        user.key_signing = keys[1].privateKey;
+        user.key_verify  = keys[1].publicKey;
+        user.key_login   = keys[2];
+        return ecdh_aesDeriveKey( user.key_encrypt, user.key_decrypt );
     } ).then( function( k ) {
         log( log_ctx, 'Derived main key', typeof( k ) );
-        user.main_key = k;
+        user.key_main = k;
         function exportKey( k ) {
             return C.exportKey( 'jwk', k ); }
-        var keys = [ user.encrypt_key, user.decrypt_key,
-                     user.signing_key, user.verify_key,
-                     user.login_key, user.main_key ];
+        var keys = [ user.key_encrypt, user.key_decrypt,
+                     user.key_signing, user.key_verify,
+                     user.key_login, user.key_main ];
         return P.all( keys.map( exportKey ) );
     } ).then( function( keys ) {
-        user.encrypt_key_exported = keys[0];
-        user.decrypt_key_exported = keys[1];
-        user.signing_key_exported = keys[2];
-        user.verify_key_exported  = keys[3];
-        user.login_key_exported   = keys[4];
-        user.main_key_exported    = keys[5];
+        user.key_encrypt_exported = keys[0];
+        user.key_decrypt_exported = keys[1];
+        user.key_signing_exported = keys[2];
+        user.key_verify_exported  = keys[3];
+        user.key_login_exported   = keys[4];
+        user.key_main_exported    = keys[5];
         return P.resolve();
     } );
 }
@@ -90,19 +88,18 @@ function initializeCloudStorage( user, log_ctx )
         user.cloud_text = bufToHex( user.cloud_bits );
         log( 'Link', log_ctx, user.cloud_text, user.cloud_bits );
         var dp = aes_cbc_ecdsa.encrypt_then_sign_salted(
-            user.login_key, user.signing_key,
-            encode( JSON.stringify( user.decrypt_key_exported ) ), log_ctx );
-        function encrypt( [ d ] )
-        { return aes_cbc_ecdsa.encrypt_then_sign_salted( user.main_key, user.signing_key, d ); }
-        var to_encrypt = [ [ encode( JSON.stringify( user.signing_key_exported ) ), zeros ],
-                           [ encode( '[]' ), zeros ],
-                           [ encode( '{}' ), zeros ] ];
+            user.key_login, user.key_signing,
+            encode( JSON.stringify( user.key_decrypt_exported ) ), log_ctx );
+        function encrypt( d )
+        { return aes_cbc_ecdsa.encrypt_then_sign_salted(
+            user.key_main, user.key_signing, encode( d ), log_ctx ); }
+        var to_encrypt = [ JSON.stringify( user.key_signing_exported ), '[]', '{}' ];
         return P.all( to_encrypt.map( encrypt ).concat( [ dp ] ) );
     } ).then( function( [ s, t, i, d ] ) {
-        log( log_ctx, 'Exported public keys and encrypted private keys' );
+        log( log_ctx, 'Exported public keys and encrypted private keys', s, t, i );
         function upload( [ p, c, t ] ) { return uploadFile( user.cloud_text, p, c, t ) };
-        var fs = [ [ 'key_encrypt', JSON.stringify( user.encrypt_key_exported ), 'text/plain' ],
-                   [ 'key_verify',  JSON.stringify( user.verify_key_exported ), 'text/plain' ],
+        var fs = [ [ 'key_encrypt', JSON.stringify( user.key_encrypt_exported ), 'text/plain' ],
+                   [ 'key_verify',  JSON.stringify( user.key_verify_exported ), 'text/plain' ],
                    [ 'key_decrypt', d ],
                    [ 'key_sign', s ],
                    [ [ 'Teams', 'manifest' ], t ],
@@ -114,13 +111,14 @@ function initializeCloudStorage( user, log_ctx )
 function submitRegistrationInfo( user, log_ctx )
 {
     if( log_ctx ) log_ctx = log_ctx.push( 'Submit' );
+    log( log_ctx, user.key_login );
     return aes_cbc_ecdsa.encrypt_then_sign_salted(
-        user.login_key, user.signing_key, user.cloud_bits )
+        user.key_login, user.key_signing, user.cloud_bits )
     .then( function( l ) {
         log( 'Encrypted link', log_ctx, bufToHex( l ), user.cloud_bits, user.cloud_text );
         var registration_info = {
             link   : bufToHex( l ),
-            pub_key: user.verify_key_exported,
+            pub_key: user.key_verify_exported,
             salt   : bufToHex( user.login_salt ),
         };
         var content = JSON.stringify( registration_info );

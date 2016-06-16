@@ -62,6 +62,9 @@ function downloadFile( user, path, isText, log_ctx )
     /* assert( typeof( user ) == 'string' ) */
     if( log_ctx ) log_ctx = log_ctx.push( 'Download' );
     var pu = encode_path( user, path );
+    var nf_err = new NotFoundError( pu.p );
+    var rq_err = new RequestError( pu.p );
+    var sv_err = new ServerError( pu.p );
     return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p
     ).then( function( resp ) {
         log( 'Response', log_ctx, resp.status, resp.statusText, path );
@@ -70,14 +73,16 @@ function downloadFile( user, path, isText, log_ctx )
             return new Promise( function( resolve, reject )
             {
                 if( resp.status == 404 )
-                    reject( new NotFoundError( pu.p ) );
+                    reject( nf_err );
                 else if( resp.status >= 400 && resp.status < 500 )
                     resp.text().then( function( t ) {
-                        reject( new RequestError( pu.p, resp.statusText + ' ' + t ) );
+                        rq_err.server_msg = resp.statusText + ' ' + t;
+                        reject( rq_err );
                     } );
                 else
                     resp.text().then( function( t ) {
-                        reject( new ServerError( pu.p, resp.statusText + ' ' + t ) );
+                        sv_err.server_msg = resp.statusText + ' ' + t;
+                        reject( sv_err );
                     } );
             } );
         }

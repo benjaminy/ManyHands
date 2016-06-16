@@ -29,74 +29,82 @@ function encodeDecodeFunctions( encoding )
 
 function AssertionFailedError( message )
 {
-    this.name    = 'AssertionFailedError';
+    Error.call( this );
+    Error.captureStackTrace( this, this.constructor );
+    this.name = this.constructor.name;
     this.message = ( message || '' );
-    this.stack   = ( new Error() ).stack;
 }
 AssertionFailedError.prototype = Object.create(Error.prototype);
 AssertionFailedError.prototype.constructor = AssertionFailedError;
 
 function NameNotAvailableError( message )
 {
-    this.name    = 'NameNotAvailableError';
+    Error.call( this );
+    Error.captureStackTrace( this, this.constructor );
+    this.name = this.constructor.name;
     this.message = ( message || '' );
-    this.stack   = ( new Error() ).stack;
 }
 NameNotAvailableError.prototype = Object.create(Error.prototype);
 NameNotAvailableError.prototype.constructor = NameNotAvailableError;
 
 function NotFoundError( message )
 {
-    this.name    = 'NotFoundError';
+    Error.call( this );
+    Error.captureStackTrace( this, this.constructor );
+    this.name = this.constructor.name;
     this.message = ( message || '' );
-    this.stack   = ( new Error() ).stack;
 }
 NotFoundError.prototype = Object.create(Error.prototype);
 NotFoundError.prototype.constructor = NotFoundError;
 
 function RequestError( message, server_msg )
 {
-    this.name       = 'RequestError';
+    Error.call( this );
+    Error.captureStackTrace( this, this.constructor );
+    this.name = this.constructor.name;
     this.message    = ( message || '' );
-    this.server_msg = ( msg || '' );
-    this.stack      = ( new Error() ).stack;
+    this.server_msg = ( server_msg || '' );
 }
 RequestError.prototype = Object.create(Error.prototype);
 RequestError.prototype.constructor = RequestError;
 
 function ServerError( message, server_msg )
 {
-    this.name       = 'ServerError';
+    Error.call( this );
+    Error.captureStackTrace( this, this.constructor );
+    this.name = this.constructor.name;
     this.message    = ( message || '' );
     this.server_msg = ( server_msg || '' );
-    this.stack      = ( new Error() ).stack;
 }
 ServerError.prototype = Object.create(Error.prototype);
 ServerError.prototype.constructor = ServerError;
 
 function AuthenticationError( message )
 {
-    this.name       = 'AuthenticationError';
+    Error.call( this );
+    Error.captureStackTrace( this, this.constructor );
+    this.name = this.constructor.name;
     this.message    = ( message || '' );
-    this.stack      = ( new Error() ).stack;
 }
 AuthenticationError.prototype = Object.create(Error.prototype);
 AuthenticationError.prototype.constructor = AuthenticationError;
 
 function CryptoError( message )
 {
-    this.name       = 'CryptoError';
+    Error.call( this );
+    Error.captureStackTrace( this, this.constructor );
+    this.name = this.constructor.name;
     this.message    = ( message || '' );
-    this.stack      = ( new Error() ).stack;
 }
 CryptoError.prototype = Object.create(Error.prototype);
 CryptoError.prototype.constructor = CryptoError;
 
 function VerificationError( message )
 {
-    this.name       = 'VerificationError';
+    Error.call( this );
+    Error.captureStackTrace( this, this.constructor );
+    this.name = this.constructor.name;
     this.message    = ( message || '' );
-    this.stack      = ( new Error() ).stack;
 }
 VerificationError.prototype = Object.create(Error.prototype);
 VerificationError.prototype.constructor = VerificationError;
@@ -111,9 +119,7 @@ function assert( condition, message )
 function domToCrypto( err ) {
     if( err instanceof DOMException )
     {
-        var e = new CryptoError( err.message );
-        e.stack = err.stack;
-        return Promise.reject( e );
+        throw new CryptoError( err.message );
     }
     else
         return Promise.reject( err );
@@ -144,16 +150,18 @@ function bufToHex( buf )
     return hex;
 }
 
-function hexToBuf( hex )
+function hexToBuf( hex, log_ctx )
 {
     /* assert( hex is a string ) */
     /* assert( hex.length % 2 == 0 ) */
+    if( log_ctx ) log_ctx = log_ctx.push( 'hexToBuf' );
     var num_bytes = hex.length / 2;
     var buf = new Uint8Array( num_bytes );
     for( var i = 0; i < num_bytes; i++ )
     {
         buf[i] = parseInt( hex.slice( 2 * i, 2 * i + 2 ), 16 );
     }
+    log( log_ctx, 'blah', buf );
     return buf;
 }
 
@@ -172,13 +180,6 @@ function makeUniqueId( ids, len )
             found = true;
     }
     return id;
-}
-
-function unhandledError( msg, err )
-{
-    log( 'Unhandled error', msg, err );
-    alert( 'Unhandled error', msg );
-    return P.reject( err );
 }
 
 function array_zip( a1, a2, flatten1, flatten2, strict1, strict2 )
@@ -240,13 +241,12 @@ function typedArrayConcat( a, b )
     return c;
 }
 
-function p_all_resolve( promises, values )
+function p_all_resolve( promises, values, log_ctx )
 {
     /* assert( Array.isArray( promises ) ) */
     /* assert( Array.isArray( values ) ) */
     /* assert( forall i. typeof( promises[i] ) is Promise ) */
-    var resolve = P.resolve.bind( P );
-    return P.all( promises.concat( values.map( resolve ) ) );
+    return P.all( promises.concat( values.map( P.resolve.bind( P ) ) ) );
 }
 
 function handleServerError( url, resp )
