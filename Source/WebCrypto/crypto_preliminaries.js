@@ -11,20 +11,31 @@ function pbkdf_algo( salt )
 { return { name: 'PBKDF2', salt: salt, iterations: 1000, hash: { name: 'SHA-1' } }; }
 
 
-/* TODO: zeros is used as the IV in too many encryptions. */
 var zeros = new Uint8Array( 16 );
 
-function importKeyJwk( k, algo, ops, log_ctx )
+function exportKeyJwk( k )
 {
+    return C.exportKey( 'jwk', k )
+    .then( function( j ) {
+        return P.resolve( JSON.stringify( j ) );
+    } );
+}
+
+function importKeyJwk( s, algo, ops, log_ctx )
+{
+    /* s is a string in JSON format */
+    var j;
     try
     {
-        return C.importKey( 'jwk', JSON.parse( k ),  algo, true, ops );
+        j = JSON.parse( s );
     }
     catch( e )
     {
-        log( log_ctx, 'Import failed', k );
+        log( 'ImportKey', log_ctx, 'Not JSON', s );
         throw e;
     }
+    log( log_ctx, typeof( j ), j );
+    return C.importKey( 'jwk', j, algo, true, ops );
 }
 
 function importKeyEncrypt( k )

@@ -127,29 +127,29 @@ function inviteStep3C( step1_priv, alice, bob, log_ctx )
              step1_priv.team, alice.teams );
         return P.reject( 'Invitation add failed' );
     }
-    var bob_id = makeUniqueId( team.data.teammates );
-    return C.resolve()
+    return P.resolve()
     .then( function() {
-        var step3 = JSON.stringify( { t: team.id, u: bob_id } );
-        function encrypt( d )
-        { encrypt_and_sign_ac_ed( sym_AB, alice.key_signing, d ); }
-        var to_encrypt = [ encode( step3 ),
-                           encode( JSON.stringify( team.key_main_exported ) ) ];
-        return P.all( to_encrypt.map( encrypt ).concat( bob_dir ) );
-    } ).then( function( [ step3, bob_copy ] ) {
-        var fs = [ [ [ 'Invites', step1_priv.invite_id, 'step3' ], step3 ],
-                   [ [ 'Teams', team.dir, 'Teammates', bob_dir, 'key' ], bob_copy ] ];
-        return P.all( fs );
-    } ).then( function( ) {
-
-        team.data.teammates[ bob_id ] =
-            { uid: bob_id, cloud: bob_cloud, key: bob_verify };
-        var team_db = JSON.stringify( { name: step1.team, teammates: team.data.teammates } );
-        var team_dbp = encrypt_and_sign_ac_ed(
-            team.key_main, alice.key_signing, encode( team_db ), zeros );
-    } ).then( function( [ step1, step2, sym_AB, verify_B ] ) {
-
-        function upload( [ p, c, t ] ) { return uploadFile( alice.cloud_text, p, c, t ) };
+        bob.team_uid = makeUniqueId( team.teammates );
+        var step3 = JSON.stringify( { t: team.dir,
+                                      u: bob.team_uid,
+                                      k: team.key_decrypt_exported } );
+        var bob_ent = DB.new_entity( team.db );
+        var bob_datom_frags = [
+            [ 'id', bob.team_uid ], [ 'cloud', bob.cloud_text ],
+            [ 'key', bob.key_verify_exported ] ];
+        var bob_datoms = bob_datom_frags.map( function( [ a, v ] ) {
+            return DB.build_datom( bob_ent, 'teammate:'+a, v ); } );
+        DB.apply_txn( team.db, DB.build_txn( [], bob_datoms ) );
+        function encrypt( [ k, d ] )
+        { return aes_cbc_ecdsa.encrypt_then_sign_salted( k, alice.key_signing, d ); }
+        var to_encrypt = [ [ bob.sym_AB, encode( step3 ) ],
+                           [ team.key_main, encode( JSON.stringify( team.db ) ) ] ];
+        return P.all( to_encrypt.map( encrypt ) );
+    } ).then( function( [ step3, db ] ) {
+        var files = [ [ [ 'Invites', step1_priv.invite_id, 'step3' ], step3 ],
+                      [ [ 'Teams', team.dir, 'Data', 'data' ], db ] ];
+        function upload( [ p, c ] ) { return uploadFile( alice.cloud_text, p, c ) };
+        return P.all( files.map( upload ) );
     } );
 }
 

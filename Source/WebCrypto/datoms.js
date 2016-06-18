@@ -1,28 +1,51 @@
+/*
+ *
+ */
 
-function db_new()
+var DB = {}
+
+DB.new = function()
 {
     return { next_entity_id: 0, txns: [] };
 }
 
-function db_new_entity( db )
+DB.new_entity = function( db )
 {
     var rv = db.next_entity_id;
     db.next_entity_id++;
     return rv;
 }
 
-function db_build_datom( e, a, v )
+DB.build_datom = function( e, a, v )
 {
     return { e:e, a:a, v:v };
 }
 
-function db_build_txn( conditions, datoms )
+DB.build_txn = function( conditions, datoms )
 {
     return { conditions: conditions, datoms: datoms };
 }
 
-function db_apply_txn( db, txn )
+DB.apply_txn = function( db, txn )
 {
     /* XXX check conditions */
     db.txns = db.txns.concat( txn );
+}
+
+DB.query = function( db, q )
+{
+    var datoms = [];
+    function eatTxns( txn, i )
+    {
+        function eatDatoms( datom, j )
+        {
+            if( datom.a.startsWith( q ) )
+            {
+                datoms.push( datom );
+            }
+        }
+        txn.datoms.map( eatDatoms );
+    }
+    db.txns.map( eatTxns );
+    return datoms;
 }

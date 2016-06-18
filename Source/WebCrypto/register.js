@@ -62,13 +62,12 @@ function initializeUserAccount( uid, passwd, user, log_ctx )
     } ).then( function( k ) {
         log( log_ctx, 'Derived main key', typeof( k ) );
         user.key_main = k;
-        function exportKey( k ) {
-            return C.exportKey( 'jwk', k ); }
         var keys = [ user.key_encrypt, user.key_decrypt,
                      user.key_signing, user.key_verify,
                      user.key_login, user.key_main ];
-        return P.all( keys.map( exportKey ) );
+        return P.all( keys.map( exportKeyJwk ) );
     } ).then( function( keys ) {
+        log( log_ctx, 'Exported', typeof( keys[0] ), JSON.stringify( keys[0] ) );
         user.key_encrypt_exported = keys[0];
         user.key_decrypt_exported = keys[1];
         user.key_signing_exported = keys[2];
@@ -89,17 +88,17 @@ function initializeCloudStorage( user, log_ctx )
         log( 'Link', log_ctx, user.cloud_text, user.cloud_bits );
         var dp = aes_cbc_ecdsa.encrypt_then_sign_salted(
             user.key_login, user.key_signing,
-            encode( JSON.stringify( user.key_decrypt_exported ) ), log_ctx );
+            encode( user.key_decrypt_exported ), log_ctx );
         function encrypt( d )
         { return aes_cbc_ecdsa.encrypt_then_sign_salted(
             user.key_main, user.key_signing, encode( d ), log_ctx ); }
-        var to_encrypt = [ JSON.stringify( user.key_signing_exported ), '[]', '{}' ];
+        var to_encrypt = [ user.key_signing_exported, '[]', '{}' ];
         return P.all( to_encrypt.map( encrypt ).concat( [ dp ] ) );
     } ).then( function( [ s, t, i, d ] ) {
         log( log_ctx, 'Exported public keys and encrypted private keys', s, t, i );
         function upload( [ p, c, t ] ) { return uploadFile( user.cloud_text, p, c, t ) };
-        var fs = [ [ 'key_encrypt', JSON.stringify( user.key_encrypt_exported ), 'text/plain' ],
-                   [ 'key_verify',  JSON.stringify( user.key_verify_exported ), 'text/plain' ],
+        var fs = [ [ 'key_encrypt', user.key_encrypt_exported, 'text/plain' ],
+                   [ 'key_verify',  user.key_verify_exported, 'text/plain' ],
                    [ 'key_decrypt', d ],
                    [ 'key_sign', s ],
                    [ [ 'Teams', 'manifest' ], t ],

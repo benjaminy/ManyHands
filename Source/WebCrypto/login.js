@@ -90,15 +90,20 @@ function loginCloud( user, log_ctx )
 
     return P.all( [ [ 'key_encrypt', true ], [ 'key_verify', true ], [ 'key_decrypt' ] ]
                   .map( download ) )
-    .then( function( [ e, v, d ] ) {
-        log( log_ctx, 'Downloaded public keys and decryption key', e );
-        return p_all_resolve( [ importKeyEncrypt( e ), importKeyVerify( v ) ], [ d ] );
+    .then( function( keys ) {
+        log( log_ctx, 'Downloaded public keys and decryption key' );
+        user.key_encrypt_exported = keys[ 0 ];
+        user.key_verify_exported = keys[ 1 ];
+        return p_all_resolve( [ importKeyEncrypt( user.key_encrypt_exported ),
+                                importKeyVerify( user.key_verify_exported ) ],
+                              [ keys[ 2 ] ] );
     } ).then( function( [ e, v, d ] ) {
         log( log_ctx, 'Imported public keys' );
         user.key_encrypt = e;
         user.key_verify  = v;
         return aes_cbc_ecdsa.verify_then_decrypt_salted( user.key_login, user.key_verify, d )
     } ).then( function( d ) {
+        user.key_decrypt_exported = d;
         return importKeyDecrypt( decode( d ) );
     } ).then( function( d ) {
         log( log_ctx, 'Imported decryption key', d );
@@ -125,7 +130,8 @@ function loginCloud( user, log_ctx )
             user.teams[ dir ] = { self_id: teams_manifest[ dir ], dir: dir };
         }
         user.invites = JSON.parse( decode( files[ 2 ] ) );
-        return importKeySign( decode( files[ 0 ] ) );
+        user.key_signing_exported = decode( files[ 0 ] );
+        return importKeySign( user.key_signing_exported );
     } ).then( function( s ) {
         log( log_ctx, 'Imported signing key', user.teams );
         user.key_signing = s;
@@ -145,16 +151,9 @@ function loginCloud( user, log_ctx )
  * -- Teams/
  *    |-- manifest (encrypted w user key)
  *    |-- XYZ/
- *    |   |-- team_key           (encrypted w user key)
  *    |   |-- pub/priv key-pairs (not currently used)
  *    |   |-- Data/
  *    |   |   |-- ... TBD ... (encrypted w team key)
- *    |   |-- Teammates/
- *    |   |   |-- manifest (encrypted w user key)
- *    |   |   |-- ABC/
- *    |   |   |   |-- team_key   (encrypted w shared key)
- *    |   |   |-- DEF/
- *    |   |   |   |-- team_key   (encrypted w shared key)
  *
  * Notes:
  * - Team directory names (e.g. XYZ) are randomly chosen when a user
@@ -184,6 +183,7 @@ function loginReadTeam( user, log_ctx )
 if( log_ctx ) log_ctx = log_ctx.push( 'Team' );
 return function( team_dir )
 {
+    // scp = Scope.enter( scp, team_dir );
     if( log_ctx ) log_ctx = log_ctx.push( team_dir );
     var download = downloadFromTeam( user.cloud_text, team_dir );
     var team = user.teams[ team_dir ];
@@ -205,39 +205,64 @@ return function( team_dir )
         team.key_encrypt = keys[1];
         return ecdh_aesDeriveKey( team.key_encrypt, team.key_decrypt );
     } ).then( function( k ) {
+        // scp = Scope.cont( scp, 'Shared key derived' );
         log( log_ctx, team_dir, 'Shared key derived' );
         team.key_main = k;
         var files = [ [ 'key_verify', true ],
                       [ 'key_sign' ],
                       [ 'self_id' ],
-                      [ [ 'Data', 'data' ] ],
-                      [ [ 'Teammates', 'manifest' ] ] ];
+                      [ [ 'Data', 'data' ] ] ];
         return P.all( files.map( download ) );
     } ).then( function( files ) {
         log( log_ctx, 'Bunch of files downloaded' );
         team.key_verify_exported = files[ 0 ];
         var to_decrypt = [ [ user.key_main, files[ 1 ] ],
                            [ user.key_main, files[ 2 ] ],
-                           [ team.key_main, files[ 3 ] ],
-                           [ team.key_main, files[ 4 ] ] ];
+                           [ team.key_main, files[ 3 ] ] ];
         function decrypt( [ k, d ] )
         { return aes_cbc_ecdsa.verify_then_decrypt_salted( k, user.key_verify, d ); }
         return P.all( [ importKeyVerify( files[ 0 ] ) ].concat( to_decrypt.map( decrypt ) ) );
     } ).then( function( files ) {
-        log( log_ctx, 'Bunch of files decrypted' );
+        log( log_ctx, 'Bunch of files decrypted', JSON.parse( decode( files[ 3 ] ) ) );
         team.key_verify = files[ 0 ];
         team.self_id = decode( files[ 2 ] );
-        team.data = JSON.parse( decode( files[ 3 ] ) );
-        team.name = team.data.name;
-        team.teammates_manifest = JSON.parse( decode( files[ 4 ] ) );
+        team.db = JSON.parse( decode( files[ 3 ] ) );
+        var datoms = DB.query( team.db, 'team:name' );
+        // assert( datoms.length == 1 )
+        team.name = datoms[ 0 ].v;
+        function stripPrefix( prefix, s ) { return s.substring( prefix.length ); }
+        datoms = DB.query( team.db, 'teammate:' );
+        // assert( datoms.length > 0 )
+        var ids = {}
+        team.teammates = {};
+        datoms.filter( ( d ) => { return d.a == 'teammate:id'; } )
+            .forEach( ( d ) => { ids[ d.e ] = d.v; team.teammates[ d.v ] = {} } );
+        datoms.filter( ( d ) => { return d.a != 'teammate:id'; } )
+            .forEach( ( d ) => { return team.teammates[ ids[ d.e ] ]
+                                 [ stripPrefix( 'teammate:', d.a ) ] = d.v } );
         team.key_signing_exported = decode( files[ 1 ] );
-        return importKeySign( team.key_signing_exported );
-    } ).then( function( k ) {
+        var entities = [];
+        for( k in ids ) { entities.push( k ); }
+        entities.sort();
+        var keys = entities.map(
+            ( e ) => { log( log_ctx, 'BLAH', team.teammates[ ids[ e ] ] );
+                       return importKeyVerify(
+                           team.teammates[ ids[ e ] ].key_verify_exported ); } );
+        return p_all_resolve(
+            keys.concat( importKeySign( team.key_signing_exported ) ),
+            [ ids, entities ] );
+    } ).then( function( mishmash ) {
+        var keys = mishmash.slice( 0, -3 );
+        var rest = mishmash.slice( -3 );
+        team.key_signing = rest[ 0 ];
+        var ids = rest[ 1 ];
+        var entities = rest[ 2 ];
+        entities.forEach( ( e, i ) => { team.teammates[ ids[ e ] ].key_verify = keys[i] } );
         log( log_ctx, 'Imported' );
         team.key_signing = k;
         user.teams[ team_dir ] = team;
         return P.resolve();
-    } )
+    } );
 }
 }
 
@@ -249,19 +274,19 @@ function initTeamState( team_name, user, log_ctx )
         dir:           makeUniqueId( user.teams ),
         self_id:       makeUniqueId( {} ),
         teammates:     {},
-        db:            db_new() };
+        db:            DB.new() };
     return P.resolve()
     .then( function() {
-        var team_id = db_new_entity( team.db );
-        var datoms = [ db_build_datom( team_id, 'team:name', team_name ) ];
-        var teammate_id = db_new_entity( team.db );
-        teammate_ds = [ [ 'id',    team.self_id ],
-                        [ 'cloud', user.cloud_text ],
-                        [ 'dir',   team.dir ],
-                        [ 'key',   user.key_verify_exported ] ];
-        datoms = datoms.concat( teammate_ds.map( function( [ a, v ] ) {
-            return db_build_datom( teammate_id, 'teammate:'+a, v ); } ) );
-        db_apply_txn( team.db, db_build_txn( [], datoms ) );
+        log( log_ctx, 'Begin', user )
+        var team_id = DB.new_entity( team.db );
+        var datoms = [ DB.build_datom( team_id, 'team:name', team_name ) ];
+        var teammate_ent = DB.new_entity( team.db );
+        var teammate_datoms = [
+            [ 'id', team.self_id ], [ 'cloud_text', user.cloud_text ],
+            [ 'key_verify_exported', user.key_verify_exported ] ];
+        datoms = datoms.concat( teammate_datoms.map( function( [ a, v ] ) {
+            return DB.build_datom( teammate_ent, 'teammate:'+a, v ); } ) );
+        DB.apply_txn( team.db, DB.build_txn( [], datoms ) );
         user.teams[ team.dir ] = team;
         function generate( [ a, ops ] ) { return C.generateKey( a, true, ops ); }
         var keys =
@@ -279,10 +304,9 @@ function initTeamState( team_name, user, log_ctx )
         team.key_decrypt = keys[1].privateKey;
         team.key_verify  = keys[2].publicKey;
         team.key_signing = keys[2].privateKey;
-        function exportKey( k ) { return C.exportKey( 'jwk', k ) }
         var keys = [ team.key_main, team.key_encrypt, team.key_decrypt,
                      team.key_verify, team.key_signing ];
-        return P.all( keys.map( exportKey ) );
+        return P.all( keys.map( exportKeyJwk ) );
     } ).then( function( keys ) {
         team.key_main_exported    = keys[0];
         team.key_encrypt_exported = keys[1];
@@ -310,22 +334,20 @@ function uploadTeam( team, user, log_ctx )
         function encd_jstr(x) { return encode( JSON.stringify( x ) ) };
         var to_encrypt =
             [ [ team.key_main, encd_jstr( team.db ) ],
-              [ user.key_main, encd_jstr( team.key_decrypt_exported ) ],
-              [ user.key_main, encd_jstr( team.key_signing_exported ) ],
+              [ user.key_main, encode( team.key_decrypt_exported ) ],
+              [ user.key_main, encode( team.key_signing_exported ) ],
               [ user.key_main, encd_jstr( team.self_id ) ],
-              [ user.key_main, encd_jstr( teams_manifest ) ],
-              [ team.key_main, encode( '{}' ) ] ];
+              [ user.key_main, encd_jstr( teams_manifest ) ] ];
         return P.all( to_encrypt.map( encrypt ) )
     } ).then( function( files ) {
         log( log_ctx, 'Encrypted files. Teams manifest:', new Uint8Array( files[ 4 ] ) );
         var teams_manifest = files[ 4 ];
         var files = [
-            [ 'key_encrypt', JSON.stringify( team.key_encrypt_exported ), 'application/json' ],
-            [ 'key_verify',  JSON.stringify( team.key_verify_exported ), 'application/json' ],
+            [ 'key_encrypt', team.key_encrypt_exported, 'application/json' ],
+            [ 'key_verify',  team.key_verify_exported, 'application/json' ],
             [ 'key_decrypt', files[ 1 ] ],
             [ 'key_sign',    files[ 2 ] ],
             [ 'self_id',     files[ 3 ] ],
-            [ [ 'Teammates', 'manifest' ], files[ 5 ] ],
             [ [ 'Data', 'data' ], files[ 0 ] ],
         ];
         return P.all( files.map( uploadToTeam( user.cloud_text, team.dir ) ).concat(
