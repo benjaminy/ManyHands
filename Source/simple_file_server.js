@@ -109,6 +109,16 @@ function handleOptions( req, resp ) {
         resp.writeHead( 200 );
         resp.end();
     }
+    else if( req.headers[ 'access-control-request-method' ] == 'POST' ) {
+        log( 'Accepted preflight POST request' );
+        resp.writeHead( 200 );
+        resp.end();
+    }
+    else
+    {
+        log( 'Mystery request', req );
+        throw new Error( 'Blah' );
+    }
 }
 
 function handleDynamic( req, resp )
