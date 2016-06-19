@@ -26,11 +26,23 @@ function encodeDecodeFunctions( encoding )
     return arr;
 }
 
+/* stupid Firefox */
+function polyfill_captureStackTrace( o, c )
+{
+    if( Error.captureStackTrace )
+    {
+        return Error.captureStackTrace( o, c );
+    }
+    else
+    {
+        /* TODO */
+    }
+}
 
 function AssertionFailedError( message )
 {
     Error.call( this );
-    Error.captureStackTrace( this, this.constructor );
+    polyfill_captureStackTrace( this, this.constructor );
     this.name = this.constructor.name;
     this.message = ( message || '' );
 }
@@ -40,7 +52,7 @@ AssertionFailedError.prototype.constructor = AssertionFailedError;
 function NameNotAvailableError( message )
 {
     Error.call( this );
-    Error.captureStackTrace( this, this.constructor );
+    polyfill_captureStackTrace( this, this.constructor );
     this.name = this.constructor.name;
     this.message = ( message || '' );
 }
@@ -50,7 +62,7 @@ NameNotAvailableError.prototype.constructor = NameNotAvailableError;
 function NotFoundError( message )
 {
     Error.call( this );
-    Error.captureStackTrace( this, this.constructor );
+    polyfill_captureStackTrace( this, this.constructor );
     this.name = this.constructor.name;
     this.message = ( message || '' );
 }
@@ -60,7 +72,7 @@ NotFoundError.prototype.constructor = NotFoundError;
 function RequestError( message, server_msg )
 {
     Error.call( this );
-    Error.captureStackTrace( this, this.constructor );
+    polyfill_captureStackTrace( this, this.constructor );
     this.name = this.constructor.name;
     this.message    = ( message || '' );
     this.server_msg = ( server_msg || '' );
@@ -71,7 +83,7 @@ RequestError.prototype.constructor = RequestError;
 function ServerError( message, server_msg )
 {
     Error.call( this );
-    Error.captureStackTrace( this, this.constructor );
+    polyfill_captureStackTrace( this, this.constructor );
     this.name = this.constructor.name;
     this.message    = ( message || '' );
     this.server_msg = ( server_msg || '' );
@@ -82,7 +94,7 @@ ServerError.prototype.constructor = ServerError;
 function AuthenticationError( message )
 {
     Error.call( this );
-    Error.captureStackTrace( this, this.constructor );
+    polyfill_captureStackTrace( this, this.constructor );
     this.name = this.constructor.name;
     this.message    = ( message || '' );
 }
@@ -92,7 +104,7 @@ AuthenticationError.prototype.constructor = AuthenticationError;
 function CryptoError( message )
 {
     Error.call( this );
-    Error.captureStackTrace( this, this.constructor );
+    polyfill_captureStackTrace( this, this.constructor );
     this.name = this.constructor.name;
     this.message    = ( message || '' );
 }
@@ -102,7 +114,7 @@ CryptoError.prototype.constructor = CryptoError;
 function VerificationError( message )
 {
     Error.call( this );
-    Error.captureStackTrace( this, this.constructor );
+    polyfill_captureStackTrace( this, this.constructor );
     this.name = this.constructor.name;
     this.message    = ( message || '' );
 }
@@ -150,18 +162,18 @@ function bufToHex( buf )
     return hex;
 }
 
-function hexToBuf( hex, log_ctx )
+function hexToBuf( hex, scp )
 {
     /* assert( hex is a string ) */
     /* assert( hex.length % 2 == 0 ) */
-    if( log_ctx ) log_ctx = log_ctx.push( 'hexToBuf' );
+    var [ scp, log ] = Scope.enter( scp, 'hexToBuf' );
     var num_bytes = hex.length / 2;
     var buf = new Uint8Array( num_bytes );
     for( var i = 0; i < num_bytes; i++ )
     {
         buf[i] = parseInt( hex.slice( 2 * i, 2 * i + 2 ), 16 );
     }
-    log( log_ctx, 'blah', buf );
+    log( 'blah', buf );
     return buf;
 }
 
@@ -182,9 +194,10 @@ function makeUniqueId( ids, len )
     return id;
 }
 
-function array_zip( a1, a2, flatten1, flatten2, strict1, strict2 )
+function array_zip( a1, a2, flatten1, flatten2, strict1, strict2, scp )
 {
-    log( 'zip', a1, a2 );
+    var [ scp, log ] = Scope.enter( scp, 'array_zip' );
+    log( a1, a2 );
     function helper( a, i )
     {
         var result = null;
@@ -241,7 +254,7 @@ function typedArrayConcat( a, b )
     return c;
 }
 
-function p_all_resolve( promises, values, log_ctx )
+function p_all_resolve( promises, values, scp )
 {
     /* assert( Array.isArray( promises ) ) */
     /* assert( Array.isArray( values ) ) */

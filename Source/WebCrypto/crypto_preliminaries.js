@@ -21,8 +21,9 @@ function exportKeyJwk( k )
     } );
 }
 
-function importKeyJwk( s, algo, ops, log_ctx )
+function importKeyJwk( s, algo, ops, scp )
 {
+    var [ scp, log ] = Scope.enter( scp, 'ImportKey' );
     /* s is a string in JSON format */
     var j;
     try
@@ -31,23 +32,23 @@ function importKeyJwk( s, algo, ops, log_ctx )
     }
     catch( e )
     {
-        log( 'ImportKey', log_ctx, 'Not JSON', s );
+        log( 'Not JSON', s );
         throw e;
     }
-    log( log_ctx, typeof( j ), j );
+    log( typeof( j ), j );
     return C.importKey( 'jwk', j, algo, true, ops );
 }
 
-function importKeyEncrypt( k )
-{ return importKeyJwk( k, pub_enc_algo, [] ); }
-function importKeyDecrypt( k )
-{ return importKeyJwk( k, pub_enc_algo, [ 'deriveKey' ] ); }
-function importKeyVerify( k )
-{ return importKeyJwk( k, signing_kalgo, [ 'verify' ] ); }
-function importKeySign( k )
-{ return importKeyJwk( k, signing_kalgo, [ 'sign' ] ); }
-function importKeySym( k, log_ctx )
-{ return importKeyJwk( k, sym_enc_algo, [ 'encrypt', 'decrypt' ] ); }
+function importKeyEncrypt( k, scp )
+{ return importKeyJwk( k, pub_enc_algo, [], scp ); }
+function importKeyDecrypt( k, scp )
+{ return importKeyJwk( k, pub_enc_algo, [ 'deriveKey' ], scp ); }
+function importKeyVerify( k, scp )
+{ return importKeyJwk( k, signing_kalgo, [ 'verify' ], scp ); }
+function importKeySign( k, scp )
+{ return importKeyJwk( k, signing_kalgo, [ 'sign' ], scp ); }
+function importKeySym( k, scp )
+{ return importKeyJwk( k, sym_enc_algo, [ 'encrypt', 'decrypt' ], scp ); }
 
 /* Encode and pack strings into a byte array */
 function stringsToBuf( strings )
@@ -91,9 +92,10 @@ function ecdh_aesDeriveKey( pub, priv )
         { name: 'AES-CBC', length: 256 }, true, [ 'encrypt', 'decrypt' ] );
 }
 
-function CryptoSpecificAlgos( enc_algo, sign_algo, log_ctx )
+function CryptoSpecificAlgos( enc_algo, sign_algo, scp )
 {
-    log( 'CryptoSpecificAlgos constructor', log_ctx, enc_algo, sign_algo );
+    var [ scp, log ] = Scope.enter( scp, 'CryptoSpecificAlgos' );
+    log( enc_algo, sign_algo );
     this.enc_algo   = enc_algo;
     this.sign_algo  = sign_algo;
     this.sig_length = SIG_LENGTH;
@@ -101,16 +103,16 @@ function CryptoSpecificAlgos( enc_algo, sign_algo, log_ctx )
 }
 
 CryptoSpecificAlgos.prototype.encrypt_then_sign =
-function( key_enc, key_sign, data, enc_param, log_ctx )
+function( key_enc, key_sign, data, enc_param, scp )
 {
-    if( log_ctx ) log_ctx.push( 'encrypt_then_sign' );
-    // log( log_ctx, "encrypt_then_sign 1" );
+    var [ scp, log ] = Scope.enter( scp, 'encrypt_then_sign' );
+    // log( "1" );
     return C.encrypt( this.enc_algo( enc_param ), key_enc, data )
     .then( function( data_enc ) {
-        log( log_ctx, "encrypt_then_sign 2", key_sign );
+        // log( "2", key_sign );
         return P.all( [ C.sign( this.sign_algo(), key_sign, data_enc ), P.resolve( data_enc ) ] );
     }.bind( this ) ).then( function( [ sig, data_enc ] ) {
-        // log( log_ctx, "encrypt_then_sign 3", sig.byteLength );
+        // log( "3", sig.byteLength );
         return P.resolve( typedArrayConcat( sig, data_enc ) );
     }.bind( this ) ).catch( domToCrypto );
 }
@@ -142,12 +144,13 @@ function( key_dec, sig_plus_data, enc_param )
 }
 
 CryptoSpecificAlgos.prototype.encrypt_then_sign_salted =
-function( key_enc, key_sign, data, log_ctx )
+function( key_enc, key_sign, data, scp )
 {
-    // log( 'encrypt_then_sign_salted', log_ctx, key_enc, key_sign, data );
+    var [ scp, log ] = Scope.enter( scp, 'encrypt_then_sign_salted' );
+    // log( key_enc, key_sign, data );
     return this.encrypt_then_sign(
         key_enc, key_sign, typedArrayConcat( getRandomBytes( this.iv_length ), data ),
-        zeros, log_ctx );
+        zeros, scp );
 }
 
 CryptoSpecificAlgos.prototype.verify_then_decrypt_salted =
@@ -160,11 +163,12 @@ function( key_dec, key_ver, data )
 }
 
 CryptoSpecificAlgos.prototype.decrypt_skip_verify_salted =
-    function( key_dec, data, log_ctx )
+    function( key_dec, data, scp )
 {
+    var [ scp, log ] = Scope.enter( scp, 'Decrypt' );
     return this.decrypt_skip_verify( key_dec, data, zeros )
     .then( function( salt_plus_data ) {
-        log( 'Decrypt', log_ctx, new Uint8Array( salt_plus_data ), this.iv_length );
+        log( new Uint8Array( salt_plus_data ), this.iv_length );
         return P.resolve( ( new Uint8Array( salt_plus_data ) ).subarray( this.iv_length ) );
     }.bind( this ) );
 }

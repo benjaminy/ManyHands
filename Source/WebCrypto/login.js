@@ -29,45 +29,46 @@
  */
 
 
-function login( uid, passwd, log_ctx )
+function login( uid, passwd, scp )
 {
-    if( log_ctx ) log_ctx = log_ctx.push( 'Login' );
+    var [ scp, log ] = Scope.enter( scp, 'Login' );
     var user = { uid: uid };
-    return getRegistrationInfo( uid, passwd, user, log_ctx )
+    return getRegistrationInfo( uid, passwd, user, scp )
     .then( function( _ ) {
-        return loginCloud( user, log_ctx );
+        return loginCloud( user, scp );
     } ).then( function( _ ) {
-        log( log_ctx, 'Logged in' );
+        log( 'Logged in' );
         return P.resolve( user );
     } );
 }
 
-function getRegistrationInfo( uid, passwd, user, log_ctx )
+function getRegistrationInfo( uid, passwd, user, scp )
 {
-    if( log_ctx ) log_ctx = log_ctx.push( 'GetReg' );
+    var [ scp, log ] = Scope.enter( scp, 'GetReg' );
     return C.digest( 'SHA-256', encode( uid ) )
     .then( function( hashedUID ) {
-        log( 'uid', log_ctx, bufToHex( hashedUID ) );
+        log( 'Hashed UID', bufToHex( hashedUID ) );
         return fetch( '/Users/'+bufToHex( hashedUID ) );
     } ).then( function( resp ) {
-        log( 'central server', log_ctx, resp.status, resp.statusText );
+        log( 'Fetched reg info', resp.status, resp.statusText );
         if( resp.ok )
             return resp.json();
         /* else */
         return P.reject( new NotFoundError() );
     } ).then( function( registration_info ) {
-        log( 'RegInfo', log_ctx, registration_info );
-        user.login_salt = hexToBuf( registration_info.salt, log_ctx );
-        return p_all_resolve( [ makeLoginKey( uid, passwd, user.login_salt  ) ],
-                              [ hexToBuf( registration_info.encrypted_link, log_ctx ) ] );
+        log( 'Decoded reg info', registration_info );
+        user.login_salt = hexToBuf( registration_info.salt, scp );
+        return p_all_resolve( [ makeLoginKey( uid, passwd, user.login_salt ) ],
+                              [ hexToBuf( registration_info.encrypted_link, scp ) ] );
     } ).then( function( [ key_login, enc_link ] ) {
-        log( log_ctx, 'Made login key' );
+        log( 'Made login key' );
         user.key_login = key_login;
-        return aes_cbc_ecdsa.decrypt_skip_verify_salted( user.key_login, enc_link, log_ctx );
+        /* TODO: Verify after getting the key */
+        return aes_cbc_ecdsa.decrypt_skip_verify_salted( user.key_login, enc_link, scp );
     } ).then( function( l ) {
         user.cloud_bits = l;
         user.cloud_text = bufToHex( user.cloud_bits );
-        log( 'Decrypted link', log_ctx, user.cloud_text, user.cloud_bits );
+        log( 'Decrypted cloud link', user.cloud_text, user.cloud_bits );
         return P.resolve();
     } ).catch( function( err ) {
         if( err instanceof CryptoError )
@@ -78,12 +79,12 @@ function getRegistrationInfo( uid, passwd, user, log_ctx )
     } );
 }
 
-function loginCloud( user, log_ctx )
+function loginCloud( user, scp )
 {
     /* TODO: download invite information */
-    if( log_ctx ) log_ctx = log_ctx.push( 'Cloud' );
+    var [ scp, log ] = Scope.enter( scp, 'Cloud' );
     function download( [ path, text ] )
-    { return downloadFile( user.cloud_text, path, text, log_ctx ); }
+    { return downloadFile( user.cloud_text, path, text, scp ); }
 
     user.invites = {};
     /* XXX */
@@ -91,14 +92,14 @@ function loginCloud( user, log_ctx )
     return P.all( [ [ 'key_encrypt', true ], [ 'key_verify', true ], [ 'key_decrypt' ] ]
                   .map( download ) )
     .then( function( keys ) {
-        log( log_ctx, 'Downloaded public keys and decryption key' );
+        log( 'Downloaded public keys and decryption key' );
         user.key_encrypt_exported = keys[ 0 ];
         user.key_verify_exported = keys[ 1 ];
         return p_all_resolve( [ importKeyEncrypt( user.key_encrypt_exported ),
                                 importKeyVerify( user.key_verify_exported ) ],
                               [ keys[ 2 ] ] );
     } ).then( function( [ e, v, d ] ) {
-        log( log_ctx, 'Imported public keys' );
+        log( 'Imported public keys' );
         user.key_encrypt = e;
         user.key_verify  = v;
         return aes_cbc_ecdsa.verify_then_decrypt_salted( user.key_login, user.key_verify, d )
@@ -106,7 +107,7 @@ function loginCloud( user, log_ctx )
         user.key_decrypt_exported = d;
         return importKeyDecrypt( decode( d ) );
     } ).then( function( d ) {
-        log( log_ctx, 'Imported decryption key', d );
+        log( 'Imported decryption key', d );
         user.key_decrypt = d;
         var kp = ecdh_aesDeriveKey( user.key_encrypt, user.key_decrypt );
         var files = [ [ 'key_sign' ],
@@ -114,16 +115,16 @@ function loginCloud( user, log_ctx )
                       [ [ 'Invites', 'manifest' ] ] ];
         return P.all( files.map( download ).concat( [ kp ] ) );
     } ).then( function( files ) {
-        log( log_ctx, 'Downloaded key, manifests; derived key', files[ 3 ], user.key_verify );
-        log( log_ctx, 'BLAH', files.slice( 0, 3 ).map( ( d ) => { return new Uint8Array( d ); } ) );
+        log( 'Downloaded key, manifests; derived key', files[ 3 ], user.key_verify );
+        log( 'BLAH', files.slice( 0, 3 ).map( ( d ) => { return new Uint8Array( d ); } ) );
         user.key_main = files[ 3 ];
         function decrypt( d )
         { return aes_cbc_ecdsa.verify_then_decrypt_salted( user.key_main, user.key_verify, d ); }
         return P.all( files.slice( 0, 3 ).map( decrypt ) );
     } ).then( function( files ) {
-        log( log_ctx, 'Decrypted key, manifests' );
+        log( 'Decrypted key, manifests' );
         var teams_manifest = JSON.parse( decode( files[ 1 ] ) );
-        log( log_ctx, 'Team manifest', teams_manifest );
+        log( 'Team manifest', teams_manifest );
         user.teams = {};
         for( var dir in teams_manifest )
         {
@@ -133,14 +134,14 @@ function loginCloud( user, log_ctx )
         user.key_signing_exported = decode( files[ 0 ] );
         return importKeySign( user.key_signing_exported );
     } ).then( function( s ) {
-        log( log_ctx, 'Imported signing key', user.teams );
+        log( 'Imported signing key', user.teams );
         user.key_signing = s;
-        return P.all( Object.keys( user.teams ).map( loginReadTeam( user, log_ctx ) ) );
+        return P.all( Object.keys( user.teams ).map( loginReadTeam( user, scp ) ) );
     } ).then( function( _ ) {
-        log( log_ctx, 'Read teams', user.teams );
+        log( 'Read teams', user.teams );
         for( var k in user.teams )
         {
-            log( 'Team', log_ctx, k, user.teams[k] );
+            log( 'Team', k, user.teams[k] );
         }
         return P.resolve();
     } );
@@ -166,35 +167,35 @@ function loginCloud( user, log_ctx )
  *   (and generally is) different in each teammate's copy of the team.
  */
 
-function loginReadTeam( user, log_ctx )
+function loginReadTeam( user, scp )
 {
-if( log_ctx ) log_ctx = log_ctx.push( 'Team' );
+var [ scp, log ] = Scope.enter( scp, 'Team' );
 return function( team_dir )
 {
     // scp = Scope.enter( scp, team_dir );
-    if( log_ctx ) log_ctx = log_ctx.push( team_dir );
+    var [ scp, log ] = Scope.enter( scp, team_dir );
     var download = downloadFromTeam( user.cloud_text, team_dir );
     var team = user.teams[ team_dir ];
     return download( [ 'key_decrypt' ] )
     .then( function( k ) {
-        log( log_ctx, 'Decrypt key downloaded' );
+        log( 'Decrypt key downloaded' );
         return P.all( [
             aes_cbc_ecdsa.verify_then_decrypt_salted( user.key_main, user.key_verify, k ),
             download( [ 'key_encrypt', true ] ) ] );
     } ).then( function( keys ) {
-        log( log_ctx, 'Main and decrypt keys decrypted; encrypt key downloaded', keys );
+        log( 'Main and decrypt keys decrypted; encrypt key downloaded', keys );
         team.key_decrypt_exported = decode( keys[0] );
         team.key_encrypt_exported = keys[1];
         return P.all( [ importKeyDecrypt( team.key_decrypt_exported ),
                         importKeyEncrypt( team.key_encrypt_exported ) ] );
     } ).then( function( keys ) {
-        log( log_ctx, 'Main, decrypt and encrypt keys imported' );
+        log( 'Main, decrypt and encrypt keys imported' );
         team.key_decrypt = keys[0];
         team.key_encrypt = keys[1];
         return ecdh_aesDeriveKey( team.key_encrypt, team.key_decrypt );
     } ).then( function( k ) {
         // scp = Scope.cont( scp, 'Shared key derived' );
-        log( log_ctx, team_dir, 'Shared key derived' );
+        log( team_dir, 'Shared key derived' );
         team.key_main = k;
         var files = [ [ 'key_verify', true ],
                       [ 'key_sign' ],
@@ -202,7 +203,7 @@ return function( team_dir )
                       [ [ 'Data', 'data' ] ] ];
         return P.all( files.map( download ) );
     } ).then( function( files ) {
-        log( log_ctx, 'Bunch of files downloaded' );
+        log( 'Bunch of files downloaded' );
         team.key_verify_exported = files[ 0 ];
         var to_decrypt = [ [ user.key_main, files[ 1 ] ],
                            [ user.key_main, files[ 2 ] ],
@@ -211,7 +212,7 @@ return function( team_dir )
         { return aes_cbc_ecdsa.verify_then_decrypt_salted( k, user.key_verify, d ); }
         return P.all( [ importKeyVerify( files[ 0 ] ) ].concat( to_decrypt.map( decrypt ) ) );
     } ).then( function( files ) {
-        log( log_ctx, 'Bunch of files decrypted', JSON.parse( decode( files[ 3 ] ) ) );
+        log( 'Bunch of files decrypted', JSON.parse( decode( files[ 3 ] ) ) );
         team.key_verify = files[ 0 ];
         team.self_id = decode( files[ 2 ] );
         team.db = JSON.parse( decode( files[ 3 ] ) );
@@ -246,15 +247,15 @@ return function( team_dir )
         return P.all( [ importKeySign( team.key_signing_exported ) ].concat( vs ) );
     } ).then( function( [ k ] ) {
         team.key_signing = k[ 0 ];
-        log( log_ctx, 'Imported' );
+        log( 'Imported' );
         return P.resolve();
     } );
 }
 }
 
-function initTeamState( team_name, user, log_ctx )
+function initTeamState( team_name, user, scp )
 {
-    if( log_ctx ) log_ctx = log_ctx.push( 'Init' );
+    var [ scp, log ] = Scope.enter( scp, 'Init' );
     var team = {
         name:          team_name,
         dir:           makeUniqueId( user.teams ),
@@ -263,7 +264,7 @@ function initTeamState( team_name, user, log_ctx )
         db:            DB.new() };
     return P.resolve()
     .then( function() {
-        log( log_ctx, 'Begin', user )
+        log( 'Begin', user )
         var team_id = DB.new_entity( team.db );
         var datoms = [ DB.build_datom( team_id, 'team:name', team_name ) ];
         var teammate_ent = DB.new_entity( team.db );
@@ -282,11 +283,11 @@ function initTeamState( team_name, user, log_ctx )
               [ signing_kalgo, [ 'sign', 'verify' ] ] ];
         return P.all( keys.map( generate ) );
     } ).then( function( keys ) {
-        log( log_ctx, 'Generated keys', keys );
+        log( 'Generated keys', keys );
         return p_all_resolve( [ ecdh_aesDeriveKey( keys[0].publicKey, keys[0].privateKey ) ],
                               keys );
     } ).then( function( keys ) {
-        log( log_ctx, 'Derived shared team key' );
+        log( 'Derived shared team key' );
         team.key_main    = keys[0];
         team.key_encrypt = keys[1].publicKey;
         team.key_decrypt = keys[1].privateKey;
@@ -305,9 +306,9 @@ function initTeamState( team_name, user, log_ctx )
     } );
 }
 
-function uploadTeam( team, user, log_ctx )
+function uploadTeam( team, user, scp )
 {
-    if( log_ctx ) log_ctx = log_ctx.push( 'Cloud' );
+    var [ scp, log ] = Scope.enter( scp, 'Cloud' );
     return P.resolve()
     .then( function() {
         /* This loop is a scalability bug, but team creation should be
@@ -328,7 +329,7 @@ function uploadTeam( team, user, log_ctx )
               [ user.key_main, encd_jstr( teams_manifest ) ] ];
         return P.all( to_encrypt.map( encrypt ) )
     } ).then( function( files ) {
-        log( log_ctx, 'Encrypted files. Teams manifest:', new Uint8Array( files[ 4 ] ) );
+        log( 'Encrypted files. Teams manifest:', new Uint8Array( files[ 4 ] ) );
         var teams_manifest = files[ 4 ];
         var files = [
             [ 'key_encrypt', team.key_encrypt_exported, 'application/json' ],
@@ -343,18 +344,18 @@ function uploadTeam( team, user, log_ctx )
     } );
 }
 
-function createTeam( team_name, user, log_ctx )
+function createTeam( team_name, user, scp )
 {
-    if( log_ctx ) log_ctx = log_ctx.push( 'CreateTeam' );
+    var [ scp, log ] = Scope.enter( scp, 'CreateTeam' );
     var team;
-    log( 'Starting', log_ctx, team_name );
-    return initTeamState( team_name, user, log_ctx )
+    log( 'Starting', team_name );
+    return initTeamState( team_name, user, scp )
     .then( function( t ) {
         team = t;
-        log( log_ctx, 'Initialized team state' );
-        return uploadTeam( team, user, log_ctx );
+        log( 'Initialized team state' );
+        return uploadTeam( team, user, scp );
     } ).then( function( [ e, v, d, s, t, c ] ) {
-        log( 'Created', log_ctx );
+        log( 'Created' );
         return P.resolve( team.dir );
     } );
 }

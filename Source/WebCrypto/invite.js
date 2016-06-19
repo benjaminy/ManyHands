@@ -23,112 +23,112 @@
  *    - Copy the state of the team from Alice
  */
 
-function inviteStep1( bob, team_id, alice, log_ctx )
+function inviteStep1( bob, team_id, alice, scp )
 {
-    log_ctx = log_ctx.push( 'InviteStep1' );
+    var [ scp, log ] = Scope.enter( scp, 'InviteStep1' );
     var step1_id  = makeUniqueId( alice.invites );
     var step1_priv = JSON.stringify( { bob: bob, team: team_id } );
-    log( log_ctx, 'E', alice.key_main, alice.key_signing );
+    log( 'E', alice.key_main, alice.key_signing );
     return aes_cbc_ecdsa.encrypt_then_sign_salted(
-        alice.key_main, alice.key_signing, encode( step1_priv ), log_ctx )
+        alice.key_main, alice.key_signing, encode( step1_priv ), scp )
     .then( function( step1_priv ) {
-        log( log_ctx, 'Encrypted step1_priv' );
+        log( 'Encrypted step1_priv' );
         function upload( [ d, n, t ] )
         { return uploadFile( alice.cloud_text, [ 'Invites', step1_id, n ], d, t ); }
         fs = [ [ step1_priv, 'step1' ], [ '', 'step3', 'text/plain' ] ];
         return P.all( fs.map( upload ) );
     } ).then( function() {
-        log( log_ctx, 'Uploaded step1_priv and dummy step3' );
+        log( 'Uploaded step1_priv and dummy step3' );
         var step1_pub = JSON.stringify( { cloud: alice.cloud_text, step1_id: step1_id } );
         return P.resolve( step1_pub );
     } );
 }
 
-function inviteStep2( step1_pub_text, bob, log_ctx )
+function inviteStep2( step1_pub_text, bob, scp )
 {
-    log_ctx = log_ctx.push( 'InviteStep2' );
+    var [ scp, log ] = Scope.enter( scp, 'InviteStep2' );
     var step1_pub = JSON.parse( step1_pub_text );
     var step2_id = makeUniqueId( bob.invites );
     return downloadFile( step1_pub.cloud, 'key_encrypt', true )
     .then( function( k ) {
-        log( log_ctx, 'Downloaded Alice\'s key' );
+        log( 'Downloaded Alice\'s key' );
         return importKeyEncrypt( k );
     } ).then( function( k ) {
-        log( log_ctx, 'Imported Alice\'s key' );
+        log( 'Imported Alice\'s key' );
         return ecdh_aesDeriveKey( k, bob.key_decrypt );
     } ).then( function( k ) {
-        log( log_ctx, 'Derived shared key' );
+        log( 'Derived shared key' );
         var bob_dir = makeUniqueId( bob.teams );
         var step2_priv = JSON.stringify( { d: bob_dir, i: step1_pub.step1_id } );
         return aes_cbc_ecdsa.encrypt_then_sign_salted(
-            k, bob.key_signing, encode( step2_priv ), log_ctx )
+            k, bob.key_signing, encode( step2_priv ), scp )
     } ).then( function( step2_priv ) {
-        log( log_ctx, 'Encrypted and signed step2' );
+        log( 'Encrypted and signed step2' );
         return uploadFile( bob.cloud_text, [ 'Invites', step2_id, 'step2' ], step2_priv );
     } ).then( function() {
-        log( log_ctx, 'Uploaded step2' );
+        log( 'Uploaded step2' );
         var step2_pub = JSON.stringify( { cloud: bob.cloud_text, step2_id: step2_id } );
         return P.resolve( step2_pub );
     } );
 }
 
-function inviteStep3A( step2_pub, alice, bob, log_ctx )
+function inviteStep3A( step2_pub, alice, bob, scp )
 {
-    log_ctx = log_ctx.push( 'A' );
+    var [ scp, log ] = Scope.enter( scp, 'A' );
     function downloadBob( [ p, t ] ) { return downloadFile( step2_pub.cloud, p, t ) };
     bob.step2_id = step2_pub.step2_id;
     var files = [ [ 'key_encrypt', true ],
                   [ 'key_verify', true ] ];
     return P.all( files.map( downloadBob ) )
     .then( function( keys ) {
-        log( log_ctx, 'Downloaded keys from Bob' );
+        log( 'Downloaded keys from Bob' );
         bob.key_encrypt_exported = keys[ 0 ];
         bob.key_verify_exported = keys[ 1 ];
         return P.all( [ importKeyEncrypt( bob.key_encrypt_exported ),
                         importKeyVerify( bob.key_verify_exported ) ] );
     } ).then( function( keys ) {
-        log( log_ctx, 'Imported Bob\'s keys' );
+        log( 'Imported Bob\'s keys' );
         bob.key_encrypt = keys[ 0 ];
         bob.key_verify = keys[ 1 ];
         return P.all( [ ecdh_aesDeriveKey( bob.key_encrypt, alice.key_decrypt ),
                         downloadBob( [ [ 'Invites', bob.step2_id, 'step2' ] ] ) ] );
     } ).then( function( [ k, step2_enc ] ) {
-        log( log_ctx, 'Derived shared key' );
+        log( 'Derived shared key' );
         bob.sym_AB = k;
         return aes_cbc_ecdsa.verify_then_decrypt_salted(
-            bob.sym_AB, bob.key_verify, step2_enc, log_ctx )
+            bob.sym_AB, bob.key_verify, step2_enc, scp )
     } ).then( function( step2_priv ) {
         step2_priv = JSON.parse( decode( step2_priv ) );
-        log( log_ctx, 'Decrypted step2', step2_priv );
+        log( 'Decrypted step2', step2_priv );
         bob.step1_id = step2_priv.i;
         bob.dir = step2_priv.d;
         return P.resolve();
     } );
 }
 
-function inviteStep3B( alice, bob, log_ctx )
+function inviteStep3B( alice, bob, scp )
 {
-    log_ctx = log_ctx.push( 'B' );
-    return downloadFile( alice.cloud_text, [ 'Invites', bob.step1_id, 'step1' ] )
+    var [ scp, log ] = Scope.enter( scp, 'B' );
+    return downloadFile( alice.cloud_text, [ 'Invites', bob.step1_id, 'step1' ], null, scp )
     .then( function( step1_priv ) {
-        log( log_ctx, 'Downloaded step1' );
+        log( 'Downloaded step1' );
         return aes_cbc_ecdsa.verify_then_decrypt_salted(
-            alice.key_main, alice.key_verify, step1_priv, log_ctx )
+            alice.key_main, alice.key_verify, step1_priv, scp )
     } ).then( function( step1_priv ) {
         step1_priv = JSON.parse( decode( step1_priv ) );
-        log( log_ctx, 'Decrypted step1', step1_priv );
+        log( 'Decrypted step1', step1_priv );
         return P.resolve( step1_priv );
     } );
 }
 
-function inviteStep3C( step1_priv, alice, bob, log_ctx )
+function inviteStep3C( step1_priv, alice, bob, scp )
 {
-    log_ctx = log_ctx.push( 'C' );
-    function upload( [ p, c, t ] ) { return uploadFile( alice.cloud_text, p, c, t ) };
+    var [ scp, log ] = Scope.enter( scp, 'C' );
+    function upload( [ p, c, t ] ) { return uploadFile( alice.cloud_text, p, c, t, scp ) };
     var team = alice.teams[ step1_priv.team ];
     if( !team )
     {
-        log( log_ctx, 'Got invitation response.  Mystery team in step1.',
+        log( 'Got invitation response.  Mystery team in step1.',
              step1_priv.team, alice.teams );
         return P.reject( 'Invitation add failed' );
     }
@@ -157,23 +157,23 @@ function inviteStep3C( step1_priv, alice, bob, log_ctx )
     } ).then( function( [ step3_enc, db ] ) {
         var files = [ [ [ 'Invites', bob.step1_id, 'step3' ], step3_enc ],
                       [ [ 'Teams', team.dir, 'Data', 'data' ], db ] ];
-        function upload( [ p, c ] ) { return uploadFile( alice.cloud_text, p, c ) };
+        function upload( [ p, c ] ) { return uploadFile( alice.cloud_text, p, c, null, scp ) };
         return P.all( files.map( upload ) );
     } );
 }
 
-function inviteStep3( step2_pub_text, alice, log_ctx )
+function inviteStep3( step2_pub_text, alice, scp )
 {
     /* assert( step2_pub_text is valid ) */
     /* assert( alice is valid ) */
-    log_ctx = log_ctx.push( 'InviteStep3' );
+    var [ scp, log ] = Scope.enter( scp, 'InviteStep3' );
     var bob = {};
     var step2_pub = JSON.parse( step2_pub_text );
-    return inviteStep3A( step2_pub, alice, bob, log_ctx )
+    return inviteStep3A( step2_pub, alice, bob, scp )
     .then( function() {
-        return inviteStep3B( alice, bob, log_ctx );
+        return inviteStep3B( alice, bob, scp );
     } ).then( function( step1_priv ) {
-        return inviteStep3C( step1_priv, alice, bob, log_ctx );
+        return inviteStep3C( step1_priv, alice, bob, scp );
     } );
 }
 
@@ -182,37 +182,35 @@ function inviteStep3( step2_pub_text, alice, log_ctx )
  * know when this happened?  Not sure.  One idea is to monitor the file
  * with long-polling/notifications.
  */
-function inviteStep4( step1_pub_text, bob, log_ctx )
+function inviteStep4( step1_pub_text, bob, scp )
 {
-    log_ctx = log_ctx.push( 'InviteStep4' );
+    var [ scp, log ] = Scope.enter( scp, 'InviteStep4' );
     function downloadAlice( [ p, t ] )
-    { return downloadFile( step1_pub.cloud, p, t ); }
-    function downloadBob( [ p, t ] )
-    { return downloadFile( user.cloud_text, p, t ); }
+    { return downloadFile( step1_pub.cloud, p, t, scp ); }
     var step1_pub = JSON.parse( step1_pub_text );
     var alice = { cloud_text: step1_pub.cloud };
     var team = {};
     return P.all( [ downloadAlice( [ 'key_encrypt', true ] ),
                     downloadAlice( [ 'key_verify', true ] ) ] )
     .then( function( keys ) {
-        log( log_ctx, 'Downloaded Alice\'s keys' );
+        log( 'Downloaded Alice\'s keys' );
         alice.key_encrypt_exported = keys[0];
         alice.key_verify_exported = keys[1];
-        return P.all( [ importKeyEncrypt( alice.key_encrypt_exported ),
-                        importKeyVerify( alice.key_verify_exported ) ] );
+        return P.all( [ importKeyEncrypt( alice.key_encrypt_exported, scp ),
+                        importKeyVerify( alice.key_verify_exported, scp ) ] );
     } ).then( function( keys ) {
-        log( log_ctx, 'Imported Alice\'s keys' );
+        log( 'Imported Alice\'s keys' );
         alice.key_encrypt = keys[ 0 ];
         alice.key_verify = keys[ 1 ];
         return P.all( [ ecdh_aesDeriveKey( alice.key_encrypt, bob.key_decrypt ),
                         downloadAlice( [ [ 'Invites', step1_pub.step1_id, 'step3' ] ] ) ] );
     } ).then( function( [ k, step3_enc ] ) {
-        log( log_ctx, 'Derived shared key and downloaded step3' );
+        log( 'Derived shared key and downloaded step3' );
         alice.sym_AB = k;
         return aes_cbc_ecdsa.verify_then_decrypt_salted(
-            alice.sym_AB, alice.key_verify, step3_enc, log_ctx )
+            alice.sym_AB, alice.key_verify, step3_enc, scp )
     } ).then( function( step3_priv_buf ) {
-        log( log_ctx, 'Decrypted step3' );
+        log( 'Decrypted step3' );
         var step3_priv = JSON.parse( decode( step3_priv_buf ) );
         alice.team_dir = step3_priv.t;
         alice.step2_id = step3_priv.i;
@@ -220,20 +218,20 @@ function inviteStep4( step1_pub_text, bob, log_ctx )
         team.key_decrypt_exported = step3_priv.d;
         team.key_signing_exported = step3_priv.s;
         bob.teams[ alice.team_dir ] = team;
-        var downloadTeam = downloadFromTeam( alice.cloud_text, alice.team_dir );
+        var downloadTeam = downloadFromTeam( alice.cloud_text, alice.team_dir, scp );
         var files = [ [ [ 'Data', 'data' ] ],
                       [ [ 'key_verify' ], true ],
                       [ [ 'key_encrypt' ], true ] ];
         return P.all( files.map( downloadTeam )
-                      .concat( [ importKeyDecrypt( team.key_decrypt_exported ),
-                                 importKeySign( team.key_signing_exported ) ] ) );
+                      .concat( [ importKeyDecrypt( team.key_decrypt_exported, scp ),
+                                 importKeySign( team.key_signing_exported, scp ) ] ) );
     } ).then( function( files ) {
-        log( log_ctx, 'Downloaded team files' );
+        log( 'Downloaded team files' );
         team.db_enc = files[ 0 ];
         team.key_decrypt = files[ 3 ];
         team.key_signing = files[ 4 ];
-        return P.all( [ importKeyVerify( files[ 1 ] ),
-                        importKeyEncrypt( files[ 2 ] ) ] );
+        return P.all( [ importKeyVerify( files[ 1 ], scp ),
+                        importKeyEncrypt( files[ 2 ], scp ) ] );
     } ).then( function( keys ) {
         team.key_encrypt = keys[ 1 ];
         team.key_verify = keys[ 0 ];

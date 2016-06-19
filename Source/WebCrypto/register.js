@@ -3,35 +3,35 @@
  */
 
 /* Returns a resolved Promise if successful; a rejected Promise otherwise */
-function register( uid, passwd, log_ctx )
+function register( uid, passwd, scp )
 {
-    if( log_ctx ) log_ctx = log_ctx.push( 'Register' );
+    var [ scp, log ] = Scope.enter( scp, 'Register' );
     var user = { uid: uid };
-    return checkUidAvailability( uid, user, log_ctx )
-    .then( function( _ ) {
-        return initializeUserAccount( uid, passwd, user, log_ctx );
-    } ).then( function( _ ) {
-        log( log_ctx, 'Keys initialized' );
-        return initializeCloudStorage( user, log_ctx );
-    } ).then( function( _ ) {
-        log( log_ctx, 'Cloud storage initialized' );
-        return submitRegistrationInfo( user, log_ctx );
-    } ).then( function( _ ) {
-        log( log_ctx, 'Registered' );
+    return checkUidAvailability( uid, user, scp )
+    .then( function() {
+        return initializeUserAccount( uid, passwd, user, scp );
+    } ).then( function() {
+        log( 'Keys initialized' );
+        return initializeCloudStorage( user, scp );
+    } ).then( function() {
+        log( 'Cloud storage initialized' );
+        return submitRegistrationInfo( user, scp );
+    } ).then( function() {
+        log( 'Registered' );
         return P.resolve( user );
     } );
 }
 
-function checkUidAvailability( uid, user, log_ctx )
+function checkUidAvailability( uid, user, scp )
 {
-    log_ctx = log_ctx.push( 'Check' );
+    var [ scp, log ] = Scope.enter( scp, 'Check' );
     return C.digest( 'SHA-256', encode( uid ) )
     .then( function( h ) {
         user.huid = bufToHex( h );
-        log( 'HashedUID', log_ctx, user.huid );
+        log( 'HashedUID', user.huid );
         return fetch( '/Users/'+user.huid );
     } ).then( function ( resp ) {
-        log( 'Response', log_ctx, resp.status, resp.statusText );
+        log( 'Response', resp.status, resp.statusText );
         if( resp.ok )
             return P.reject( new NameNotAvailableError() );
         else if( resp.status != 404 )
@@ -41,9 +41,9 @@ function checkUidAvailability( uid, user, log_ctx )
     } );
 }
 
-function initializeUserAccount( uid, passwd, user, log_ctx )
+function initializeUserAccount( uid, passwd, user, scp )
 {
-    log_ctx = log_ctx.push( 'Init' );
+    var [ scp, log ] = Scope.enter( scp, 'Init' );
     return P.resolve()
     .then( function() {
         user.login_salt = getRandomBytes( SALT_NUM_BYTES );
@@ -52,7 +52,7 @@ function initializeUserAccount( uid, passwd, user, log_ctx )
                      makeLoginKey( uid, passwd, user.login_salt ) ];
         return P.all( keys )
     } ).then( function( keys ) {
-        log( 'GeneratedKeys', log_ctx, keys.map( function( x ){ return typeof( x ); } ) );
+        log( 'GeneratedKeys', keys.map( function( x ){ return typeof( x ); } ) );
         user.key_encrypt = keys[0].publicKey;
         user.key_decrypt = keys[0].privateKey;
         user.key_signing = keys[1].privateKey;
@@ -60,14 +60,14 @@ function initializeUserAccount( uid, passwd, user, log_ctx )
         user.key_login   = keys[2];
         return ecdh_aesDeriveKey( user.key_encrypt, user.key_decrypt );
     } ).then( function( k ) {
-        log( log_ctx, 'Derived main key', typeof( k ) );
+        log( 'Derived main key', typeof( k ) );
         user.key_main = k;
         var keys = [ user.key_encrypt, user.key_decrypt,
                      user.key_signing, user.key_verify,
                      user.key_login, user.key_main ];
         return P.all( keys.map( exportKeyJwk ) );
     } ).then( function( keys ) {
-        log( log_ctx, 'Exported', typeof( keys[0] ), JSON.stringify( keys[0] ) );
+        log( 'Exported', typeof( keys[0] ), JSON.stringify( keys[0] ) );
         user.key_encrypt_exported = keys[0];
         user.key_decrypt_exported = keys[1];
         user.key_signing_exported = keys[2];
@@ -78,24 +78,24 @@ function initializeUserAccount( uid, passwd, user, log_ctx )
     } );
 }
 
-function initializeCloudStorage( user, log_ctx )
+function initializeCloudStorage( user, scp )
 {
-    log_ctx = log_ctx.push( 'Cloud' );
+    var [ scp, log ] = Scope.enter( scp, 'Cloud' );
     return P.resolve()
     .then( function() {
         user.cloud_bits = getRandomBytes( 5 );
         user.cloud_text = bufToHex( user.cloud_bits );
-        log( 'Link', log_ctx, user.cloud_text, user.cloud_bits );
+        log( 'Link', user.cloud_text, user.cloud_bits );
         var dp = aes_cbc_ecdsa.encrypt_then_sign_salted(
             user.key_login, user.key_signing,
-            encode( user.key_decrypt_exported ), log_ctx );
+            encode( user.key_decrypt_exported ), scp );
         function encrypt( d )
         { return aes_cbc_ecdsa.encrypt_then_sign_salted(
-            user.key_main, user.key_signing, encode( d ), log_ctx ); }
+            user.key_main, user.key_signing, encode( d ), scp ); }
         var to_encrypt = [ user.key_signing_exported, '[]', '{}' ];
         return P.all( to_encrypt.map( encrypt ).concat( [ dp ] ) );
     } ).then( function( [ s, t, i, d ] ) {
-        log( log_ctx, 'Exported public keys and encrypted private keys', s, t, i );
+        log( 'Exported public keys and encrypted private keys', s, t, i );
         function upload( [ p, c, t ] ) { return uploadFile( user.cloud_text, p, c, t ) };
         var fs = [ [ 'key_encrypt', user.key_encrypt_exported, 'text/plain' ],
                    [ 'key_verify',  user.key_verify_exported, 'text/plain' ],
@@ -107,14 +107,14 @@ function initializeCloudStorage( user, log_ctx )
     } );
 }
 
-function submitRegistrationInfo( user, log_ctx )
+function submitRegistrationInfo( user, scp )
 {
-    if( log_ctx ) log_ctx = log_ctx.push( 'Submit' );
-    log( log_ctx, user.key_login );
+    var [ scp, log ] = Scope.enter( scp, 'Submit' );
+    log( user.key_login );
     return aes_cbc_ecdsa.encrypt_then_sign_salted(
         user.key_login, user.key_signing, user.cloud_bits )
     .then( function( l ) {
-        log( 'Encrypted link', log_ctx, bufToHex( l ), user.cloud_bits, user.cloud_text );
+        log( 'Encrypted link', bufToHex( l ), user.cloud_bits, user.cloud_text );
         var registration_info = {
             link   : bufToHex( l ),
             pub_key: user.key_verify_exported,
