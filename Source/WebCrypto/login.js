@@ -166,18 +166,6 @@ function loginCloud( user, log_ctx )
  *   (and generally is) different in each teammate's copy of the team.
  */
 
-function uploadToTeam( cloud, team )
-{
-    return ( [ p, c, t ] ) =>
-        { return uploadFile( cloud, [ 'Teams', team ].concat( p ) , c, t ); }
-}
-
-function downloadFromTeam( cloud, team )
-{
-    return ( [ p, t ] ) =>
-        { return downloadFile( cloud, [ 'Teams', team ].concat( p ), t ); }
-}
-
 function loginReadTeam( user, log_ctx )
 {
 if( log_ctx ) log_ctx = log_ctx.push( 'Team' );
@@ -241,26 +229,24 @@ return function( team_dir )
             .forEach( ( d ) => { return team.teammates[ ids[ d.e ] ]
                                  [ stripPrefix( 'teammate:', d.a ) ] = d.v } );
         team.key_signing_exported = decode( files[ 1 ] );
-        var entities = [];
-        for( k in ids ) { entities.push( k ); }
-        entities.sort();
-        var keys = entities.map(
-            ( e ) => { log( log_ctx, 'BLAH', team.teammates[ ids[ e ] ] );
-                       return importKeyVerify(
-                           team.teammates[ ids[ e ] ].key_verify_exported ); } );
-        return p_all_resolve(
-            keys.concat( importKeySign( team.key_signing_exported ) ),
-            [ ids, entities ] );
-    } ).then( function( mishmash ) {
-        var keys = mishmash.slice( 0, -3 );
-        var rest = mishmash.slice( -3 );
-        team.key_signing = rest[ 0 ];
-        var ids = rest[ 1 ];
-        var entities = rest[ 2 ];
-        entities.forEach( ( e, i ) => { team.teammates[ ids[ e ] ].key_verify = keys[i] } );
+        var vs = [];
+        function importKey( dbid )
+        {
+            return importKeyVerify(
+                team.teammates[ ids[ dbid ] ].key_verify_exported )
+            .then( function( k ) {
+                team.teammates[ ids[ dbid ] ].key_verify = k;
+                return P.resolve();
+            } );
+        }
+        for( dbid in ids )
+        {
+            vs.push( importKey( dbid ) );
+        }
+        return P.all( [ importKeySign( team.key_signing_exported ) ].concat( vs ) );
+    } ).then( function( [ k ] ) {
+        team.key_signing = k[ 0 ];
         log( log_ctx, 'Imported' );
-        team.key_signing = k;
-        user.teams[ team_dir ] = team;
         return P.resolve();
     } );
 }
@@ -282,8 +268,10 @@ function initTeamState( team_name, user, log_ctx )
         var datoms = [ DB.build_datom( team_id, 'team:name', team_name ) ];
         var teammate_ent = DB.new_entity( team.db );
         var teammate_datoms = [
-            [ 'id', team.self_id ], [ 'cloud_text', user.cloud_text ],
-            [ 'key_verify_exported', user.key_verify_exported ] ];
+            [ 'id', team.self_id ],
+            [ 'cloud_text', user.cloud_text ],
+            [ 'key_verify_exported', user.key_verify_exported ],
+            [ 'dir', team.dir ] ];
         datoms = datoms.concat( teammate_datoms.map( function( [ a, v ] ) {
             return DB.build_datom( teammate_ent, 'teammate:'+a, v ); } ) );
         DB.apply_txn( team.db, DB.build_txn( [], datoms ) );

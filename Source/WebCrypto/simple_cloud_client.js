@@ -95,3 +95,15 @@ function downloadFile( user, path, isText, log_ctx )
         }
     } );
 }
+
+function uploadToTeam( cloud, team )
+{
+    return ( [ p, c, t ] ) =>
+        { return uploadFile( cloud, [ 'Teams', team ].concat( p ) , c, t ); }
+}
+
+function downloadFromTeam( cloud, team )
+{
+    return ( [ p, t ] ) =>
+        { return downloadFile( cloud, [ 'Teams', team ].concat( p ), t ); }
+}

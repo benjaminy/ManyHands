@@ -29,7 +29,7 @@ function test01()
         return inviteStep3( accept, alice, log_ctx );
     } ).then( function() {
         return inviteStep4( step1_pub, bob, log_ctx );
-    } ).then( function( blah ) {
-        log( 'Finally', blah );
+    } ).then( function() {
+        log( log_ctx, 'SUCCESS' );
     } )
 }
