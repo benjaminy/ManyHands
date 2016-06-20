@@ -38,6 +38,8 @@ Scope.enter = function( scp, name )
     return [ new_scp, Scope.log( new_scp ) ];
 }
 
+// Scope.anon = function( scp
+
 // Scope.cont = function( p1, p2, ...params )
 // {
 // }

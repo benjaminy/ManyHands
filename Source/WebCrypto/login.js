@@ -98,14 +98,16 @@ function loginCloud( user, scp )
         return p_all_resolve( [ importKeyEncrypt( user.key_encrypt_exported ),
                                 importKeyVerify( user.key_verify_exported ) ],
                               [ keys[ 2 ] ] );
-    } ).then( function( [ e, v, d ] ) {
+    } ).then( function( keys ) {
         log( 'Imported public keys' );
-        user.key_encrypt = e;
-        user.key_verify  = v;
-        return aes_cbc_ecdsa.verify_then_decrypt_salted( user.key_login, user.key_verify, d )
+        user.key_encrypt = keys[ 0 ];
+        user.key_verify  = keys[ 1 ];
+        return aes_cbc_ecdsa.verify_then_decrypt_salted(
+            user.key_login, user.key_verify, keys[ 2 ] );
     } ).then( function( d ) {
-        user.key_decrypt_exported = d;
-        return importKeyDecrypt( decode( d ) );
+        log( 'Decrypted decryption key' );
+        user.key_decrypt_exported = decode( d );
+        return importKeyDecrypt( user.key_decrypt_exported );
     } ).then( function( d ) {
         log( 'Imported decryption key', d );
         user.key_decrypt = d;
