@@ -15,6 +15,19 @@
     <script type="text/javascript" src="CloudStorageAbstraction/fileLinks.js" ></script>
     <script type="text/javascript" src="transactions.js" ></script>
     <script>
+        function testMultipleSort() {
+            function Foo(a, b, c) {
+                this.a = a;
+                this.b = b;
+                this.c = c;
+            }
+            var toSort = [new Foo(2,1,1),new Foo(1,1,2),new Foo(2,3,3),new Foo(2,2,4),new Foo(1,2,5),new Foo(2,3,6),
+                new Foo(1,2,7),new Foo(1,1,8),new Foo(2,1,9),new Foo(2,2,10),new Foo(2,1,11),new Foo(3,1,12),new Foo(1,1,13),
+                new Foo(1,2,14),new Foo(3,1,15),new Foo(3,2,16),new Foo(2,3,17),new Foo(3,3,18),new Foo(3,2,19),new Foo(3,3,20)];
+            console.log(combinedSort(toSort, function(a,b) { return a.a - b.a; }, function(a,b) { return a.b - b.b; },
+                    function(a,b) { return a.c - b.c; }))
+        }
+
         var common_key;
         generateRandomAesKey().then(function(key) {
             common_key = key;
@@ -80,7 +93,7 @@
             manager2 = new TransactionManager(cloud, "team2", "2");
             manager3 = new TransactionManager(cloud, "team3", "3");
             var factory = new EncLinkFactory(common_key);
-            manager1.linkFactory = manager2.linkFactory = manager3.linkFactory = factory;
+            //manager1.linkFactory = manager2.linkFactory = manager3.linkFactory = factory;
             var p = [];
             p[0] = manager1.initialize();
             p[1] = manager2.initialize();

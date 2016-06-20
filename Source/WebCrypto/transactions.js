@@ -48,7 +48,9 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
 
     // States of the database
     this.currentDBs = [];
-    
+
+    // Link factory is used as a decorator for Shared Files. This way we can enable encryption
+    // of the database without modification in the Transactions Manager.
     this.linkFactory = new SharedFileFactory();
 
     this.lock = new Lock();
@@ -76,6 +78,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             } else {
                 manager.ownVectorClock = chain[chain.length - 1].ownVectorClock;
             }
+            // apply the transactions from the chain, to determine the state of the database after
+            // each transaction.
             var lastDB = new DB();
             manager.currentDBs = [];
             for (var i = 0; i < manager.currentChain.length; ++i) {
@@ -86,7 +90,6 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             return initializeVersionFile(manager.cloudStorage, manager.teamCatalog+"/version");
         }).then(function(versionFile) {
             manager.ownVersionFile = versionFile;
-            // Get the first transaction and check its timestamp
             return loadUsersOnTheTeam(manager.cloudStorage, manager.teamCatalog);
         }).then(function(users) {
             manager.usersOnTheTeam = users;
@@ -125,6 +128,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                 transactions[i].applyOn(newDB);
                 newChain.push(transactions[i]);
             } else {
+                // If the transaction did not have its conditions met, we want to try to swap it with
+                // the transaction before
                 transactions[i].enabled = false;
                 if (i > 0) {
                     // restore previous state, and try reverse order
@@ -161,6 +166,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
         console.log2(this.currentDBs);
     };
 
+    // This method performs the merging with the other user's database - using the
+    // accessor to that user's last transaction
     this.updateFromOtherUser = function(lastForeignTransactionAccessor) {
         var manager = this;
         return manager.lock.lock(function() {
@@ -171,14 +178,19 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             )
         });
     };
+
     // This method takes an object returned by loadDifferencesFromForeignTransactionChain
-    // and tries to solve it and change the chain
+    // and tries to solve it, by merging changes from 2 users and changing the transaction chain.
     this.solveDiff = function (diff) {
+        // If no changes were present, we can skip the update
         if (diff.own.length == 0 && diff.foreign.length == 0)
             return Promise.resolve();
         var manager = this;
         var mergedTransactions = [];
+        // copy of the own chain is used to easily find non-repeating transactions
         var own_copy = diff.own.slice(0);
+        // If the same transaction repeats in both foreign and own chain, we want to find it,
+        // and add it to the new chain just once
         for (var i = 0; i < diff.foreign.length; ++i) {
             var newTransaction = Transaction.fromString(JSON.stringify(diff.foreign[i]));
             var ownMatch = null;
@@ -192,6 +204,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                     break;
                 }
             }
+            // If we found a match for this transaction, we need to choose the earliest timestamps
+            // from the two
             if (ownMatch != null) {
                 if (diff.foreign[i].timestamp == null)
                     newTransaction.timestamp = ownMatch.timestamp;
@@ -203,27 +217,33 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             }
             mergedTransactions.push(newTransaction);
         }
+        // right now all the foreign transactions are incoroporated in mergedTransactions,
+        // and own_copy stores the non-repeating transactions from own chain
+        // We need to add those transactions to the new chain
         for (var i = 0; i < own_copy.length; ++i) {
             mergedTransactions.push(Transaction.fromString(JSON.stringify(own_copy[i])))
         }
 
         // Sort transactions
-        mergedTransactions.sort(function cmp(t1, t2) {
-            return t1.compareChronology(t2);
-        });
+        mergedTransactions = Transaction.sortTransactions(mergedTransactions);
 
+        // check if all the transactions' conditions are met, and disable transactions
+        // that cannot be a part of the current chain.
         manager.resolveConflicts(mergedTransactions, diff.indexOfFirstDifference);
+
+
+        //----Now we'll put the newly created end of the chain, at the end of the transaction chain----
 
         if (mergedTransactions.length > 0)
             mergedTransactions[0].previousTransactionLink = null;
 
-        // set new indexes for transactions
+        // set new indices for transactions
         for (var i = 0; i < mergedTransactions.length; ++i) {
             mergedTransactions[i].index = diff.indexOfFirstDifference + i;
         }
         console.log2(mergedTransactions);
 
-        // Upload the transactions to the chain
+        // This method will upload the transactions to the chain
         function uploadNext(i, uploadAfter) {
             if (i >= mergedTransactions.length)
                 return Promise.resolve(null);
@@ -235,6 +255,7 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                 });
         }
 
+        // Find the last valid transaction of the current chain
         var uploadAfter = diff.indexOfFirstDifference < manager.currentChain.length ?
             manager.currentChain[diff.indexOfFirstDifference].previousTransactionLink :
             manager.currentLastTransactionLink;
@@ -242,11 +263,14 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             uploadAfter = manager.linkFactory.createFromBytes(encodeAscii(uploadAfter));
         var previousLastTransaction = manager.currentLastTransactionLink;
 
+        // Upload the new transactions
         return uploadNext(0, uploadAfter).then(function (lastTransactionAccessor) {
             return manager.setNewLastTransaction(lastTransactionAccessor);
         }).then(function () {
+            // remove old transactions
             return manager.removeTransactions(previousLastTransaction, uploadAfter);
         }).then(function () {
+            // apply those changes in the TransactionManager itself
             manager.currentChain = manager.currentChain.slice(0, diff.indexOfFirstDifference).concat(mergedTransactions);
             var lastDB = (diff.indexOfFirstDifference > 0 ? manager.currentDBs[diff.indexOfFirstDifference-1].clone() : new DB());
             manager.currentDBs = manager.currentDBs.slice(0, diff.indexOfFirstDifference).
@@ -256,6 +280,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
         });
     };
 
+    // this method removes the specified transactions from the chain
+    // stored in the cloud
     this.removeTransactions = function(from, to, removalPromises) {
         if (from == null || (to != null && from.path == to.path)) {
             return Promise.resolve();
@@ -281,6 +307,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
         return recurrentRemove(from,to);
     };
 
+    // this method updates the last_transact file, with a new
+    // accessor to the last transaction
     this.setNewLastTransaction = function(newLastTransaction) {
         var manager = this;
         var linksFileResources = {};
@@ -291,6 +319,10 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             });
     };
 
+    // This method returns a promise to a transaction chain whose last transaction
+    // is linked to by lastTransactionLink.
+    // Set timestamps indicates if the method should update the timestamps found
+    // in the chain
     this.loadTransactionChain = function (lastTransactionLink, setTimestamps) {
         var manager = this;
         var timestamp = null;
@@ -331,11 +363,14 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                         }
                     });
                 }, function () {
-                    // TODO: file download was unsuccessful, try again
+                    // Download was not successful. By returning an empty chain, we force
+                    // the program to try to fetch the changes again
                     return Promise.resolve([]);
                 });
             }
             if (setTimestamps)
+                // If this method is supposed to update the timestamp, we need to fetch
+                // that timestamp
                 return getTimeStamp().then(function (stamp) {
                     timestamp = stamp;
                 }).then(function() {
@@ -398,6 +433,7 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                 }
 
                 foreignTransactionChain.unshift(transaction);
+                // if this was the last transaction we can exit the function
                 if (transaction.previousTransactionLink != null)
                     return loadRestOfTheChain(manager.linkFactory.createFromBytes(
                         encodeAscii(transaction.previousTransactionLink)), manager);
@@ -425,7 +461,6 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                     return addTransactionAndProceed(currentTransaction);
                 } else {
                     if (t.h == currentTransaction.h) {
-                        // TODO: direct comparison of transactions
                         // hashes are the same, so (most likely) the transactions are the same
                         return returnDiffObject()
                     } else {
@@ -435,7 +470,6 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                     }
                 }
             }, function () {
-                // TODO: retrieval was unsuccessful
                 console.log2(lastTransactionLink.owned_by, manager.userId, {own: [], foreign: [], indexOfFirstDifference: 0});
                 return Promise.resolve({own: [], foreign: [], indexOfFirstDifference: 0});
             });
@@ -449,6 +483,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
         });
     };
 
+    // This method will try to find an unused transaction name by picking a random number
+    // and checking if the name t<random_number> is free
     this.findAFreeTransactionFileName = function () {
         var manager = this;
         var randInt = Math.round(Math.random()*1000000000);
@@ -463,6 +499,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
         });
     };
 
+    // This method will modify the passed transaction so it points to the previous transaction
+    // Also, the transaction will be uploaded, shared
     this.uploadTransactionAfter = function (transaction, linkToTransactionBefore) {
         var manager = this;
         function uploadAndShare(t) {
@@ -518,6 +556,7 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
     };
 };
 
+// information about a given Event
 var EventInfo = function(eventCode, eventParams, eventId) {
     this.code = eventCode;
     this.params = eventParams;
@@ -593,8 +632,9 @@ var Transaction = function(events) {
         }
         hashedString += this.owner+";";
         hashedString += this.initialIndex;
-        // TODO: either remove this line or add vector locks later
+        // TODO: either remove this line or add vector clocks later
         hashedString += this.timestamp;
+        // I kept the murmur hash, because I don't like that crypto uses promises for everything
         return murmurHash3.x86.hash128(hashedString);
     };
 
@@ -651,9 +691,55 @@ var Transaction = function(events) {
          return -1;
          }*/
     }
-    this.compareChronology = function (differentTransaction) {
-        return compareTransactionsChronology(this, differentTransaction);
-    };
+
+};
+
+Transaction.compareTimeStamps = function (t1, t2) {
+    if (t1.timestamp != t2.timestamp) {
+        if (t1.timestamp == null)
+            return 1;
+        else if (t2.timestamp == null)
+            return -1;
+        return t1.timestamp - t2.timestamp;
+    }
+    return 0;
+};
+
+Transaction.compareOwners = function (t1, t2) {
+    if (t1.owner < t2.owner)
+        return -1;
+    else
+    if (t1.owner == t2.owner)
+        return 0;
+    else
+        return 1;
+};
+
+Transaction.sortTransactions = function (transactions) {
+    // if we have any transactions in which timestamps do not agree
+    // with the initial indices, then we need to fix it
+    var bucketsByOwners = sortBuckets([transactions], Transaction.compareOwners);
+    for (var i = 0; i < bucketsByOwners.length; ++i) {
+        var bucket = bucketsByOwners[i];
+
+        // find minimum timestamp and apply to other transactions
+        var min = null;
+        for (var j = 0; j < bucket.length; ++j) {
+            if (min == null || bucket[j].timestamp < min) {
+                min = bucket[j].timestamp;
+            }
+        }
+        for (var j = 0; j < bucket.length; ++j) {
+            bucket[j].timestamp = min;
+        }
+    }
+
+    // sort in order
+    return combinedSort(transactions, Transaction.compareTimeStamps, Transaction.compareOwners,
+        function(t1,t2) {
+            // compare initial indices
+            return t1.initialIndex - t2.initialIndex;
+        });
 };
 
 Transaction.retrieveLast = function(lastPointer) {
@@ -683,6 +769,7 @@ Transaction.fromJSON = function(transactionJson) {
     return result;
 };
 
+// This class will store the state of the task database
 var DB = function() {
     this.tasks = [];
     this.clone = function() {
@@ -721,10 +808,12 @@ var TaskCreatedEvent = function(taskName, id) {
     this.code = "task_create";
     this.params = {name: taskName};
     this.id = id;
+    // this method checks if it is possible to apply this event to the database
     this.condition = function(transactionChain, dbState) {
         var event = this;
         return (dbState.tasks.findIndex(function(t) { return t.id == event.id; }) == -1);
     };
+    // this method indicates how this task affects the database
     this.applyOn = function(db) {
         db.tasks.push(new Task(this.params.name, this.id));
     };
@@ -809,46 +898,4 @@ var Task = function(name, id) {
     this.name = name;
     this.id = id;
     this.completedBy = null;
-};
-
-var EncryptedTransaction = function(cipherText, iv) {
-    this.cipherText = cipherText;
-    this.iv = iv;
-
-    this.decrypt = function(aes_key) {
-        return decrypt_aes_cbc(this.iv, aes_key, this.cipherText).then(function(plainText) {
-            var byte_array = new Uint8Array(plainText);
-            return Promise.resolve(Transaction.fromString(decodeAscii(byte_array)));
-        });
-    };
-
-    this.saveToFile = function(cloud, path) {
-        var cipherTextArray = new Uint8Array(this.cipherText);
-        return cloud.uploadFile(mergeUint8Arrays(this.iv, cipherTextArray), path);
-    }
-};
-
-EncryptedTransaction.fromFile = function (cloud, path) {
-    return cloud.downloadFile(path).then(function(fileContents) {
-        var iv = fileContents.slice(0, 16);
-        var cipher = fileContents.slice(16);
-        return Promise.resolve(new EncryptedTransaction(cipher, iv));
-    });
-};
-
-EncryptedTransaction.decryptFromFile = function (cloud, path, aes_key) {
-    return EncryptedTransaction.fromFile(cloud, path).then(function(enc_t) {
-        return enc_t.decrypt(aes_key);
-    });
-};
-
-EncryptedTransaction.make = function (transaction, aes_key, iv = null) {
-    if (iv == null) {
-        var newIv = new Uint8Array(16);
-        window.crypto.getRandomValues(newIv);
-        iv = newIv;
-    }
-    return encrypt_aes_cbc(iv, aes_key, encodeAscii(transaction.exportToString())).then(function(cipherText){
-        return Promise.resolve(new EncryptedTransaction(cipherText,iv));
-    });
 };

@@ -121,3 +121,49 @@ var Lock = function() {
         }
     };
 };
+
+function sortBuckets(buckets, cmp) {
+    var resultantBuckets = [];
+    for (var i = 0; i < buckets.length; i++) {
+        if (buckets[i].length == 1) {
+            resultantBuckets.push(buckets[i]);
+            continue;
+        }
+        buckets[i].sort(cmp);
+        var nextBucketBeginning = 0;
+        for (var j = 0; j < buckets[i].length; ++j) {
+            if (j != 0 && cmp(buckets[i][j],buckets[i][j-1]) != 0) {
+                resultantBuckets.push(buckets[i].slice(nextBucketBeginning, j));
+                nextBucketBeginning = j;
+            }
+        }
+        if (nextBucketBeginning != buckets[i].length) {
+            resultantBuckets.push(buckets[i].slice(nextBucketBeginning));
+        }
+    }
+    return resultantBuckets;
+}
+
+function mergeBuckets(buckets) {
+    var result = [];
+    for (var i = 0; i < buckets.length; ++i) {
+        result = result.concat(buckets[i]);
+    }
+    return result;
+}
+
+function combinedSort(array, cmp1, cmp2) {
+    var allComparators = [];
+    if (cmp1 instanceof Array) {
+        allComparators = cmp1.slice();
+    } else {
+        allComparators = Array.prototype.slice.call(arguments, 1);
+    }
+
+    var buckets = [array.slice()];
+    for (var i = 0; i < allComparators.length; ++i) {
+        buckets = sortBuckets(buckets, allComparators[i]);
+    }
+    
+    return mergeBuckets(buckets);
+}
