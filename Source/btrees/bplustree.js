@@ -328,11 +328,9 @@ var leafNode = function(order) {
         }
     };
     this.removeItem = function(index) {
-        if (this.children == null) {
-            this.keyValuePairs.splice(index, 1);
-            if (this.keyValuePairs.length < this.minValues)
-                this.fixUnderflow();
-        }
+        this.keyValuePairs.splice(index, 1);
+        if (this.keyValuePairs.length < this.minValues)
+            this.fixUnderflow();
     };
 
     this.fixUnderflow = function() {
