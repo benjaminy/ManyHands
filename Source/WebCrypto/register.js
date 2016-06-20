@@ -2,16 +2,17 @@
  *
  */
 
-/* Returns a resolved Promise if successful; a rejected Promise otherwise */
+/* Returns a Promise that resolves to the user object */
 function register( uid, passwd, scp )
 {
     var [ scp, log ] = Scope.enter( scp, 'Register' );
     var user = { uid: uid };
     return checkUidAvailability( uid, user, scp )
     .then( function() {
+        log( 'User name available' );
         return initializeUserAccount( uid, passwd, user, scp );
     } ).then( function() {
-        log( 'Keys initialized' );
+        log( 'User account initialized' );
         return initializeCloudStorage( user, scp );
     } ).then( function() {
         log( 'Cloud storage initialized' );
@@ -52,7 +53,7 @@ function initializeUserAccount( uid, passwd, user, scp )
                      makeLoginKey( uid, passwd, user.login_salt ) ];
         return P.all( keys )
     } ).then( function( keys ) {
-        log( 'GeneratedKeys', keys.map( function( x ){ return typeof( x ); } ) );
+        log( 'Generated keys' );
         user.key_encrypt = keys[0].publicKey;
         user.key_decrypt = keys[0].privateKey;
         user.key_signing = keys[1].privateKey;
@@ -60,14 +61,14 @@ function initializeUserAccount( uid, passwd, user, scp )
         user.key_login   = keys[2];
         return ecdh_aesDeriveKey( user.key_encrypt, user.key_decrypt );
     } ).then( function( k ) {
-        log( 'Derived main key', typeof( k ) );
+        log( 'Derived main key' );
         user.key_main = k;
         var keys = [ user.key_encrypt, user.key_decrypt,
                      user.key_signing, user.key_verify,
                      user.key_login, user.key_main ];
         return P.all( keys.map( exportKeyJwk ) );
     } ).then( function( keys ) {
-        log( 'Exported', typeof( keys[0] ), JSON.stringify( keys[0] ) );
+        log( 'Exported keys' );
         user.key_encrypt_exported = keys[0];
         user.key_decrypt_exported = keys[1];
         user.key_signing_exported = keys[2];
@@ -86,23 +87,23 @@ function initializeCloudStorage( user, scp )
         user.cloud_bits = getRandomBytes( 5 );
         user.cloud_text = bufToHex( user.cloud_bits );
         log( 'Link', user.cloud_text, user.cloud_bits );
-        var dp = aes_cbc_ecdsa.encrypt_then_sign_salted(
-            user.key_login, user.key_signing,
-            encode( user.key_decrypt_exported ), scp );
-        function encrypt( d )
+        function encrypt( [ k, d ] )
         { return aes_cbc_ecdsa.encrypt_then_sign_salted(
-            user.key_main, user.key_signing, encode( d ), scp ); }
-        var to_encrypt = [ user.key_signing_exported, '[]', '{}' ];
-        return P.all( to_encrypt.map( encrypt ).concat( [ dp ] ) );
-    } ).then( function( [ s, t, i, d ] ) {
-        log( 'Exported public keys and encrypted private keys', s, t, i );
+            k, user.key_signing, encode( d ), scp ); }
+        var to_encrypt = [ [ user.key_main, user.key_signing_exported ],
+                           [ user.key_main, '[]' ],
+                           [ user.key_main, '{}' ],
+                           [ user.key_login, user.key_decrypt_exported ] ];
+        return P.all( to_encrypt.map( encrypt ) );
+    } ).then( function( files ) {
+        log( 'Encrypted a bunch of stuff' );
         function upload( [ p, c, t ] ) { return uploadFile( user.cloud_text, p, c, t ) };
         var fs = [ [ 'key_encrypt', user.key_encrypt_exported, 'text/plain' ],
                    [ 'key_verify',  user.key_verify_exported, 'text/plain' ],
-                   [ 'key_decrypt', d ],
-                   [ 'key_sign', s ],
-                   [ [ 'Teams', 'manifest' ], t ],
-                   [ [ 'Invites', 'manifest' ], i ] ]
+                   [ 'key_decrypt', files[ 3 ] ],
+                   [ 'key_sign', files[ 0 ] ],
+                   [ [ 'Teams', 'manifest' ], files[ 1 ] ],
+                   [ [ 'Invites', 'manifest' ], files[ 2 ] ] ]
         return P.all( fs.map( upload ) );
     } );
 }
