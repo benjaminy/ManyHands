@@ -35,13 +35,12 @@ function importKeyJwk( s, algo, ops, scp )
         log( 'Not JSON', s );
         throw e;
     }
-    log( typeof( j ), j );
     return C.importKey( 'jwk', j, algo, true, ops );
 }
 
-function importKeyEncrypt( k, scp )
+function importKeyPubDH( k, scp )
 { return importKeyJwk( k, pub_enc_algo, [], scp ); }
-function importKeyDecrypt( k, scp )
+function importKeyPrivDH( k, scp )
 { return importKeyJwk( k, pub_enc_algo, [ 'deriveKey' ], scp ); }
 function importKeyVerify( k, scp )
 { return importKeyJwk( k, signing_kalgo, [ 'verify' ], scp ); }

@@ -67,7 +67,7 @@ function downloadFile( user, path, isText, scp )
     var sv_err = new ServerError( pu.p );
     return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p
     ).then( function( resp ) {
-        log( 'Response', resp.status, resp.statusText, path );
+        log( pu.p, resp.status, resp.statusText );
         if( !resp.ok )
         {
             return new Promise( function( resolve, reject )

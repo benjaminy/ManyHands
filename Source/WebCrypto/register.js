@@ -54,23 +54,23 @@ function initializeUserAccount( uid, passwd, user, scp )
         return P.all( keys )
     } ).then( function( keys ) {
         log( 'Generated keys' );
-        user.key_encrypt = keys[0].publicKey;
-        user.key_decrypt = keys[0].privateKey;
+        user.key_pub_dh  = keys[0].publicKey;
+        user.key_priv_dh = keys[0].privateKey;
         user.key_signing = keys[1].privateKey;
         user.key_verify  = keys[1].publicKey;
         user.key_login   = keys[2];
-        return ecdh_aesDeriveKey( user.key_encrypt, user.key_decrypt );
+        return ecdh_aesDeriveKey( user.key_pub_dh, user.key_priv_dh );
     } ).then( function( k ) {
         log( 'Derived main key' );
         user.key_main = k;
-        var keys = [ user.key_encrypt, user.key_decrypt,
+        var keys = [ user.key_pub_dh, user.key_priv_dh,
                      user.key_signing, user.key_verify,
                      user.key_login, user.key_main ];
         return P.all( keys.map( exportKeyJwk ) );
     } ).then( function( keys ) {
         log( 'Exported keys' );
-        user.key_encrypt_exported = keys[0];
-        user.key_decrypt_exported = keys[1];
+        user.key_pub_dh_exported  = keys[0];
+        user.key_priv_dh_exported = keys[1];
         user.key_signing_exported = keys[2];
         user.key_verify_exported  = keys[3];
         user.key_login_exported   = keys[4];
@@ -93,14 +93,14 @@ function initializeCloudStorage( user, scp )
         var to_encrypt = [ [ user.key_main, user.key_signing_exported ],
                            [ user.key_main, '[]' ],
                            [ user.key_main, '{}' ],
-                           [ user.key_login, user.key_decrypt_exported ] ];
+                           [ user.key_login, user.key_priv_dh_exported ] ];
         return P.all( to_encrypt.map( encrypt ) );
     } ).then( function( files ) {
         log( 'Encrypted a bunch of stuff' );
         function upload( [ p, c, t ] ) { return uploadFile( user.cloud_text, p, c, t ) };
-        var fs = [ [ 'key_encrypt', user.key_encrypt_exported, 'text/plain' ],
+        var fs = [ [ 'key_pub_dh', user.key_pub_dh_exported, 'text/plain' ],
                    [ 'key_verify',  user.key_verify_exported, 'text/plain' ],
-                   [ 'key_decrypt', files[ 3 ] ],
+                   [ 'key_priv_dh', files[ 3 ] ],
                    [ 'key_sign', files[ 0 ] ],
                    [ [ 'Teams', 'manifest' ], files[ 1 ] ],
                    [ [ 'Invites', 'manifest' ], files[ 2 ] ] ]

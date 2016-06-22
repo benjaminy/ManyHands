@@ -24,18 +24,29 @@ Scope.log = function( scp )
 Scope.enter = function( scp, name )
 {
     var prefix_no_bracket;
+    var new_scp = {};
     if( scp )
     {
         prefix_no_bracket = scp.prefix_no_bracket + ':' + name;
+        new_scp.old_stacks = scp.old_stacks;
     }
     else
     {
         prefix_no_bracket = name;
+        new_scp.old_stacks = [];
     }
     var prefix = '[' + prefix_no_bracket + ']';
-    var new_scp = { prefix:prefix, prefix_no_bracket:prefix_no_bracket };
+    new_scp.prefix = prefix;
+    new_scp.prefix_no_bracket = prefix_no_bracket;
     // Error.captureStackTrace( blah, Scope.enter );
     return [ new_scp, Scope.log( new_scp ) ];
+}
+
+Scope.anon = function( scp )
+{
+    var new_scp = { prefix: scp.prefix, prefix_no_bracket: scp.prefix_no_bracket }
+    new_scp.old_stacks = scp.old_stacks.slice();
+    new_scp.old_stacks.push( scp.stack );
 }
 
 // Scope.anon = function( scp

@@ -89,44 +89,43 @@ function loginCloud( user, scp )
     user.invites = {};
     /* XXX */
 
-    return P.all( [ [ 'key_encrypt', true ], [ 'key_verify', true ], [ 'key_decrypt' ] ]
+    return P.all( [ [ 'key_pub_dh', true ], [ 'key_verify', true ], [ 'key_priv_dh' ] ]
                   .map( download ) )
     .then( function( keys ) {
         log( 'Downloaded public keys and decryption key' );
-        user.key_encrypt_exported = keys[ 0 ];
+        user.key_pub_dh_exported = keys[ 0 ];
         user.key_verify_exported = keys[ 1 ];
-        return p_all_resolve( [ importKeyEncrypt( user.key_encrypt_exported ),
+        return p_all_resolve( [ importKeyPubDH( user.key_pub_dh_exported ),
                                 importKeyVerify( user.key_verify_exported ) ],
                               [ keys[ 2 ] ] );
     } ).then( function( keys ) {
         log( 'Imported public keys' );
-        user.key_encrypt = keys[ 0 ];
+        user.key_pub_dh = keys[ 0 ];
         user.key_verify  = keys[ 1 ];
         return aes_cbc_ecdsa.verify_then_decrypt_salted(
             user.key_login, user.key_verify, keys[ 2 ] );
-    } ).then( function( d ) {
-        log( 'Decrypted decryption key' );
-        user.key_decrypt_exported = decode( d );
-        return importKeyDecrypt( user.key_decrypt_exported );
-    } ).then( function( d ) {
-        log( 'Imported decryption key', d );
-        user.key_decrypt = d;
-        var kp = ecdh_aesDeriveKey( user.key_encrypt, user.key_decrypt );
+    } ).then( function( k ) {
+        log( 'Decrypted private D-H key' );
+        user.key_priv_dh_exported = decode( k );
+        return importKeyPrivDH( user.key_priv_dh_exported );
+    } ).then( function( k ) {
+        log( 'Imported private D-H key' );
+        user.key_priv_dh = k;
         var files = [ [ 'key_sign' ],
                       [ [ 'Teams', 'manifest' ] ],
                       [ [ 'Invites', 'manifest' ] ] ];
-        return P.all( files.map( download ).concat( [ kp ] ) );
+        return P.all( files.map( download )
+                      .concat( [ ecdh_aesDeriveKey( user.key_pub_dh, user.key_priv_dh ) ] ) );
     } ).then( function( files ) {
-        log( 'Downloaded key, manifests; derived key', files[ 3 ], user.key_verify );
-        log( 'BLAH', files.slice( 0, 3 ).map( ( d ) => { return new Uint8Array( d ); } ) );
+        log( 'Downloaded signing key, manifests; derived main key' );
         user.key_main = files[ 3 ];
         function decrypt( d )
         { return aes_cbc_ecdsa.verify_then_decrypt_salted( user.key_main, user.key_verify, d ); }
         return P.all( files.slice( 0, 3 ).map( decrypt ) );
     } ).then( function( files ) {
-        log( 'Decrypted key, manifests' );
+        log( 'Decrypted signing key, manifests' );
+        /* TODO: verify the things that we skipped verifying before */
         var teams_manifest = JSON.parse( decode( files[ 1 ] ) );
-        log( 'Team manifest', teams_manifest );
         user.teams = {};
         for( var dir in teams_manifest )
         {
@@ -178,23 +177,23 @@ return function( team_dir )
     var [ scp, log ] = Scope.enter( scp, team_dir );
     var download = downloadFromTeam( user.cloud_text, team_dir );
     var team = user.teams[ team_dir ];
-    return download( [ 'key_decrypt' ] )
+    return download( [ 'key_priv_dh' ] )
     .then( function( k ) {
         log( 'Decrypt key downloaded' );
         return P.all( [
             aes_cbc_ecdsa.verify_then_decrypt_salted( user.key_main, user.key_verify, k ),
-            download( [ 'key_encrypt', true ] ) ] );
+            download( [ 'key_pub_dh', true ] ) ] );
     } ).then( function( keys ) {
         log( 'Main and decrypt keys decrypted; encrypt key downloaded', keys );
-        team.key_decrypt_exported = decode( keys[0] );
-        team.key_encrypt_exported = keys[1];
-        return P.all( [ importKeyDecrypt( team.key_decrypt_exported ),
-                        importKeyEncrypt( team.key_encrypt_exported ) ] );
+        team.key_priv_dh_exported = decode( keys[0] );
+        team.key_pub_dh_exported = keys[1];
+        return P.all( [ importKeyPrivDH( team.key_priv_dh_exported ),
+                        importKeyPubDH(  team.key_pub_dh_exported ) ] );
     } ).then( function( keys ) {
         log( 'Main, decrypt and encrypt keys imported' );
-        team.key_decrypt = keys[0];
-        team.key_encrypt = keys[1];
-        return ecdh_aesDeriveKey( team.key_encrypt, team.key_decrypt );
+        team.key_priv_dh = keys[0];
+        team.key_pub_dh  = keys[1];
+        return ecdh_aesDeriveKey( team.key_pub_dh, team.key_priv_dh );
     } ).then( function( k ) {
         // scp = Scope.cont( scp, 'Shared key derived' );
         log( team_dir, 'Shared key derived' );
@@ -229,7 +228,7 @@ return function( team_dir )
         datoms.filter( ( d ) => { return d.a == 'teammate:id'; } )
             .forEach( ( d ) => { ids[ d.e ] = d.v; team.teammates[ d.v ] = {} } );
         datoms.filter( ( d ) => { return d.a != 'teammate:id'; } )
-            .forEach( ( d ) => { return team.teammates[ ids[ d.e ] ]
+            .forEach( ( d ) => { team.teammates[ ids[ d.e ] ]
                                  [ stripPrefix( 'teammate:', d.a ) ] = d.v } );
         team.key_signing_exported = decode( files[ 1 ] );
         var vs = [];
@@ -291,17 +290,17 @@ function initTeamState( team_name, user, scp )
     } ).then( function( keys ) {
         log( 'Derived shared team key' );
         team.key_main    = keys[0];
-        team.key_encrypt = keys[1].publicKey;
-        team.key_decrypt = keys[1].privateKey;
+        team.key_pub_dh  = keys[1].publicKey;
+        team.key_priv_dh = keys[1].privateKey;
         team.key_verify  = keys[2].publicKey;
         team.key_signing = keys[2].privateKey;
-        var keys = [ team.key_main, team.key_encrypt, team.key_decrypt,
+        var keys = [ team.key_main, team.key_pub_dh, team.key_priv_dh,
                      team.key_verify, team.key_signing ];
         return P.all( keys.map( exportKeyJwk ) );
     } ).then( function( keys ) {
         team.key_main_exported    = keys[0];
-        team.key_encrypt_exported = keys[1];
-        team.key_decrypt_exported = keys[2];
+        team.key_pub_dh_exported  = keys[1];
+        team.key_priv_dh_exported = keys[2];
         team.key_verify_exported  = keys[3];
         team.key_signing_exported = keys[4];
         return P.resolve( team );
@@ -325,7 +324,7 @@ function uploadTeam( team, user, scp )
         function encd_jstr(x) { return encode( JSON.stringify( x ) ) };
         var to_encrypt =
             [ [ team.key_main, encd_jstr( team.db ) ],
-              [ user.key_main, encode( team.key_decrypt_exported ) ],
+              [ user.key_main, encode( team.key_priv_dh_exported ) ],
               [ user.key_main, encode( team.key_signing_exported ) ],
               [ user.key_main, encd_jstr( team.self_id ) ],
               [ user.key_main, encd_jstr( teams_manifest ) ] ];
@@ -334,9 +333,9 @@ function uploadTeam( team, user, scp )
         log( 'Encrypted files. Teams manifest:', new Uint8Array( files[ 4 ] ) );
         var teams_manifest = files[ 4 ];
         var files = [
-            [ 'key_encrypt', team.key_encrypt_exported, 'application/json' ],
+            [ 'key_pub_dh',  team.key_pub_dh_exported, 'application/json' ],
             [ 'key_verify',  team.key_verify_exported, 'application/json' ],
-            [ 'key_decrypt', files[ 1 ] ],
+            [ 'key_priv_dh', files[ 1 ] ],
             [ 'key_sign',    files[ 2 ] ],
             [ 'self_id',     files[ 3 ] ],
             [ [ 'Data', 'data' ], files[ 0 ] ],
