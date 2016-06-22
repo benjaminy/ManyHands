@@ -1,21 +1,35 @@
-<script type="text/javascript" src="bplustree.js" ></script>
+<script type="text/javascript" src="persistentBPlusTree.js" ></script>
 <script>
     BPlusTree.prototype.insert_test = function(key,value) {
         if (!this.expected_content) {
             this.expected_content = [];
         }
-        this.expected_content.push({key: key, value: value});
-        this.insert(key,value);
-        return check(this);
+        var newT = this.insert(key,value);
+        newT.expected_content = this.expected_content.slice();
+        newT.expected_content.push({key: key, value: value});
+        var result = check(newT);
+        if (result == 'OK')
+            result = check(this);
+        if (result != 'OK')
+            throw new Error(result);
+        else
+            return newT;
     };
 
     BPlusTree.prototype.remove_test = function(key) {
-        this.expected_content.splice(this.expected_content.findIndex(function(e){ return e.key == key; }), 1);
-        this.remove(key);
-        if (this.get(key) != null) {
-            return 'Removal left the object in the tree';
+        var newT = this.remove(key);
+        newT.expected_content = this.expected_content.slice();
+        newT.expected_content.splice(newT.expected_content.findIndex(function(e){ return e.key == key; }), 1);
+        if (newT.get(key) != null) {
+            throw new Error('Removal left the object in the tree');
         }
-        return check(this);
+        var result = check(newT);
+        if (result == 'OK')
+            result = check(this);
+        if (result != 'OK')
+            throw new Error(result);
+        else
+            return newT;
     };
 
     function shuffle(array) {
@@ -37,22 +51,19 @@
         return array;
     }
 
-    function checkNodeIntegrity(btree_node) {
+    function checkNodeIntegrity(btree_node, isRoot) {
         if (btree_node.children == null) {
             for (var i = 1; i < btree_node.keyValuePairs.length; ++i) {
                 if (btree_node.keyValuePairs[i].key < btree_node.keyValuePairs[i-1].key) {
                     return 'Wrong order in the node';
                 }
             }
-            if (btree_node.parent != null) {
+            if (!isRoot) {
                 if (btree_node.keyValuePairs.length < btree_node.minValues) {
                     return 'Tree has less than minimum keys';
                 }
                 if (btree_node.keyValuePairs.length > btree_node.maxValues) {
                     return 'Tree has more than maximum keys';
-                }
-                if (btree_node.parent.keys.length == 0) {
-                    return 'Parent link corrupted, when checking self';
                 }
             }
         } else {
@@ -65,23 +76,17 @@
             if (btree_node.keys.length + 1 != btree_node.children.length) {
                 return 'Number of keys does not mach the number of children';
             }
-            if (btree_node.parent != null) {
+            if (!isRoot) {
                 if (btree_node.keys.length < btree_node.minValues) {
                     return 'Tree has less than minimum keys';
                 }
                 if (btree_node.keys.length > btree_node.maxValues) {
                     return 'Tree has more than maximum keys';
                 }
-                if (btree_node.parent.keys.length == 0) {
-                    return 'Parent link corrupted, when checking self';
-                }
             }
             for (var i = 0; i < btree_node.children.length; ++i) {
                 var c = btree_node.children[i];
-                if (c.parent != btree_node) {
-                    return 'Parent link corrupted, when checking children';
-                }
-                var result = checkNodeIntegrity(c);
+                var result = checkNodeIntegrity(c, false);
                 if (result != 'OK') {
                     return result;
                 }
@@ -105,7 +110,7 @@
     }
 
     function check(tree) {
-        var result = checkNodeIntegrity(tree.root);
+        var result = checkNodeIntegrity(tree.root, true);
         if (result != 'OK')
             return result;
         for (var i = 0; i < tree.expected_content.length; ++i) {
@@ -127,28 +132,24 @@
     }
 
     function initializeWithValues(order, number) {
-        var t = new BPlusTree(order);
+        var chain = [new BPlusTree(order)];
         var keys = range(1, number, 1);
         keys = shuffle(keys);
         for (var i = 0; i < keys.length; ++i) {
-            t.insert_test(keys[i], keys[i]);
-            var result = check(t, i);
-            if (result != 'OK') {
-                throw new Error("OOPS");
-            }
+            chain[i+1] = chain[i].insert_test(keys[i], keys[i]);
         }
-        return t;
+        return chain[i];
     }
     function initializeWithValuesPerformance(order, number) {
         var t = new BPlusTree(order);
         var keys = range(1, number, 1);
         keys = shuffle(keys);
-        t.expected_content = [];
+        var expected_content = [];
         for (var i = 0; i < keys.length; ++i) {
-            t.insert(keys[i], keys[i]);
-            t.expected_content.push({ key: keys[i], value: keys[i] });
+            t = t.insert(keys[i], keys[i]);
+            expected_content.push({key: keys[i], value: keys[i]});
         }
-
+        t.expected_content = expected_content;
         return t;
     }
 
@@ -165,12 +166,10 @@
         return count;
     }
     function testRemove(tree) {
+        var chain = [tree];
         var expected = tree.expected_content.slice();
         for (var i = 0; i < expected.length; ++i) {
-            var result = tree.remove_test(expected[i].key);
-            if (result != 'OK') {
-                throw new Error(result);
-            }
+            chain[i+1] = chain[i].remove_test(expected[i].key);
         }
     }
 </script>
