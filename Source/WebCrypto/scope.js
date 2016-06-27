@@ -4,88 +4,71 @@
  * context in which some code is (logically) executing.
  */
 
-function Scope( prefix, prefix_no_bracket, old_stacks, stack )
+Scope.max_task_id = 0;
+
+function Scope( prefix, prefix_no_bracket, old_stacks, stack, tid )
 {
     this.prefix            = prefix;
     this.prefix_no_bracket = prefix_no_bracket;
     this.old_stacks        = old_stacks;
     this.stack             = stack;
+    this.tid               = tid;
+}
+
+Scope.copy( scp )
+{
+    if( scp )
+        return new Scope( scp.prefix,
+                          scp.prefix_no_bracket,
+                          scp.old_stacks,
+                          scp.stack,
+                          scp.tid );
+    else
+        return new Scope( '[]', '', [], '', null );
 }
 
 Scope.log = function( scp )
 {
     return function( ...params )
     {
-        if( scp )
-        {
-            console.log( scp.prefix, ...params );
-        }
-        else
-        {
-            console.log( ...params );
-        }
+        console.log( scp.task_id, scp.prefix, ...params );
     }
 }
 
 Scope.enter = function( scp, name )
 {
-    var prefix_no_bracket = name;
-    var old_stacks = [];
-    if( scp )
-    {
-        prefix_no_bracket = scp.prefix_no_bracket + ':' + name;
-        old_stacks        = scp.old_stacks;
-    }
-    var new_scp = new Scope(
-        '[' + prefix_no_bracket + ']',
-        prefix_no_bracket,
-        old_stacks,
-        '' );
+    var new_scp = Scope.copy( scp );
+    new_scp.prefix_no_bracket = new_scp.prefix_no_bracket + ':' + name;
+    new_scp.prefix = '[' + new_scp.prefix_no_bracket + ']';
     polyfill_captureStackTrace( new_scp, Scope.enter );
     return [ new_scp, Scope.log( new_scp ) ];
 }
 
 Scope.anon = function( scp )
 {
-    var prefix_no_bracket = '';
-    var prefix = '[]';
-    var old_stacks = [];
-    if( scp )
-    {
-        prefix_no_bracket = scp.prefix_no_bracket;
-        prefix            = scp.prefix;
-        old_stacks        = scp.old_stacks.slice();
-    }
-    var new_scp = new Scope(
-        prefix,
-        prefix_no_bracket,
-        old_stacks,
-        '' );
+    var new_scp = Scope.copy( scp );
+    new_scp.old_stacks = new_scp.old_stacks.slice();
     new_scp.old_stacks.push( scp.stack );
     polyfill_captureStackTrace( new_scp, Scope.enter );
     return new_scp;
 }
 
-// Scope.anon = function( scp
+Scope.startTask = function( scp )
+{
+    var new_scp = Scope.copy( scp );
+    Scope.max_task_id++;
+    new_scp.task_id = Scope.max_task_id
+    return [ new_scp, Scope.log( new_scp ) ];
+}
 
-// Scope.cont = function( p1, p2, ...params )
-// {
-// }
-
-// function LogEnv( scopes, name )
-// {
-//     this.scopes = [];
-//     if( scopes )
-//         this.scopes = scopes;
-//     if( name )
-//         this.scopes.push( name );
-// }
-
-// LogEnv.prototype.push =
-// function( name )
-// {
-//     return new LogEnv( this.scopes.slice(), name );
-// }
+Scope.tasksEqual( scp1, scp2 )
+{
+    if( !scp1 || !( task_id in scp1 ) )
+        return false;
+    if( !scp2 || !( task_id in scp2 ) )
+        return false;
+    return scp1.task_id == scp2.task_id;
+}
 
 // LogEnv.prototype.pop =
 // function( name )
