@@ -34,21 +34,10 @@ function uploadFile( user, path, content, content_type, scp )
                     body    : content,
                     headers : headers }
     ).then( function( resp ) {
+        var scp = Scope.anon( scp );
         log( 'Response', resp.status, resp.statusText );
         if( !resp.ok )
-        {
-            return new Promise( function( resolve, reject )
-            {
-                if( resp.status >= 400 && resp.status < 500 )
-                    resp.text().then( function( t ) {
-                        reject( new RequestError( pu.p, resp.statusText + ' ' + t ) );
-                    } );
-                else
-                    resp.text().then( function( t ) {
-                        reject( new ServerError( pu.p, resp.statusText + ' ' + t ) );
-                    } );
-            } );
-        }
+            return handleServerError( pu.p, resp, scp );
         else
             return P.resolve( resp );
     } );
@@ -62,30 +51,12 @@ function downloadFile( user, path, isText, scp )
     /* assert( typeof( user ) == 'string' ) */
     var [ scp, log ] = Scope.enter( scp, 'Download' );
     var pu = encode_path( user, path );
-    var nf_err = new NotFoundError( pu.p );
-    var rq_err = new RequestError( pu.p );
-    var sv_err = new ServerError( pu.p );
     return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p
     ).then( function( resp ) {
+        var scp = Scope.anon( scp );
         log( pu.p, resp.status, resp.statusText );
         if( !resp.ok )
-        {
-            return new Promise( function( resolve, reject )
-            {
-                if( resp.status == 404 )
-                    reject( nf_err );
-                else if( resp.status >= 400 && resp.status < 500 )
-                    resp.text().then( function( t ) {
-                        rq_err.server_msg = resp.statusText + ' ' + t;
-                        reject( rq_err );
-                    } );
-                else
-                    resp.text().then( function( t ) {
-                        sv_err.server_msg = resp.statusText + ' ' + t;
-                        reject( sv_err );
-                    } );
-            } );
-        }
+            return handleServerError( pu.p, resp, scp );
         else
         {
             if( isText )

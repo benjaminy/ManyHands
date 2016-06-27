@@ -9,7 +9,7 @@
  *
  * key_login is derived from username, password and salt.  It should
  * _only_ be used to en/decrypt the cloud link received from the central
- * server and the user's private encryption key.
+ * server and the user's private Diffie-Hellman key.
  *
  * encrypt_pair is the primary public/private key pair for
  * en/decryption for the user.
@@ -34,7 +34,7 @@ function login( uid, passwd, scp )
     var [ scp, log ] = Scope.enter( scp, 'Login' );
     var user = { uid: uid };
     return getRegistrationInfo( uid, passwd, user, scp )
-    .then( function( _ ) {
+    .then( function( _ ) { var scp = Scope.anon( scp );
         return loginCloud( user, scp );
     } ).then( function( _ ) {
         log( 'Logged in' );
@@ -50,17 +50,18 @@ function getRegistrationInfo( uid, passwd, user, scp )
         log( 'Hashed UID', bufToHex( hashedUID ) );
         return fetch( '/Users/'+bufToHex( hashedUID ) );
     } ).then( function( resp ) {
+        var scp = Scope.anon( scp );
         log( 'Fetched reg info', resp.status, resp.statusText );
         if( resp.ok )
             return resp.json();
         /* else */
-        return P.reject( new NotFoundError() );
-    } ).then( function( registration_info ) {
+        return P.reject( new NotFoundError( '', scp ) );
+    } ).then( function( registration_info ) { var scp = Scope.anon( scp );
         log( 'Decoded reg info', registration_info );
         user.login_salt = hexToBuf( registration_info.salt, scp );
         return p_all_resolve( [ makeLoginKey( uid, passwd, user.login_salt ) ],
                               [ hexToBuf( registration_info.encrypted_link, scp ) ] );
-    } ).then( function( [ key_login, enc_link ] ) {
+    } ).then( function( [ key_login, enc_link ] ) { var scp = Scope.anon( scp );
         log( 'Made login key' );
         user.key_login = key_login;
         /* TODO: Verify after getting the key */
@@ -71,9 +72,10 @@ function getRegistrationInfo( uid, passwd, user, scp )
         log( 'Decrypted cloud link', user.cloud_text, user.cloud_bits );
         return P.resolve();
     } ).catch( function( err ) {
+        var scp = Scope.anon( scp );
         if( err instanceof CryptoError )
         {
-            return P.reject( new AuthenticationError() );
+            return P.reject( new AuthenticationError( '', scp ) );
         }
         else return P.reject( err );
     } );
@@ -134,7 +136,7 @@ function loginCloud( user, scp )
         user.invites = JSON.parse( decode( files[ 2 ] ) );
         user.key_signing_exported = decode( files[ 0 ] );
         return importKeySign( user.key_signing_exported );
-    } ).then( function( s ) {
+    } ).then( function( s ) { var scp = Scope.anon( scp );
         log( 'Imported signing key', user.teams );
         user.key_signing = s;
         return P.all( Object.keys( user.teams ).map( loginReadTeam( user, scp ) ) );
@@ -195,7 +197,6 @@ return function( team_dir )
         team.key_pub_dh  = keys[1];
         return ecdh_aesDeriveKey( team.key_pub_dh, team.key_priv_dh );
     } ).then( function( k ) {
-        // scp = Scope.cont( scp, 'Shared key derived' );
         log( team_dir, 'Shared key derived' );
         team.key_main = k;
         var files = [ [ 'key_verify', true ],
@@ -351,7 +352,7 @@ function createTeam( team_name, user, scp )
     var team;
     log( 'Starting', team_name );
     return initTeamState( team_name, user, scp )
-    .then( function( t ) {
+    .then( function( t ) { var scp = Scope.anon( scp );
         team = t;
         log( 'Initialized team state' );
         return uploadTeam( team, user, scp );

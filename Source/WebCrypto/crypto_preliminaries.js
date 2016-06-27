@@ -1,3 +1,7 @@
+var C               = window.crypto.subtle;
+var getRandomValues = window.crypto.getRandomValues.bind( window.crypto );
+
+var UNIQUE_ID_DEFAULT_LEN = 5;
 var SALT_NUM_BYTES = 128;
 var SIG_LENGTH = 132;
 var PBKDF2_ITER = 1000;
@@ -7,11 +11,27 @@ var signing_salgo = { name: 'ECDSA', hash: { name:'SHA-256' } };
 var pub_enc_algo  = { name: 'ECDH', namedCurve: 'P-521' };
 var sym_enc_algo  = { name: 'AES-CBC', length: 256  };
 
+var zeros = new Uint8Array( 16 );
+
 function pbkdf_algo( salt )
 { return { name: 'PBKDF2', salt: salt, iterations: 1000, hash: { name: 'SHA-1' } }; }
 
-
-var zeros = new Uint8Array( 16 );
+function makeUniqueId( ids, len )
+{
+    var id;
+    var found = false;
+    if( !len )
+    {
+        len = UNIQUE_ID_DEFAULT_LEN;
+    }
+    while( !found )
+    {
+        id = bufToHex( getRandomBytes( len ) );
+        if( !( id in ids ) )
+            found = true;
+    }
+    return id;
+}
 
 function exportKeyJwk( k )
 {
@@ -117,13 +137,13 @@ function( key_enc, key_sign, data, enc_param, scp )
 }
 
 CryptoSpecificAlgos.prototype.verify_then_decrypt =
-function( key_dec, key_ver, sig_plus_data, enc_param )
+    function( key_dec, key_ver, sig_plus_data, enc_param, scp )
 {
     /* log( '[Debug]', ... )*/
     var d_as_bytes = new Uint8Array( sig_plus_data );
     var sig = d_as_bytes.subarray( 0, this.sig_length );
     var data_enc = d_as_bytes.subarray( this.sig_length );
-    var err = new VerificationError();
+    var err = new VerificationError( '', scp );
     return C.verify( this.sign_algo(), key_ver, sig, data_enc )
     .then( function( signature_ok ) {
         if( !signature_ok )

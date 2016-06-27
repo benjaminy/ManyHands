@@ -4,7 +4,13 @@
  * context in which some code is (logically) executing.
  */
 
-var Scope = {};
+function Scope( prefix, prefix_no_bracket, old_stacks, stack )
+{
+    this.prefix            = prefix;
+    this.prefix_no_bracket = prefix_no_bracket;
+    this.old_stacks        = old_stacks;
+    this.stack             = stack;
+}
 
 Scope.log = function( scp )
 {
@@ -23,30 +29,41 @@ Scope.log = function( scp )
 
 Scope.enter = function( scp, name )
 {
-    var prefix_no_bracket;
-    var new_scp = {};
+    var prefix_no_bracket = name;
+    var old_stacks = [];
     if( scp )
     {
         prefix_no_bracket = scp.prefix_no_bracket + ':' + name;
-        new_scp.old_stacks = scp.old_stacks;
+        old_stacks        = scp.old_stacks;
     }
-    else
-    {
-        prefix_no_bracket = name;
-        new_scp.old_stacks = [];
-    }
-    var prefix = '[' + prefix_no_bracket + ']';
-    new_scp.prefix = prefix;
-    new_scp.prefix_no_bracket = prefix_no_bracket;
-    // Error.captureStackTrace( blah, Scope.enter );
+    var new_scp = new Scope(
+        '[' + prefix_no_bracket + ']',
+        prefix_no_bracket,
+        old_stacks,
+        '' );
+    polyfill_captureStackTrace( new_scp, Scope.enter );
     return [ new_scp, Scope.log( new_scp ) ];
 }
 
 Scope.anon = function( scp )
 {
-    var new_scp = { prefix: scp.prefix, prefix_no_bracket: scp.prefix_no_bracket }
-    new_scp.old_stacks = scp.old_stacks.slice();
+    var prefix_no_bracket = '';
+    var prefix = '[]';
+    var old_stacks = [];
+    if( scp )
+    {
+        prefix_no_bracket = scp.prefix_no_bracket;
+        prefix            = scp.prefix;
+        old_stacks        = scp.old_stacks.slice();
+    }
+    var new_scp = new Scope(
+        prefix,
+        prefix_no_bracket,
+        old_stacks,
+        '' );
     new_scp.old_stacks.push( scp.stack );
+    polyfill_captureStackTrace( new_scp, Scope.enter );
+    return new_scp;
 }
 
 // Scope.anon = function( scp

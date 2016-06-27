@@ -2,10 +2,9 @@
  *
  */
 
+var T = require( 'text-encoding' );
+
 var P               = Promise;
-var C               = window.crypto.subtle;
-var getRandomValues = window.crypto.getRandomValues.bind( window.crypto );
-var uniqueIdDefaultLength = 5;
 
 var encoding = 'utf-8';
 var [ encode, decode ] = encodeDecodeFunctions( encoding );
@@ -19,8 +18,8 @@ function getRandomBytes( num_bytes )
 
 function encodeDecodeFunctions( encoding )
 {
-    var encoder = new TextEncoder( encoding );
-    var decoder = new TextDecoder( encoding );
+    var encoder = new T.TextEncoder( encoding );
+    var decoder = new T.TextDecoder( encoding );
     var arr = [ encoder.encode.bind( encoder ),
                 decoder.decode.bind( decoder ) ];
     return arr;
@@ -39,99 +38,88 @@ function polyfill_captureStackTrace( o, c )
     }
 }
 
-function AssertionFailedError( message )
+function AbstractError( err, msg, scp )
 {
-    Error.call( this );
-    polyfill_captureStackTrace( this, this.constructor );
-    this.name = this.constructor.name;
-    this.message = ( message || '' );
+    Error.call( err );
+    polyfill_captureStackTrace( err, err.constructor );
+    if( scp )
+    {
+        var stacks = scp.old_stacks.concat( err.stack );
+        err.stack = stacks.join();
+    }
+    err.name = err.constructor.name;
+    err.message = ( msg || '' );
+}
+
+function AssertionFailedError( msg, scp )
+{
+    AbstractError( this, msg, scp );
 }
 AssertionFailedError.prototype = Object.create(Error.prototype);
 AssertionFailedError.prototype.constructor = AssertionFailedError;
 
-function NameNotAvailableError( message )
+function NameNotAvailableError( msg, scp )
 {
-    Error.call( this );
-    polyfill_captureStackTrace( this, this.constructor );
-    this.name = this.constructor.name;
-    this.message = ( message || '' );
+    AbstractError( this, msg, scp );
 }
 NameNotAvailableError.prototype = Object.create(Error.prototype);
 NameNotAvailableError.prototype.constructor = NameNotAvailableError;
 
-function NotFoundError( message )
+function NotFoundError( msg, scp )
 {
-    Error.call( this );
-    polyfill_captureStackTrace( this, this.constructor );
-    this.name = this.constructor.name;
-    this.message = ( message || '' );
+    AbstractError( this, msg, scp );
 }
 NotFoundError.prototype = Object.create(Error.prototype);
 NotFoundError.prototype.constructor = NotFoundError;
 
-function RequestError( message, server_msg )
+function RequestError( msg, server_msg, scp )
 {
-    Error.call( this );
-    polyfill_captureStackTrace( this, this.constructor );
-    this.name = this.constructor.name;
-    this.message    = ( message || '' );
+    AbstractError( this, msg, scp );
     this.server_msg = ( server_msg || '' );
 }
 RequestError.prototype = Object.create(Error.prototype);
 RequestError.prototype.constructor = RequestError;
 
-function ServerError( message, server_msg )
+function ServerError( msg, server_msg, scp )
 {
-    Error.call( this );
-    polyfill_captureStackTrace( this, this.constructor );
-    this.name = this.constructor.name;
-    this.message    = ( message || '' );
+    AbstractError( this, msg, scp );
     this.server_msg = ( server_msg || '' );
 }
 ServerError.prototype = Object.create(Error.prototype);
 ServerError.prototype.constructor = ServerError;
 
-function AuthenticationError( message )
+function AuthenticationError( msg, scp )
 {
-    Error.call( this );
-    polyfill_captureStackTrace( this, this.constructor );
-    this.name = this.constructor.name;
-    this.message    = ( message || '' );
+    AbstractError( this, msg, scp );
 }
 AuthenticationError.prototype = Object.create(Error.prototype);
 AuthenticationError.prototype.constructor = AuthenticationError;
 
-function CryptoError( message )
+function CryptoError( msg, scp )
 {
-    Error.call( this );
-    polyfill_captureStackTrace( this, this.constructor );
-    this.name = this.constructor.name;
-    this.message    = ( message || '' );
+    AbstractError( this, msg, scp );
 }
 CryptoError.prototype = Object.create(Error.prototype);
 CryptoError.prototype.constructor = CryptoError;
 
-function VerificationError( message )
+function VerificationError( msg, scp )
 {
-    Error.call( this );
-    polyfill_captureStackTrace( this, this.constructor );
-    this.name = this.constructor.name;
-    this.message    = ( message || '' );
+    AbstractError( this, msg, scp );
 }
 VerificationError.prototype = Object.create(Error.prototype);
 VerificationError.prototype.constructor = VerificationError;
 
-function assert( condition, message )
+function assert( condition, message, scp )
 {
     if( condition )
         return;
-    throw new AssertionFailedError( message );
+    throw new AssertionFailedError( message, scp );
 }
 
-function domToCrypto( err ) {
+function domToCrypto( err, scp ) {
     if( err instanceof DOMException )
     {
-        throw new CryptoError( err.message );
+        throw new CryptoError( err.message, scp );
     }
     else
         return Promise.reject( err );
@@ -175,23 +163,6 @@ function hexToBuf( hex, scp )
     }
     log( 'blah', buf );
     return buf;
-}
-
-function makeUniqueId( ids, len )
-{
-    var id;
-    var found = false;
-    if( !len )
-    {
-        len = uniqueIdDefaultLength;
-    }
-    while( !found )
-    {
-        id = bufToHex( getRandomBytes( len ) );
-        if( !( id in ids ) )
-            found = true;
-    }
-    return id;
 }
 
 function array_zip( a1, a2, flatten1, flatten2, strict1, strict2, scp )
@@ -262,21 +233,22 @@ function p_all_resolve( promises, values, scp )
     return P.all( promises.concat( values.map( P.resolve.bind( P ) ) ) );
 }
 
-function handleServerError( url, resp )
+function handleServerError( msg, resp, scp )
 {
-    return new Promise( function( resolve, reject ) {
-        var msg = url+' '+resp.statusText + ' ';
-        if( resp.status >= 400 && resp.status < 500 )
+    return new Promise( function( resolve, reject )
+    {
+        if( resp.status == 404 )
+            reject( new NotFoundError( msg, scp ) );
+        else if( resp.status >= 400 && resp.status < 500 )
             return resp.text().then( function( t ) {
-                reject( new RequestError( msg + t ) );
+                reject( new RequestError( msg, resp.statusText + ' ' + t ), scp );
             } );
         else
             return resp.text().then( function( t ) {
-                reject( new ServerError( msg + t ) );
+                reject( new ServerError( msg, resp.statusText + ' ' + t ), scp );
             } );
     } );
 }
-
 
 /* Graveyard */
 

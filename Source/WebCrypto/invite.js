@@ -39,7 +39,7 @@ function inviteStep1( bob, team_id, alice, scp )
     var step1_priv = JSON.stringify( { bob: bob, team: team_id } );
     return aes_cbc_ecdsa.encrypt_then_sign_salted(
         alice.key_main, alice.key_signing, encode( step1_priv ), scp )
-    .then( function( step1_priv ) {
+    .then( function( step1_priv ) { var scp = Scope.anon( scp );
         log( 'Encrypted step1_priv' );
         function upload( [ d, n, t ] )
         { return uploadFile( alice.cloud_text, [ 'Invites', step1_id, n ], d, t, scp ); }
@@ -64,13 +64,13 @@ function inviteStep2( step1_pub_text, bob, scp )
     } ).then( function( k ) {
         log( 'Imported Alice\'s key' );
         return ecdh_aesDeriveKey( k, bob.key_priv_dh );
-    } ).then( function( k ) {
+    } ).then( function( k ) { var scp = Scope.anon( scp );
         log( 'Derived shared key' );
         var bob_dir = makeUniqueId( bob.teams );
         var step2_priv = JSON.stringify( { d: bob_dir, i: step1_pub.step1_id } );
         return aes_cbc_ecdsa.encrypt_then_sign_salted(
             k, bob.key_signing, encode( step2_priv ), scp )
-    } ).then( function( step2_priv ) {
+    } ).then( function( step2_priv ) { var scp = Scope.anon( scp );
         log( 'Encrypted and signed step2' );
         return uploadFile(
             bob.cloud_text, [ 'Invites', step2_id, 'step2' ], step2_priv, false, scp );
@@ -89,9 +89,9 @@ function inviteStep3( step2_pub_text, alice, scp )
     var bob = {};
     var step2_pub = JSON.parse( step2_pub_text );
     return inviteStep3A( step2_pub, alice, bob, scp )
-    .then( function() {
+    .then( function() { var scp = Scope.anon( scp );
         return inviteStep3B( alice, bob, scp );
-    } ).then( function( step1_priv ) {
+    } ).then( function( step1_priv ) { var scp = Scope.anon( scp );
         return inviteStep3C( step1_priv, alice, bob, scp );
     } );
 }
@@ -116,7 +116,7 @@ function inviteStep3A( step2_pub, alice, bob, scp )
         bob.key_verify = keys[ 1 ];
         return P.all( [ ecdh_aesDeriveKey( bob.key_pub_dh, alice.key_priv_dh ),
                         downloadBob( [ [ 'Invites', bob.step2_id, 'step2' ] ] ) ] );
-    } ).then( function( [ k, step2_enc ] ) {
+    } ).then( function( [ k, step2_enc ] ) { var scp = Scope.anon( scp );
         log( 'Derived shared key' );
         bob.sym_AB = k;
         return aes_cbc_ecdsa.verify_then_decrypt_salted(
@@ -134,7 +134,7 @@ function inviteStep3B( alice, bob, scp )
 {
     var [ scp, log ] = Scope.enter( scp, 'B' );
     return downloadFile( alice.cloud_text, [ 'Invites', bob.step1_id, 'step1' ], null, scp )
-    .then( function( step1_priv ) {
+    .then( function( step1_priv ) { var scp = Scope.anon( scp );
         log( 'Downloaded step1' );
         return aes_cbc_ecdsa.verify_then_decrypt_salted(
             alice.key_main, alice.key_verify, step1_priv, scp )
@@ -178,7 +178,7 @@ function inviteStep3C( step1_priv, alice, bob, scp )
         var to_encrypt = [ [ bob.sym_AB, encode( step3_priv ) ],
                            [ team.key_main, encode( JSON.stringify( team.db ) ) ] ];
         return P.all( to_encrypt.map( encrypt ) );
-    } ).then( function( [ step3_enc, db ] ) {
+    } ).then( function( [ step3_enc, db ] ) { var scp = Scope.anon( scp );
         var files = [ [ [ 'Invites', bob.step1_id, 'step3' ], step3_enc ],
                       [ [ 'Teams', team.dir, 'Data', 'data' ], db ] ];
         function upload( [ p, c ] ) { return uploadFile( alice.cloud_text, p, c, null, scp ) };
@@ -201,7 +201,7 @@ function inviteStep4( step1_pub_text, bob, scp )
     var team = {};
     return P.all( [ downloadAlice( [ 'key_pub_dh', true ] ),
                     downloadAlice( [ 'key_verify', true ] ) ] )
-    .then( function( keys ) {
+    .then( function( keys ) { var scp = Scope.anon( scp );
         log( 'Downloaded Alice\'s keys' );
         alice.key_pub_dh_exported = keys[0];
         alice.key_verify_exported = keys[1];
@@ -213,12 +213,12 @@ function inviteStep4( step1_pub_text, bob, scp )
         alice.key_verify = keys[ 1 ];
         return P.all( [ ecdh_aesDeriveKey( alice.key_pub_dh, bob.key_priv_dh ),
                         downloadAlice( [ [ 'Invites', step1_pub.step1_id, 'step3' ] ] ) ] );
-    } ).then( function( [ k, step3_enc ] ) {
+    } ).then( function( [ k, step3_enc ] ) { var scp = Scope.anon( scp );
         log( 'Derived shared key and downloaded step3' );
         alice.sym_AB = k;
         return aes_cbc_ecdsa.verify_then_decrypt_salted(
             alice.sym_AB, alice.key_verify, step3_enc, scp )
-    } ).then( function( step3_priv_buf ) {
+    } ).then( function( step3_priv_buf ) { var scp = Scope.anon( scp );
         log( 'Decrypted step3' );
         var step3_priv = JSON.parse( decode( step3_priv_buf ) );
         alice.team_dir = step3_priv.t;
@@ -234,7 +234,7 @@ function inviteStep4( step1_pub_text, bob, scp )
         return P.all( files.map( downloadTeam )
                       .concat( [ importKeyPrivDH( team.key_priv_dh_exported, scp ),
                                  importKeySign( team.key_signing_exported, scp ) ] ) );
-    } ).then( function( files ) {
+    } ).then( function( files ) { var scp = Scope.anon( scp );
         log( 'Downloaded team files' );
         team.db_enc = files[ 0 ];
         team.key_priv_dh = files[ 3 ];
