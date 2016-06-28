@@ -60,6 +60,7 @@ var Lock = function() {
         this.lockCount--;
         if (this.lockCount > 0)
             return;
+        this.lockedBy = null;
 
         var thisLock = this;
         if (this.waitingList.length > 0) {
@@ -69,15 +70,15 @@ var Lock = function() {
             // check if result is a promise
             if (result && result.then) {
                 result.then(function(r) {
-                    thisLock.unlock();
                     action.resolve(r);
-                }, function(r) {
                     thisLock.unlock();
+                }, function(r) {
                     action.reject(r);
+                    thisLock.unlock();
                 });
             } else {
-                this.unlock();
                 action.resolve(result);
+                this.unlock();
             }
             this.waitingList.splice(0,1);
         } else {
@@ -87,13 +88,15 @@ var Lock = function() {
 
     this.lock = function(method, scope) {
         var thisLock = this;
-        if (this.lockedBy == scope.tid || !this.locked) {
-            if (this.locked && this.lockedBy == scope.tid)
+        if ((scope && this.lockedBy == scope.tid) || !this.locked) {
+            if (scope && this.locked && this.lockedBy == scope.tid)
                 this.lockCount++;
             else
                 this.lockCount=1;
 
-            this.lockedBy = scope.tid;
+            if (scope)
+                this.lockedBy = scope.tid;
+
             this.locked = true;
             var result = method();
             // check if result is a promise
@@ -111,7 +114,7 @@ var Lock = function() {
             }
         } else {
             return new Promise(function(resolve, reject) {
-                thisLock.waitingList.push({resolve: resolve, reject: reject, method: method, taskId: scope.tid});
+                thisLock.waitingList.push({resolve: resolve, reject: reject, method: method, taskId: scope ? scope.tid : null });
             });
         }
     };
