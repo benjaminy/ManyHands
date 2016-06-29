@@ -21,21 +21,33 @@ function binarySearch(treeStructure, key, startIndex, lastIndex) {
     }
 }
 
-var BPlusTree = function(order) {
-    this.root = new leafNode(order);
+var SFS = new SimpleFileServer("Janet");
+
+var FSBPlusTree = function(fileSystemTreeOrder, memoryTreeOrder) {
+    this.memoryTree = new BPlusTree(memoryTreeOrder);
+    this.root = new fsLeafNode(order);
     this.insert = function(key, value) {
-        var result = this.root.insert(key, value, null);
-        if (result == null)
-            return null; // no changes
-        if (result.getKeysCount() > result.maxValues) {
-            var splitTree = result.split();
-            var newRoot = new branchNode(result.maxChildren);
-            newRoot.keys = [splitTree.separator];
-            newRoot.children = [splitTree.left, splitTree.right];
-            return BPlusTree.fromRoot(newRoot);
-        } else {
-            return BPlusTree.fromRoot(result);
-        }
+        return this.root.insert(key, value).then(function(result){
+            if (result == null)
+                return Promise.resolve(null); // no changes
+            if (result.getKeysCount() > result.maxValues) {
+                return result.split().then(function(splitTree) {
+                    var newRoot = new fsBranchNode(result.maxChildren);
+                    newRoot.keys = [splitTree.separator];
+                    var savePromises = [splitTree.left.save(), splitTree.right.save()];
+                    return Promise.all(savePromises).then(function(leftLink, rightLink) {
+                        newRoot.children = [leftLink, rightLink];
+                        return newRoot.save();
+                    }).then(function(link) {
+                        return Promise.resolve(FSBPlusTree.fromRoot(link, newRoot));
+                    });
+                });
+            } else {
+                return result.save().then(function (link) {
+                    return Promise.resolve(FSBPlusTree.fromRoot(link, result));
+                });
+            }
+        });
     };
 
     this.get = function(key) {
@@ -47,31 +59,33 @@ var BPlusTree = function(order) {
         if (result == null)
             return null; // no changes
         if (result.keys && result.keys.length == 0) {
-            return BPlusTree.fromRoot(result.children[0]);
+            return FSBPlusTree.fromRoot(result.children[0]);
         } else {
-            return BPlusTree.fromRoot(result);
+            return FSBPlusTree.fromRoot(result);
         }
-    }
+    };
 };
 
-BPlusTree.fromRoot = function(root) {
-    var newTree = new BPlusTree(root.maxChildren);
+FSBPlusTree.fromRoot = function(link, root) {
+    var newTree = new FSBPlusTree(root.maxChildren);
     newTree.root = root;
+    newTree.link = link;
     return newTree;
 };
 
-var bptreeStructure = function (order) {
+var fsBPTreeStructure = function (order) {
     this.maxChildren = order;
     this.maxValues = order-1;
     this.minValues = Math.floor(this.maxValues/2);
     this.children = null;
+    this.linkFactory = new SharedFileFactory();
 
     this.insert = function(key, value) {
-        throw new AbstractMethodCallError("Called an abstract method", "bptreeStructure");
+        throw new AbstractMethodCallError("Called an abstract method", "fsBPTreeStructure");
     };
 
     this.find = function(key) {
-        throw new AbstractMethodCallError("Called an abstract method", "bptreeStructure");
+        throw new AbstractMethodCallError("Called an abstract method", "fsBPTreeStructure");
     };
 
     this.get = function(key) {
@@ -83,23 +97,52 @@ var bptreeStructure = function (order) {
     };
 
     this.getKey = function(index) {
-        throw new AbstractMethodCallError("Called an abstract method", "bptreeStructure");
+        throw new AbstractMethodCallError("Called an abstract method", "fsBPTreeStructure");
     };
 
     this.getKeysCount = function() {
-        throw new AbstractMethodCallError("Called an abstract method", "bptreeStructure");
+        throw new AbstractMethodCallError("Called an abstract method", "fsBPTreeStructure");
     };
 
     this.remove = function(key) {
-        throw new AbstractMethodCallError("Called an abstract method", "bptreeStructure");
+        throw new AbstractMethodCallError("Called an abstract method", "fsBPTreeStructure");
+    };
+
+    this.serialize = function() {
+        throw new AbstractMethodCallError("Called an abstract method", "fsBPTreeStructure");
+    };
+
+    this.save = function() {
+        var toSave = this.serialize();
+        var path = "treeNode";
+        return findFreeFileName(SFS, path, "").then(function(path) {
+            return SFS.uploadTextFile(toSave, path);
+        }).then(function() {
+            return SFS.shareFile(path);
+        })
     }
 };
 
-var branchNode = function(order) {
+fsBPTreeStructure.decodeTreeNode = function (contents) {
+    if (JSON.parse(contents).keys != null)
+        return fsBranchNode.fromSerialized(contents);
+    else
+        return fsLeafNode.fromSerialized(contents);
+};
+
+var fsBranchNode = function(order) {
     // call base constructor
-    bptreeStructure.call(this, order);
+    fsBPTreeStructure.call(this, order);
     this.keys = [];
     this.children = [];
+
+    this.retrieveChild = function(index) {
+        var fileLink = children[index];
+        return fileLink.retrieve().then(function(contents){
+            var node = fsBPTreeStructure.decodeTreeNode(contents);
+            return Promise.resolve(node);
+        });
+    };
 
     this.getKeysCount = function() {
         return this.keys.length;
@@ -107,7 +150,7 @@ var branchNode = function(order) {
 
 
     this.clone = function() {
-        var clone = new branchNode(this.maxChildren);
+        var clone = new fsBranchNode(this.maxChildren);
         for (var i = 0; i < this.keys.length; ++i) {
             clone.keys[i] = this.keys[i];
         }
@@ -118,27 +161,36 @@ var branchNode = function(order) {
     };
 
     this.insert = function(key, value) {
+        var thisNode = this;
+
         var index = this.findSpot(key);
         if (index.found)
             index.index++;
         index = index.index;
-        var newChild = this.children[index].insert(key, value);
-        
-        if (newChild == null) {
-            return null; // no changes
-        }
-        
-        var newBranch = this.clone();
 
-        if (newChild.getKeysCount() > this.maxValues) {
-            var splitChild = newChild.split();
-            newBranch.children.splice(index, 1, splitChild.left, splitChild.right);
-            newBranch.keys.splice(index, 0, splitChild.separator);
-        } else {
-            newBranch.children[index] = newChild;
-        }
-
-        return newBranch;
+        return this.retrieveChild(index).then(function(child) {
+            return child.insert(key, value);
+        }).then(function(newChild) {
+            if (newChild == null) {
+                return Promise.resolve(null); // no changes
+            }
+            var newBranch = thisNode.clone();
+            if (newChild.getKeysCount() > newChild.maxValues) {
+                return newChild.split().then(function(splitChild){
+                    var savePromises = [splitChild.left.save(), splitChild.right.save()];
+                    return Promise.all(savePromises).then(function(left_link, right_link){
+                        newBranch.children.splice(index, 1, left_link, right_link);
+                        newBranch.keys.splice(index, 0, splitChild.separator);
+                        return Promise.resolve(newBranch);
+                    });                    
+                });
+            } else {
+                return newChild.save().then(function(link) {
+                    newBranch.children[index] = link;
+                    return Promise.resolve(newBranch);
+                });                
+            }
+        })
     };
 
     this.getKey = function(index) {
@@ -150,7 +202,7 @@ var branchNode = function(order) {
         if (index.found)
             index.index++;
         index = index.index;
-        
+
         var newChild = this.children[index].remove(key);
 
         if (newChild == null)
@@ -181,14 +233,16 @@ var branchNode = function(order) {
         if (spot.found)
             spot.index++;
 
-        return this.children[spot.index].find(key);
+        return this.retrieveChild(spot.index).then(function(child) {
+            return child.find(key);
+        });
     };
 
     this.split = function() {
         var halfLength = Math.floor(this.keys.length/2);
 
-        var leftTree = new branchNode(this.maxChildren);
-        var rightTree = new branchNode(this.maxChildren);
+        var leftTree = new fsBranchNode(this.maxChildren);
+        var rightTree = new fsBranchNode(this.maxChildren);
 
         leftTree.keys = this.keys.splice(0, halfLength);
         var medianKey = this.keys.splice(0,1)[0];
@@ -312,12 +366,31 @@ var branchNode = function(order) {
             this.fixChildbearingChildUnderflow(child, index);
         }
     };
+    
+    this.serialize = function() {
+        var json = {keys: this.keys, order: this.maxChildren, children: [] };
+        for (var i = 0; i < this.children.length; ++i) {
+            json.children[i] = this.children[i].encode();
+        }
+        return JSON.stringify(json);
+    };
 };
-branchNode.prototype = bptreeStructure.prototype;
+fsBranchNode.prototype = fsBPTreeStructure.prototype;
 
-var leafNode = function(order) {
+fsBranchNode.fromSerialized = function(serializedData) {
+    var newBranch = new fsBranchNode(serializedData.order);
+    var dataSource = JSON.parse(serializedData);
+    newBranch.keys = dataSource.keys;
+    newBranch.children = [];
+    for (var i = 0; i < dataSource.children.length; ++i) {
+        newBranch.children = linkFactory.createFromBytes(dataSource.children[i]);
+    }
+    return newBranch;
+};
+
+var fsLeafNode = function(order) {
     // call base constructor
-    bptreeStructure.call(this, order);
+    fsBPTreeStructure.call(this, order);
 
     var KeyValuePair = function(key, value) {
         this.key = key;
@@ -334,7 +407,7 @@ var leafNode = function(order) {
     };
 
     this.clone = function() {
-        var newLeaf = new leafNode(this.maxChildren);
+        var newLeaf = new fsLeafNode(this.maxChildren);
         for (var i = 0; i < this.keyValuePairs.length; ++i) {
             newLeaf.keyValuePairs[i] = this.keyValuePairs[i];
         }
@@ -344,8 +417,8 @@ var leafNode = function(order) {
     this.split = function() {
         var halfLength = Math.floor(this.keyValuePairs.length/2);
 
-        var leftLeaf = new leafNode(this.maxChildren);
-        var rightLeaf = new leafNode(this.maxChildren);
+        var leftLeaf = new fsLeafNode(this.maxChildren);
+        var rightLeaf = new fsLeafNode(this.maxChildren);
 
         leftLeaf.keyValuePairs = this.keyValuePairs.splice(0, halfLength);
         var medianKey = this.keyValuePairs[0].key;
@@ -376,9 +449,9 @@ var leafNode = function(order) {
         var newLeaf = this.clone();
         newLeaf.keyValuePairs.splice(location.index, 0, new KeyValuePair(key, value));
 
-        return newLeaf;
+        return Promise.resolve(newLeaf);
     };
-    
+
     this.remove = function(key) {
         var location = this.findSpot(key);
         if (!location.found) {
@@ -388,5 +461,16 @@ var leafNode = function(order) {
         newLeaf.keyValuePairs.splice(location.index, 1);
         return newLeaf;
     };
+
+    this.serialize = function() {
+        return JSON.stringify(this);
+    };
 };
-leafNode.prototype = bptreeStructure.prototype;
+fsLeafNode.fromSerialized = function(serializedData) {
+    var dataSource = JSON.parse(serializedData);
+    var newBranch = new fsLeafNode(serializedData.maxChildren);
+    newBranch.keyValuePairs = dataSource.keyValuePairs;
+    return newBranch;
+};
+
+fsLeafNode.prototype = fsBPTreeStructure.prototype;

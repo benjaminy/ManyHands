@@ -1,4 +1,9 @@
 <script type="text/javascript" src="persistentBPlusTree.js" ></script>
+<script type="text/javascript" src="../CloudStorageAbstraction/cloudInterface.js" ></script>
+<script type="text/javascript" src="../CloudStorageAbstraction/cloudHelpers.js" ></script>
+<script type="text/javascript" src="../CloudStorageAbstraction/simpleFileServerImplementation.js" ></script>
+<script type="text/javascript" src="../CloudStorageAbstraction/fileLinks.js" ></script>
+<script type="text/javascript" src="../utils.js" ></script>
 <script>
     BPlusTree.prototype.insert_test = function(key,value) {
         if (!this.expected_content) {
