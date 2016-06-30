@@ -2,9 +2,7 @@
  *
  */
 
-var T = require( 'text-encoding' );
-
-var P               = Promise;
+var P = Promise;
 
 var encoding = 'utf-8';
 var [ encode, decode ] = encodeDecodeFunctions( encoding );
@@ -18,8 +16,8 @@ function getRandomBytes( num_bytes )
 
 function encodeDecodeFunctions( encoding )
 {
-    var encoder = new T.TextEncoder( encoding );
-    var decoder = new T.TextDecoder( encoding );
+    var encoder = new TextEncoder( encoding );
+    var decoder = new TextDecoder( encoding );
     var arr = [ encoder.encode.bind( encoder ),
                 decoder.decode.bind( decoder ) ];
     return arr;
