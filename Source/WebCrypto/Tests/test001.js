@@ -33,3 +33,5 @@ function test01()
         log( 'SUCCESS' );
     } )
 }
+
+window.onload = test01;
