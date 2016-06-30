@@ -1,5 +1,6 @@
 var FILE_SERVER_PORT = 8123;
-var FILE_SERVER_ADDR = 'http://localhost:'+FILE_SERVER_PORT;
+var loc = window.location;
+var FILE_SERVER_ADDR = loc.protocol + '//' + loc.hostname + ':' + FILE_SERVER_PORT;
 
 function encode_path( user, path )
 {
