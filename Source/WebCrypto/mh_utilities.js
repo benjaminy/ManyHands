@@ -231,22 +231,75 @@ function p_all_resolve( promises, values, scp )
     return P.all( promises.concat( values.map( P.resolve.bind( P ) ) ) );
 }
 
-function handleServerError( msg, resp, scp )
+function async( name, makeGen )
 {
-    return new Promise( function( resolve, reject )
+    /* name: string */
+    /* makeGen: function generator of type A -> [ B, C, D ] α */
+    return function( scp, ...params )
     {
-        if( resp.status == 404 )
-            reject( new NotFoundError( msg, scp ) );
-        else if( resp.status >= 400 && resp.status < 500 )
-            return resp.text().then( function( t ) {
-                reject( new RequestError( msg, resp.statusText + ' ' + t ), scp );
-            } );
-        else
-            return resp.text().then( function( t ) {
-                reject( new ServerError( msg, resp.statusText + ' ' + t ), scp );
-            } );
-    } );
+        var [ scp, log ] = Scope.enter( scp, name );
+        var generator = makeGen( scp, log, ...params );
+
+        function handle( result )
+        {
+            if( result.done )
+                return P.resolve( result.value );
+            /* else: */
+            return Promise.resolve( result.value ).then(
+                function( res )
+                { return handle( generator.next( res ) ) },
+                function( err )
+                { return handle( generator.throw( err ) ) } );
+        }
+
+        try {
+            return handle( generator.next() );
+        }
+        catch( err ) {
+            return P.reject( err );
+        }
+    }
 }
+
+function async_local( scp, name, makeGen )
+{
+    /* name: string */
+    /* makeGen: function generator of type A -> [ B, C, D ] α */
+    return function( ...params )
+    {
+        var [ scp, log ] = Scope.enter( scp, name );
+        var generator = makeGen( scp, log, ...params );
+
+        function handle( result )
+        {
+            if( result.done )
+                return P.resolve( result.value );
+            /* else: */
+            return Promise.resolve( result.value ).then(
+                function( res )
+                { return handle( generator.next( res ) ) },
+                function( err )
+                { return handle( generator.throw( err ) ) } );
+        }
+
+        try {
+            return handle( generator.next() );
+        }
+        catch( err ) {
+            return P.reject( err );
+        }
+    }
+}
+
+var handleServerError = async( null, function *( scp, log, msg, resp )
+{
+    if( resp.status == 404 )
+        throw new NotFoundError( msg, scp );
+    var t = yield resp.text();
+    if( resp.status >= 400 && resp.status < 500 )
+        throw new RequestError( msg, resp.statusText + ' ' + t, scp );
+    throw new ServerError( msg, resp.statusText + ' ' + t, scp );
+} );
 
 /* Graveyard */
 

@@ -1,37 +1,18 @@
-function test01()
+var test01 = async( 'Test01', function *( scp, log )
 {
-    var [ scp, log ] = Scope.enter( null, 'Test01' );
-    var alice;
-    var bob;
-    var team_id_hack;
-    var step1_pub;
-    register( 'alice', 'p', scp )
-    .then( function( _ ) { var scp = Scope.anon( scp );
-        return register( 'bob', 'p', scp );
-    } ).then( function( _ ) { var scp = Scope.anon( scp );
-        return login( 'alice', 'p', scp );
-    } ).then( function( u ) { var scp = Scope.anon( scp );
-        alice = u;
-        return login( 'bob', 'p', scp );
-    } ).then( function( u ) { var scp = Scope.anon( scp );
-        bob = u;
-        return createTeam( 'ATeam', alice, scp );
-    } ).then( function( team_id ) { var scp = Scope.anon( scp );
-        team_id_hack = team_id;
-        return login( 'alice', 'p', scp );
-    } ).then( function( u ) { var scp = Scope.anon( scp );
-        alice = u;
-        return inviteStep1( 'bob', team_id_hack, alice, scp );
-    } ).then( function( s ) { var scp = Scope.anon( scp );
-        step1_pub = s;
-        return inviteStep2( step1_pub, bob, scp );
-    } ).then( function( accept ) { var scp = Scope.anon( scp );
-        return inviteStep3( accept, alice, scp );
-    } ).then( function() { var scp = Scope.anon( scp );
-        return inviteStep4( step1_pub, bob, scp );
-    } ).then( function() { var scp = Scope.anon( scp );
-        log( 'SUCCESS' );
-    } )
-}
+    // var alice     = yield register( 'alice', 'p1', scp );
+    // var bob       = yield register( 'bob', 'p2', scp );
+    yield register( scp, 'alice', 'p1' );
+    yield register( scp, 'bob', 'p2' );
+    var alice     = yield login( scp, 'alice', 'p1' );
+    var bob       = yield login( scp, 'bob', 'p2' );
+    var team_id   = yield createTeam( scp, 'ATeam', alice );
+    var alice     = yield login( scp, 'alice', 'p1' );
+    var step1_pub = yield inviteStep1( scp, 'bob', team_id, alice );
+    var step2_pub = yield inviteStep2( scp, step1_pub, bob );
+    yield inviteStep3( scp, step2_pub, alice );
+    yield inviteStep4( scp, step1_pub, bob );
+    log( 'SUCCESS' );
+} );
 
-window.onload = test01;
+window.onload = function() { test01( null ) };
