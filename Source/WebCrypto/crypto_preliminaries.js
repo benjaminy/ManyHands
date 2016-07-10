@@ -33,13 +33,10 @@ function makeUniqueId( ids, len )
     return id;
 }
 
-function exportKeyJwk( k )
+var exportKeyJwk = async_no_scp( function *( k )
 {
-    return C.exportKey( 'jwk', k )
-    .then( function( j ) {
-        return P.resolve( JSON.stringify( j ) );
-    } );
-}
+    return JSON.stringify( yield C.exportKey( 'jwk', k ) );
+} );
 
 function importKeyJwk( s, algo, ops, scp )
 {
@@ -91,18 +88,17 @@ function stringsToBuf( strings )
     return b;
 }
 
-function makeLoginKey( username, password, salt )
+var makeLoginKey = async_no_scp( function *( username, password, salt )
 {
     /* assert( typeof( username ) == 'string' ) */
     /* assert( typeof( password ) == 'string' ) */
     /* assert( typeof( salt ) == typed array ) */
     var up = stringsToBuf( [ username, password ] );
-    return C.importKey( 'raw', up, { name: 'PBKDF2' }, true, [ 'deriveKey' ]
-    ).then( function( k ) {
-        return C.deriveKey( pbkdf_algo( salt ), k, sym_enc_algo,
-                            true, [ 'encrypt', 'decrypt' ] );
-    } );
-}
+    return C.deriveKey(
+        pbkdf_algo( salt ),
+        yield C.importKey( 'raw', up, { name: 'PBKDF2' }, true, [ 'deriveKey' ] ),
+        sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
+} );
 
 function ecdh_aesDeriveKey( pub, priv )
 {
@@ -121,39 +117,51 @@ function CryptoSpecificAlgos( enc_algo, sign_algo, scp )
     this.iv_length  = 16;
 }
 
-CryptoSpecificAlgos.prototype.encrypt_then_sign =
-function( key_enc, key_sign, data, enc_param, scp )
+CryptoSpecificAlgos.prototype.encryptThenSign =
+function( scp1, key_enc, key_sign, data, enc_param )
 {
-    var [ scp, log ] = Scope.enter( scp, 'encrypt_then_sign' );
-    // log( "1" );
-    return C.encrypt( this.enc_algo( enc_param ), key_enc, data )
-    .then( function( data_enc ) {
-        // log( "2", key_sign );
-        return P.all( [ C.sign( this.sign_algo(), key_sign, data_enc ), P.resolve( data_enc ) ] );
-    }.bind( this ) ).then( function( [ sig, data_enc ] ) {
-        // log( "3", sig.byteLength );
-        return P.resolve( typedArrayConcat( sig, data_enc ) );
-    }.bind( this ) ).catch( domToCrypto );
+    return async( 'encryptThenSign', function *( scp, log )
+    {
+        // log( "1", typeof( this ), this );
+        try
+        {
+            var data_enc = yield C.encrypt( this.enc_algo( enc_param ), key_enc, data );
+            // log( "2", key_sign );
+            var sig = yield C.sign( this.sign_algo(), key_sign, data_enc );
+            // log( "3", sig.byteLength );
+            return typedArrayConcat( sig, data_enc );
+        }
+        catch( err )
+        {
+            domToCrypto( err );
+        }
+    }, this )( scp1 );
 }
 
-CryptoSpecificAlgos.prototype.verify_then_decrypt =
-    function( key_dec, key_ver, sig_plus_data, enc_param, scp )
+CryptoSpecificAlgos.prototype.verifyThenDecrypt =
+function( scp1, key_dec, key_ver, sig_plus_data, enc_param )
 {
-    /* log( '[Debug]', ... )*/
-    var d_as_bytes = new Uint8Array( sig_plus_data );
-    var sig = d_as_bytes.subarray( 0, this.sig_length );
-    var data_enc = d_as_bytes.subarray( this.sig_length );
-    var err = new VerificationError( '', scp );
-    return C.verify( this.sign_algo(), key_ver, sig, data_enc )
-    .then( function( signature_ok ) {
-        if( !signature_ok )
-            return P.reject( err );
-        /* 'else' */
-        return C.decrypt( this.enc_algo( enc_param ), key_dec, data_enc );
-    }.bind( this ) ).catch( domToCrypto );
+    return async( 'verifyThenDecrypt', function *( scp, log )
+    {
+        /* log( '[Debug]', ... )*/
+        try
+        {
+            var d_as_bytes = new Uint8Array( sig_plus_data );
+            var sig = d_as_bytes.subarray( 0, this.sig_length );
+            var data_enc = d_as_bytes.subarray( this.sig_length );
+            if( !( yield C.verify( this.sign_algo(), key_ver, sig, data_enc ) ) )
+                throw new VerificationError( '', scp );
+            /* 'else' */
+            return C.decrypt( this.enc_algo( enc_param ), key_dec, data_enc );
+        }
+        catch( err )
+        {
+            domToCrypto( err );
+        }
+    }, this )( scp1 );
 }
 
-CryptoSpecificAlgos.prototype.decrypt_skip_verify =
+CryptoSpecificAlgos.prototype.decryptSkipVerify =
 function( key_dec, sig_plus_data, enc_param )
 {
     /* log( '[Debug]', ... )*/
@@ -162,34 +170,36 @@ function( key_dec, sig_plus_data, enc_param )
     .catch( domToCrypto );
 }
 
-CryptoSpecificAlgos.prototype.encrypt_then_sign_salted =
+CryptoSpecificAlgos.prototype.encryptThenSignSalted =
 function( key_enc, key_sign, data, scp )
 {
-    var [ scp, log ] = Scope.enter( scp, 'encrypt_then_sign_salted' );
+    var [ scp, log ] = Scope.enter( scp, 'encryptThenSignSalted' );
     // log( key_enc, key_sign, data );
-    return this.encrypt_then_sign(
-        key_enc, key_sign, typedArrayConcat( getRandomBytes( this.iv_length ), data ),
-        zeros, scp );
+    return this.encryptThenSign(
+        scp, key_enc, key_sign, typedArrayConcat( getRandomBytes( this.iv_length ), data ),
+        zeros );
 }
 
-CryptoSpecificAlgos.prototype.verify_then_decrypt_salted =
+CryptoSpecificAlgos.prototype.verifyThenDecryptSalted =
 function( key_dec, key_ver, data )
 {
-    return this.verify_then_decrypt( key_dec, key_ver, data, zeros )
-    .then( function( salt_plus_data ) {
-        return P.resolve( new Uint8Array( salt_plus_data ).subarray( this.iv_length ) );
-    }.bind( this ) );
+    return async_no_scp( function *()
+    {
+        return new Uint8Array(
+            yield this.verifyThenDecrypt( null, key_dec, key_ver, data, zeros ) )
+                .subarray( this.iv_length );
+    }, this )();
 }
 
-CryptoSpecificAlgos.prototype.decrypt_skip_verify_salted =
-    function( key_dec, data, scp )
+CryptoSpecificAlgos.prototype.decryptSkipVerifySalted =
+function( scp1, key_dec, data )
 {
-    var [ scp, log ] = Scope.enter( scp, 'Decrypt' );
-    return this.decrypt_skip_verify( key_dec, data, zeros )
-    .then( function( salt_plus_data ) {
+    return async( 'Decrypt', function *( scp, log )
+    {
+        var salt_plus_data = yield this.decryptSkipVerify( key_dec, data, zeros );
         log( new Uint8Array( salt_plus_data ), this.iv_length );
-        return P.resolve( ( new Uint8Array( salt_plus_data ) ).subarray( this.iv_length ) );
-    }.bind( this ) );
+        return ( new Uint8Array( salt_plus_data ) ).subarray( this.iv_length );
+    }, this )( scp1 );
 }
 
 var aes_cbc_ecdsa = new CryptoSpecificAlgos(

@@ -54,8 +54,8 @@ var getRegistrationInfo = async( 'GetReg', function *( scp, log, uid, passwd, us
     log( 'Made login key' );
     try {
         /* TODO: Verify after getting the key */
-        user.cloud_bits = yield aes_cbc_ecdsa.decrypt_skip_verify_salted(
-            user.key_login, hexToBuf( registration_info.encrypted_link, scp ), scp );
+        user.cloud_bits = yield aes_cbc_ecdsa.decryptSkipVerifySalted(
+            scp, user.key_login, hexToBuf( registration_info.encrypted_link, scp ) );
     }
     catch( err ) {
         if( err instanceof CryptoError )
@@ -71,7 +71,7 @@ var loginCloud = async( 'Cloud', function *( scp, log, user )
 {
     /* TODO: download invite information */
     function download( [ path, text ] )
-    { return downloadFile( user.cloud_text, path, text, scp ); }
+    { return downloadFile( scp, user.cloud_text, path, text ); }
 
     user.invites = {};
     /* XXX */
@@ -87,7 +87,7 @@ var loginCloud = async( 'Cloud', function *( scp, log, user )
     user.key_pub_dh = yield importKeyPubDH( user.key_pub_dh_exported );
     user.key_verify = yield importKeyVerify( user.key_verify_exported );
     log( 'Imported public keys' );
-    user.key_priv_dh_exported = decode( yield aes_cbc_ecdsa.verify_then_decrypt_salted(
+    user.key_priv_dh_exported = decode( yield aes_cbc_ecdsa.verifyThenDecryptSalted(
         user.key_login, user.key_verify, key_priv_dh ) );
     log( 'Decrypted private D-H key' );
     user.key_priv_dh = yield importKeyPrivDH( user.key_priv_dh_exported );
@@ -95,7 +95,7 @@ var loginCloud = async( 'Cloud', function *( scp, log, user )
     user.key_main = yield ecdh_aesDeriveKey( user.key_pub_dh, user.key_priv_dh );
     log( 'Downloaded signing key, manifests; derived main key' );
     function decrypt( d )
-    { return aes_cbc_ecdsa.verify_then_decrypt_salted( user.key_main, user.key_verify, d ); }
+    { return aes_cbc_ecdsa.verifyThenDecryptSalted( user.key_main, user.key_verify, d ); }
     var decrypted = yield P.all( to_decrypt.map( decrypt ) );
     log( 'Decrypted signing key, manifests' );
     /* TODO: verify the things that we skipped verifying before */
@@ -145,7 +145,7 @@ return async_local( scp, 'Team', function *( scp, log, team_dir )
     var team = user.teams[ team_dir ];
     team.key_priv_dh_exported =
         decode(
-            yield aes_cbc_ecdsa.verify_then_decrypt_salted(
+            yield aes_cbc_ecdsa.verifyThenDecryptSalted(
                 user.key_main, user.key_verify,
                 yield download( [ 'key_priv_dh' ] ) ) ),
     team.key_pub_dh_exported = yield download( [ 'key_pub_dh', true ] );
@@ -164,7 +164,7 @@ return async_local( scp, 'Team', function *( scp, log, team_dir )
                        [ user.key_main, files[ 1 ] ],
                        [ team.key_main, files[ 2 ] ] ];
     function decrypt( [ k, d ] )
-    { return aes_cbc_ecdsa.verify_then_decrypt_salted( k, user.key_verify, d ); }
+    { return aes_cbc_ecdsa.verifyThenDecryptSalted( k, user.key_verify, d ); }
     var decrypted = yield P.all( to_decrypt.map( decrypt ) );
     log( 'Bunch of files decrypted' );
     team.self_id = decode( decrypted[ 1 ] );
@@ -246,7 +246,7 @@ var uploadTeam = async( 'Cloud', function *( scp, log, team, user )
         teams_manifest[ d ] = team.self_id;
 
     function encrypt( [ k, d ] )
-    { return aes_cbc_ecdsa.encrypt_then_sign_salted( k, user.key_signing, d ); }
+    { return aes_cbc_ecdsa.encryptThenSignSalted( k, user.key_signing, d ); }
     function encd_jstr(x) { return encode( JSON.stringify( x ) ) };
     var to_encrypt =
         [ [ team.key_main, encd_jstr( team.db ) ],
@@ -266,7 +266,7 @@ var uploadTeam = async( 'Cloud', function *( scp, log, team, user )
         [ [ 'Data', 'data' ], files[ 0 ] ],
     ];
     return P.all( files.map( uploadToTeam( user.cloud_text, team.dir ) ).concat(
-        uploadFile( user.cloud_text, [ 'Teams', 'manifest' ], teams_manifest ) ) );
+        uploadFile( scp, user.cloud_text, [ 'Teams', 'manifest' ], teams_manifest ) ) );
 } );
 
 var createTeam = async( 'CreateTeam', function *( scp, log, team_name, user )

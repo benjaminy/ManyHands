@@ -16,13 +16,12 @@ function encode_path( user, path )
 }
 
 /* Returns a Promise that either rejects, or fulfills the response object */
-function uploadFile( user, path, content, content_type, scp )
+var uploadFile = async( 'Upload', function *( scp, log, user, path, content, content_type )
 {
     /* assert( Array.isArray( path ) || typeof( path ) == 'string' ) */
     /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == 'string' ) */
     /* assert( typeof( user ) == 'string' ) */
     /* assert( typeof( content ) is whatever fetch accepts ) */
-    var [ scp, log ] = Scope.enter( scp, 'Upload' );
     var pu = encode_path( user, path );
     var headers = new Headers( { 'Content-Length': '' + content.length } );
     if( content_type )
@@ -30,52 +29,45 @@ function uploadFile( user, path, content, content_type, scp )
         headers[ 'Content-Type' ] = content_type;
     }
 
-    return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p,
-                  { method  : 'POST',
-                    body    : content,
-                    headers : headers }
-    ).then( function( resp ) {
-        var scp = Scope.anon( scp );
-        log( 'Response', resp.status, resp.statusText );
-        if( !resp.ok )
-            return handleServerError( pu.p, resp, scp );
-        else
-            return P.resolve( resp );
-    } );
-}
+    var resp = yield fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p,
+                            { method  : 'POST',
+                              body    : content,
+                              headers : headers } );
+    log( 'Response', resp.status, resp.statusText );
+    if( !resp.ok )
+        return handleServerError( pu.p, resp, scp );
+    else
+        return P.resolve( resp );
+} );
 
 /* Returns a Promise that either rejects, or fulfills the downloaded file's text */
-function downloadFile( user, path, isText, scp )
+var downloadFile = async( 'Download', function *( scp, log, user, path, isText )
 {
     /* assert( Array.isArray( path ) || typeof( path ) == 'string' ) */
     /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == 'string' ) */
     /* assert( typeof( user ) == 'string' ) */
-    var [ scp, log ] = Scope.enter( scp, 'Download' );
     var pu = encode_path( user, path );
-    return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p
-    ).then( function( resp ) {
-        var scp = Scope.anon( scp );
-        log( pu.p, resp.status, resp.statusText );
-        if( !resp.ok )
-            return handleServerError( pu.p, resp, scp );
+    var resp = yield fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p );
+    log( pu.p, resp.status, resp.statusText );
+    if( !resp.ok )
+        return handleServerError( pu.p, resp, scp );
+    else
+    {
+        if( isText )
+            return resp.text();
         else
-        {
-            if( isText )
-                return resp.text();
-            else
-                return resp.arrayBuffer();
-        }
-    } );
-}
+            return resp.arrayBuffer();
+    }
+} );
 
 function uploadToTeam( cloud, team, scp )
 {
     return ( [ p, c, t ] ) =>
-        { return uploadFile( cloud, [ 'Teams', team ].concat( p ) , c, t, scp ); }
+        { return uploadFile( scp, cloud, [ 'Teams', team ].concat( p ) , c, t ); }
 }
 
 function downloadFromTeam( cloud, team, scp )
 {
     return ( [ p, t ] ) =>
-        { return downloadFile( cloud, [ 'Teams', team ].concat( p ), t, scp ); }
+        { return downloadFile( scp, cloud, [ 'Teams', team ].concat( p ), t ); }
 }
