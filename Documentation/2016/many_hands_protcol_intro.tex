@@ -1,0 +1,66 @@
+% \documentclaa[]{}
+
+\begin{document}
+
+\title{Private Collaborative Editing of Documents Over the Internet}
+
+\authorinfo{Benjamin Ylvisaker}
+
+\maketitle
+
+\begin{abstract}
+
+Applications that give teams of people the ability to collaboratively edit documents over the Internet have become popular.
+Examples include Google Docs, Evernote and Dropbox.
+With few exceptions, these applications give the providers of the service complete access to the teams' data.
+This raises multiple serious privacy concerns.
+
+In response to related privacy concerns, end-to-end encryption has been encorporated into many Internet applications.
+End-to-end encryption has been most successful with applications in which either users manage non-shared data (for example, password managers) or messaging applications with only transient, not persistent, state.
+
+This project is the first to combine end-to-end encryption with shared, mutable state.
+The key technical challenge is that the clients that belong to a team must perform the consistency protocol amongst themselves, with no central authority.
+We assume that each team member will only be actively connected to the network intermittently, but also has a highly available read-only copy of the team's data.
+
+\end{abstract}
+
+\section{Introduction}
+
+Privacy concerns have become important to many Internet users in recent years.
+It is known that many adversaries, including powerful government and corporate organizations, thieves and vandals, have violated huge numbers of users' privacy in myriad ways.
+One important tool in the struggle for privacy on the Internet is encryption, and in particular end-to-end encrypted applications.
+
+End-to-end encryption has become common (though not universal) in applications like password management and internet messaging.
+The key benefit of end-to-end encryption is that all service providers (both network and storage) only see the encrypted data.
+Without breaking the encryption, lying about the application's behavior, or otherwise maliciously circumventing the system, the system provider cannot get the user's unencrypted data.
+This is useful for several reasons.
+
+Unfortunately there is a big gap in the range of applications that can currently be end-to-end encrypted.
+As long as the system provider is only providing passive storage (as in password managers) or transient communication (as in messaging applications), the overall architecture is well understood.
+However, in applications where a team of users collaboratively edit a document or database, the service provider also runs the consistency protocol on their servers.
+In order to do this, the service provider needs access to the unecrypted data.
+
+One gap in the end-to-end encryption landscape is applications that allow teams of users to collaboratively edit a document/database.
+
+\section{Security and Attack Models}
+
+The goal of the ManyHands protocol is to allow a team of users to collaboratively edit data online with as little support from any central service provider.
+The rationale for the service provider restriction is to keep the attack surface as small as possible.
+
+\section{Architecture}
+
+The ManyHands protocol involves a central server, a cloud storage service for each user, and a client computer for each user.
+The central server plays a small and inessential role; it is merely a convenience to help users log in from anywhere on the Internet.
+
+We assume that the cloud storage services are highly available.
+The access policy required of the storage service is trivial.
+The user must be able to read and write anything in her own account's storage.
+All other entities are allowed to read anything in the user's cloud storage account, but are not allowed to write anything.
+World-readability is not a privacy issue, because all sensitive data is encrypted with keys that only team members have access to.
+
+The single-writer policy is somewhat interesting.
+Allowing more than one user to write to a single cloud storage location implies that the cloud storage provider has some information about the 
+
+\end{document}
+
+Alvarado Dodds Kuenning Libeskind-Hadas
