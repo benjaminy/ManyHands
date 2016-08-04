@@ -1,10 +1,31 @@
-% \documentclaa[]{}
+\documentclass[pldi,10pt,preprint]{sigplanconf-pldi16}
 
 \begin{document}
 
-\title{Private Collaborative Editing of Documents Over the Internet}
+\newcommand{\LoginSalt}[1]{{$\textrm{LoginSalt}_{#1}$}}
+\newcommand{\subscr}[2]{{$\textrm{#1}_{#2}$}}
 
+\special{papersize=8.5in,11in}
+\setlength{\pdfpageheight}{\paperheight}
+\setlength{\pdfpagewidth}{\paperwidth}
+
+\conferenceinfo{CONF 'yy}{Month d--d, 20yy, City, ST, Country}
+\copyrightyear{2014}
+\copyrightdata{978-1-nnnn-nnnn-n/yy/mm}
+% \doi{nnnnnnn.nnnnnnn}
+
+\titlebanner{Preprint.  Please do not redistribute}        % These are ignored unless
+\preprintfooter{Preprint.  Please do not redistribute}   % 'preprint' option specified.
+
+\title{Private Collaborative Editing of Documents Over the Internet}
+\subtitle{subtitle?}
+
+%% \authorinfo{Blind Review}
+%%            {Blind Review University}
+%%            {BlindReview@BlindReview.edu}
 \authorinfo{Benjamin Ylvisaker}
+           {Colorado College}
+           {ben.ylvisaker@coloradocollege.edu}
 
 \maketitle
 
@@ -60,6 +81,187 @@ World-readability is not a privacy issue, because all sensitive data is encrypte
 
 The single-writer policy is somewhat interesting.
 Allowing more than one user to write to a single cloud storage location implies that the cloud storage provider has some information about the 
+
+\section{Protocol}
+
+\begin{table}
+\centering
+ \begin{tabular}{|l|p{6cm}|}
+ \hline
+ Symbol & Meaning \\
+ \hline\hline
+ K & \textbf{K}ey \\
+ R & p\textbf{R}ivate \\
+ U & p\textbf{U}blic \\
+ S & \textbf{S}hared/\textbf{S}ymmertic \\
+ V & signing/\textbf{V}erifying \\
+ X & Diffie/Hellman key e\textbf{X}change \\
+ \subscr{?}{A} & something that belongs to \textbf{A}lice \\
+ H(?) & A \textbf{H}ash of something (SHA-256, unless otherwise specified) \\
+ LoginSalt & Random bits generated at registration time \\
+ LoginKey & A (symmetric) key derived from a user's credentials and their LoginSalt \\
+ MainKey & A (symmetric) key derived from a user's private key; this is used to encrypt most of a user's private information \\
+ ROOT & The root directory for ManyHands in a user's cloud account \\
+ \hline
+ \end{tabular}
+ \caption{Cheat Sheet}
+\end{table}
+
+\subsection{Registration}
+
+The registration process for the ManyHands protocol is fairly simple.
+In order to register, a user must provide:
+
+\begin{itemize}
+\item Login credentials
+\item A cloud storage account
+\end{itemize}
+
+For login credentials we assume username/password, though other authentication systems could be used.
+The only change that would be required is a small modification to the derivation of the LoginKey.
+
+The core protocol requires very little sophistication from the cloud storage system, so in principle almost any should be useable.
+So far we have written implementations for DropBox, Google Drive and Microsoft OneDrive.
+The user must authenticate to their cloud account independently of the core ManyHands system.
+It is convenient for ManyHands implementations to cache cloud account authentication (for example, by saving a token), so that the user has to re-authenticate only infrequently.
+
+The following items are generated during the registration process:
+
+\begin{itemize}
+\item \subscr{UVK}{A}, \subscr{RVK}{A}, A public/private key-pair for signing by Alice; the public key is Alice's core identity
+\item \subscr{UXK}{A}, \subscr{RXK}{A}, A public/private key-pair for Diffie-Hellman key exchange with Alice
+\item A XXX-byte-long random sequence called \subscr{LoginSalt}{A}
+\end{itemize}
+
+Using a password-based key derivation algorithm, a symmetric key called \subscr{LoginKey}{A} can be derived from Alice's credentials and \subscr{LoginSalt}{A}.
+The current implementation uses PBKDF2 and XXX iterations.
+
+Alice H(A), a hash of her username; this is Alice's identity for the purposes of the central server.
+Alice checks that H(A) is not already taken on the central server.
+
+Alice uploads the following to the central server:
+
+\begin{itemize}
+\item H(A)
+\item \subscr{LoginSalt}{A}
+\item \subscr{UVK}{A}
+\item A link to Alice's cloud account, encrypted with \subscr{LoginKey}{A} and signed with \subscr{RVK}{A}
+\item (optional) Cached authentication information (e.g. a token) for Alice's cloud account, encrypted with \subscr{LoginKey}{A} and signed with \subscr{RVK}{A}
+\end{itemize}
+
+The central server's role is strictly a convenience for logging in.
+Without the central server, Alice would have to re\"{e}nter her cloud account information every time she logs in.
+
+Note that Alice's username is hashed and the link to her cloud account is encrypted, so the central server has very little information about Alice's identity.
+As detailed below, the central server plays no role in the primary parts of the protocol, like team creation and data exchange.
+So the operator of the central server has no information about how users are communicating with each other.
+
+Alice uploads her public signing key so that in the future if she wants to change any information about herself stored on the central server, she can sign the request with her private key and the server can verify the signature.
+
+Using Diffie-Hellman key exchange, a symmetric key called \subscr{MainKey}{A} can be derived from \subscr{RXK}{A} and \subscr{UXK}{A}.
+
+Alice uploads the following to her cloud account; all in the \subscr{ROOT}{A} directory:
+
+\begin{itemize}
+\item \subscr{LoginSalt}{A}
+\item \subscr{UVK}{A}, \subscr{UXK}{A}
+\item \subscr{RXK}{A}, encrypted with \subscr{LoginKey}{A} and signed with \subscr{RVK}{A}
+\item \subscr{RVK}{A}, encrypted with \subscr{MainKey}{A} and signed with \subscr{RVK}{A}
+\item A Teams directory and an Invites directory; both initially empty
+\end{itemize}
+
+\subsection{Login}
+
+The login process is a follows:
+
+\begin{enumerate}
+\item Alice sends a request with H(A) to the central server
+\item If the server recognizes H(A), it responds with \subscr{LoginSalt}{A} and the encrypted link to Alice's cloud account
+\item Alice derives \subscr{LoginKey}{A} and decrypts the link to her cloud account
+\item Alice authenticates to her cloud account, possibly using cached credentials from the central server
+\item Alice downloads her keys from her cloud account
+\item Alice decrypts \subscr{RXK}{A} with \subscr{LoginKey}{A}
+\item Alice derives \subscr{MainKey}{A} and decrypts \subscr{RVK}{A}
+\item Alice verifies the link, \subscr{RXK}{A} and \subscr{RVK}{A} with \subscr{RVK}{A}
+\end{enumerate}
+
+Alice is now logged in and she can perform whatever protocol actions she chooses.
+
+\subsection{Team Creation}
+
+To create a team, Alice must generate:
+
+\begin{itemize}
+\item \subscr{ID}{T-A}, A random team identifier that is unique to Alice \emph{and} team T
+\item \subscr{UVK}{T}, \subscr{RVK}{T}, A public/private key-pair for signing by team T; the public key is the team's core identity
+\item \subscr{UXK}{T}, \subscr{RXK}{T}, A public/private key-pair for Diffie-Hellman key exchange with team T
+\item \subscr{DB}{T}, A database that is initialized with at least the necessary information about Alice as a teammate
+\end{itemize}
+
+Alice uploads the team information to \subscr{ROOT}{A}/Teams/\subscr{ID}{T-A}.
+Notice that the central server is not involved with team creation at all.
+
+\subsection{Teammate Invitation}
+
+Teammates can be added to teams by an existing teammate inviting a new user.
+The invitation process is fairly invovled.
+It is designed to leak as little information as possible about team and teammate identities.
+The process could be streamlined by involving a central server of some sort to act as an invitation broker.
+Such an invitation broker would naturally have the opportunity to gain information about teams.
+
+There are 4 major steps in the invitation process, which we call opening the invitation, responding to the invitation, completing the invitation, and joining the team.
+The first and third are performed by Alice, and the second and fourth are performed by Bob.
+
+\subsubsection{Opening an Invitation}
+
+To open an invitation of Bob to team T, Alice does the following:
+
+\begin{enumerate}
+\item Invent a unique number \subscr{ID}{1}
+\item Make a file with something about Bob's identity and T
+\item Encrypt the file with \subscr{MainKey}{A}
+\item Upload the encrypted file to \subscr{ROOT}{A}/Invites/\subscr{ID}{1}
+\item Send to Bob the following:
+  \begin{itemize}
+  \item A link to Alice's cloud account
+  \item \subscr{ID}{1}
+  \end{itemize}
+\end{enumerate}
+
+The ManyHands protocol does not specify how Alice sends this information to Bob.
+She could put it in an email or text message or whatever.
+If an adversary intercepts this information, they will learn that Alice plans to invite Bob to join a team, but no more.
+Of course, Alice is free to send along additional information explaining to Bob what team he is being invited to.
+
+\subsubsection{Responding to an Invitation}
+
+If Bob decides to accept Alice's invitation, he does the following:
+
+\begin{enumerate}
+\item Invent a unique team identifier \subscr{ID}{T-B}
+\item Invent a unique number \subscr{ID}{2}
+\item Using the link to Alice's cloud account, download \subscr{UXK}{A}
+\item Derive a shared key \subscr{SK}{A-B}, using \subscr{UXK}{A} and \subscr{RXK}{B}
+\item Make a file with \subscr{ID}{T-B} and \subscr{ID}{1}
+\item Encrypt the file with \subscr{SK}{A-B}
+\item Upload the encrypted file to \subscr{ROOT}{B}/Invites/\subscr{ID}{2}
+\item Send to Alice the following:
+  \begin{itemize}
+  \item A link to Bob's cloud account
+  \item \subscr{ID}{2}
+  \end{itemize}
+\end{enumerate}
+
+Just like the first step, Bob can send the information back to Alice using any method.
+
+\subsubsection{Completing an Invitation}
+
+\subsubsection{Joining a Team}
+
+\section{Distributed Database Consistency Protocol}
+
+The distributed database consistency protocol is part of the ManyHands protocol.
+It is such an important piece, though, we decided to give it its own section.
 
 \end{document}
 
