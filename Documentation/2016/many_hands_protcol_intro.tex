@@ -33,7 +33,7 @@
 
 Applications that give teams of people the ability to collaboratively edit documents over the Internet have become popular.
 Examples include Google Docs, Evernote and Dropbox.
-With few exceptions, these applications give the providers of the service complete access to the teams' data.
+With few exceptions, these applications give the service providers complete access to the teams' data.
 This raises multiple serious privacy concerns.
 
 In response to related privacy concerns, end-to-end encryption has been encorporated into many Internet applications.
@@ -63,12 +63,7 @@ In order to do this, the service provider needs access to the unecrypted data.
 
 One gap in the end-to-end encryption landscape is applications that allow teams of users to collaboratively edit a document/database.
 
-\section{Security and Attack Models}
-
-The goal of the ManyHands protocol is to allow a team of users to collaboratively edit data online with as little support from any central service provider.
-The rationale for the service provider restriction is to keep the attack surface as small as possible.
-
-\section{Architecture}
+\subsection{Architecture}
 
 The ManyHands protocol involves a central server, a cloud storage service for each user, and a client computer for each user.
 The central server plays a small and inessential role; it is merely a convenience to help users log in from anywhere on the Internet.
@@ -81,6 +76,49 @@ World-readability is not a privacy issue, because all sensitive data is encrypte
 
 The single-writer policy is somewhat interesting.
 Allowing more than one user to write to a single cloud storage location implies that the cloud storage provider has some information about the 
+
+\section{Security and Attack Models}
+
+In this section we discuss the core assumptions that ManHands is based on, in terms of assets it is designed to protect and threats it is designed to resist.
+
+\subsection{Assets and Users}
+
+The goal of the ManyHands protocol is to allow a team of users to collaboratively edit data online.
+We assume that by default the team does not want anyone outside of the team to have \emph{any} access to the data.
+We further assume that the users are Regular People\texttrademark, by which we mean that they have access to consumer computers and subscription services, but not dedicated servers.
+
+The data model is described in more detail below, but ManyHands is designed to support a very general notion of data that can be thought of as a database or any kind of document.
+
+\subsection{Threat Model}
+
+We assume that any provider of network, storage or compute services outside the users' direct control is a potential adversary.
+This may seem like an overly paranoid assumption; it is often argued that household name organizations like Google, Apple or Microsoft have a strong reputational interest in protecting their users' privacy (at least in some ways).
+However, even if users trust that some service provider will not behave maliciously, there are still good reasons for a zero trust policy towards networked application service providers.
+
+First, if an orgainization has access to a user's information, that means some subset of its employees and contractors have access.
+Some of these individuals may have personal motivations to violate the privacy of users.
+
+Second, even if an organization ``wants'' to behave completely responsibly with respect to the privacy of their users, powerful organizations, like governments, might compel it to violate that privacy.
+This risk has been shown to be quite real in several cases recently, and it is far from confined to ``totalitarian'' governments.
+
+Third, criminals can launch attacks on the service provider and exfiltrate and/or modify users' data.
+
+Fourth, some level of trust may be reasonable in the case of household name companies, since they have a substantial investment in their own brand and do not want to be seen as bad on privacy.
+However, many Internet users today place the same trust in much smaller organizations, without even thinking about it.
+Clearly the less well known an organization is, the less one can rely on it behaving well to protect its own reputation.
+
+For all these reasons, we think there is ample motivation for collaborative document editing applications that do not expose the users' data to service providers at all.
+
+One obvious adversary is the cloud storage provider.
+Because of the cryptographic protocols used, it is not possible for the cloud storage provider to extract private information about a user beyond the fact of some activity occurring.
+Nor is it possible for the cloud provider to inject counterfeit information, because all stored data is signed.
+If multiple users use the same cloud provider, the provider could potentially correlate the timing of writes and overall database sizes to infer which users are members of the same teams.
+We consider this information relatively low risk.
+However, users who are concerned about leaking even this information could arrange to use different cloud providers, or even run their own personal cloud services (obviously the latter strategy is only available to technically sophisticated users).
+
+A cloud provider could trivially mount a denial of service attack on a user by deleting their data (or modifying it in some way, if they wanted to make the attack less obvious).
+In most cases it is hard to imagine why a cloud provider would do that.
+If users have reason to suspect they might come under such an attack, they could perform regular off-cloud backups, or run their own personal cloud service.
 
 \section{Protocol}
 
@@ -176,7 +214,11 @@ The login process is a follows:
 
 \begin{enumerate}
 \item Alice sends a request with H(A) to the central server
-\item If the server recognizes H(A), it responds with \subscr{LoginSalt}{A} and the encrypted link to Alice's cloud account
+\item If the server recognizes H(A), it responds with:
+  \begin{itemize}
+  \item \subscr{LoginSalt}{A}
+  \item The encrypted link to Alice's cloud account
+  \end{itemize}
 \item Alice derives \subscr{LoginKey}{A} and decrypts the link to her cloud account
 \item Alice authenticates to her cloud account, possibly using cached credentials from the central server
 \item Alice downloads her keys from her cloud account
@@ -192,13 +234,13 @@ Alice is now logged in and she can perform whatever protocol actions she chooses
 To create a team, Alice must generate:
 
 \begin{itemize}
-\item \subscr{ID}{T-A}, A random team identifier that is unique to Alice \emph{and} team T
+\item \subscr{TID}{TA}, A random team identifier that is unique to Alice \emph{and} team T
 \item \subscr{UVK}{T}, \subscr{RVK}{T}, A public/private key-pair for signing by team T; the public key is the team's core identity
 \item \subscr{UXK}{T}, \subscr{RXK}{T}, A public/private key-pair for Diffie-Hellman key exchange with team T
 \item \subscr{DB}{T}, A database that is initialized with at least the necessary information about Alice as a teammate
 \end{itemize}
 
-Alice uploads the team information to \subscr{ROOT}{A}/Teams/\subscr{ID}{T-A}.
+Alice uploads the team information to \subscr{ROOT}{A}\slash Teams\slash \subscr{TID}{TA}.
 Notice that the central server is not involved with team creation at all.
 
 \subsection{Teammate Invitation}
@@ -217,14 +259,14 @@ The first and third are performed by Alice, and the second and fourth are perfor
 To open an invitation of Bob to team T, Alice does the following:
 
 \begin{enumerate}
-\item Invent a unique number \subscr{ID}{1}
+\item Invent a unique number \subscr{N}{1}
 \item Make a file with something about Bob's identity and T
-\item Encrypt the file with \subscr{MainKey}{A}
-\item Upload the encrypted file to \subscr{ROOT}{A}/Invites/\subscr{ID}{1}
+\item Encrypt the file with \subscr{MainKey}{A} and sign with \subscr{RVK}{A}
+\item Upload the encrypted file to \subscr{ROOT}{A}\slash Invites\slash \subscr{N}{1}\slash step1
 \item Send to Bob the following:
   \begin{itemize}
   \item A link to Alice's cloud account
-  \item \subscr{ID}{1}
+  \item \subscr{N}{1}
   \end{itemize}
 \end{enumerate}
 
@@ -238,17 +280,17 @@ Of course, Alice is free to send along additional information explaining to Bob 
 If Bob decides to accept Alice's invitation, he does the following:
 
 \begin{enumerate}
-\item Invent a unique team identifier \subscr{ID}{T-B}
-\item Invent a unique number \subscr{ID}{2}
-\item Using the link to Alice's cloud account, download \subscr{UXK}{A}
-\item Derive a shared key \subscr{SK}{A-B}, using \subscr{UXK}{A} and \subscr{RXK}{B}
-\item Make a file with \subscr{ID}{T-B} and \subscr{ID}{1}
-\item Encrypt the file with \subscr{SK}{A-B}
-\item Upload the encrypted file to \subscr{ROOT}{B}/Invites/\subscr{ID}{2}
+\item Invent a unique team identifier \subscr{TID}{TB}
+\item Invent a unique number \subscr{N}{2}
+\item Download \subscr{UXK}{A}
+\item Derive \subscr{SK}{AB}, using \subscr{UXK}{A} and \subscr{RXK}{B}
+\item Make a file with \subscr{TID}{TB} and \subscr{N}{1}
+\item Encrypt the file with \subscr{SK}{AB}
+\item Upload the encrypted file to \subscr{ROOT}{B}\slash Invites\slash \subscr{N}{2}
 \item Send to Alice the following:
   \begin{itemize}
   \item A link to Bob's cloud account
-  \item \subscr{ID}{2}
+  \item \subscr{N}{2}
   \end{itemize}
 \end{enumerate}
 
@@ -256,7 +298,53 @@ Just like the first step, Bob can send the information back to Alice using any m
 
 \subsubsection{Completing an Invitation}
 
+Alice does the following to add Bob to the team:
+
+\begin{enumerate}
+\item Download \subscr{UXK}{B} and \subscr{UVK}{B}
+\item Derive \subscr{SK}{AB}, using \subscr{UXK}{B} and \subscr{RXK}{A}
+\item Download \subscr{ROOT}{B}\slash Invites\slash \subscr{N}{2}
+\item Decrypt the file with \subscr{SK}{AB} and verify signature with \subscr{UVK}{B} (now Alice has \subscr{TID}{TB} and \subscr{N}{1})
+\item Download \subscr{ROOT}{A}\slash Invites\slash \subscr{N}{1}\slash step1
+\item Decrypt the file with \subscr{MainKey}{A} and verify signature with \subscr{UVK}{A} (now Alice has her own information about Bob's identity and the team T)
+\item Invent a unique ID for bob in T: \subscr{UID}{BT}
+\item Add information about Bob to team T's database, including at least: (more information about the database update protocol below)
+  \begin{itemize}
+  \item \subscr{UID}{BT}
+  \item A link to Bob's cloud account
+  \item \subscr{UVK}{B}
+  \item \subscr{TID}{TB}
+  \end{itemize}
+\item Make a file with the following
+  \begin{itemize}
+  \item \subscr{TID}{TA}
+  \item \subscr{UID}{BT}
+  \item \subscr{RVK}{T}
+  \item \subscr{RXK}{T}
+  \item \subscr{N}{2}
+  \end{itemize}
+\item Encrypt the file with \subscr{SK}{AB} and sign it with \subscr{RVK}{A}
+\item Upload the encrypted file to \subscr{ROOT}{A}\slash Invites\slash \subscr{N}{1}\slash step3
+\end{enumerate}
+
 \subsubsection{Joining a Team}
+
+Finally, Bob adds the team's information to his own cloud account.
+If Alice's cloud provider supports it, Bob's client can automatically monitor \subscr{ROOT}{A}\slash Invites\slash \subscr{N}{1}\slash step3 for changes, so that Bob does not have to manually invoke this step.
+
+\begin{enumerate}
+\item Download \subscr{UXK}{A}, \subscr{UVK}{A}
+\item Derive \subscr{SK}{AB}, using \subscr{UXK}{B} and \subscr{RXK}{A}
+\item Download \subscr{ROOT}{A}\slash Invites\slash \subscr{N}{1}\slash step3
+\item Decrypt the file with \subscr{SK}{AB} and verify signature with \subscr{UVK}{A} (now Bob has his own UID for T, Alice's TID for T, T's private keys and \subscr{N}{2})
+\item Download team database from \subscr{ROOT}{A}\slash Teams\slash \subscr{TID}{TA}\slash Data
+\item Derive \subscr{SK}{T}, using \subscr{UXK}{T} and \subscr{RXK}{T}
+\item Decrypt database with \subscr{SK}{T} and verify signature with \subscr{RVK}{A}
+\item Re\"{e}ncrypt database with \subscr{SK}{T} and sign with \subscr{RVK}{B}
+\item Upload database to \subscr{ROOT}{B}\slash Teams\slash \subscr{TID}{TB}\slash Data
+\end{enumerate}
+
+Now Bob is a member of team T.
 
 \section{Distributed Database Consistency Protocol}
 
