@@ -17,7 +17,7 @@
 \titlebanner{Preprint.  Please do not redistribute}        % These are ignored unless
 \preprintfooter{Preprint.  Please do not redistribute}   % 'preprint' option specified.
 
-\title{Private Collaborative Editing of Documents Over the Internet}
+\title{Concurrent Editing of Documents Over the Internet Securely and Privately}
 \subtitle{subtitle?}
 
 %% \authorinfo{Blind Review}
@@ -31,13 +31,13 @@
 
 \begin{abstract}
 
-Applications that give teams of people the ability to collaboratively edit documents over the Internet have become popular.
+Applications that give teams of people the ability to concurrently edit documents over the Internet are popular.
 Examples include Google Docs, Evernote and Dropbox.
 With few exceptions, these applications give the service providers complete access to the teams' data.
-This raises multiple serious privacy concerns.
+This raises multiple serious security and privacy concerns.
 
-In response to related privacy concerns, end-to-end encryption has been encorporated into many Internet applications.
-End-to-end encryption has been most successful with applications in which either users manage non-shared data (for example, password managers) or messaging applications with only transient, not persistent, state.
+In response to related privacy concerns, end-to-end encryption has been incorporated into many Internet applications.
+End-to-end encryption has been most successful in messaging applications with only transient state, and applications where a single user manages non-shared data (for example, password managers).
 
 This project is the first to combine end-to-end encryption with shared, mutable state.
 The key technical challenge is that the clients that belong to a team must perform the consistency protocol amongst themselves, with no central authority.
@@ -47,43 +47,63 @@ We assume that each team member will only be actively connected to the network i
 
 \section{Introduction}
 
-Privacy concerns have become important to many Internet users in recent years.
-It is known that many adversaries, including powerful government and corporate organizations, thieves and vandals, have violated huge numbers of users' privacy in myriad ways.
+Privacy concerns have become important to many Internet users.
+It is known that various adversaries, including powerful government and corporate organizations, thieves and vandals, have violated huge numbers of users' privacy in myriad ways.
 One important tool in the struggle for privacy on the Internet is encryption, and in particular end-to-end encrypted applications.
 
-End-to-end encryption has become common (though not universal) in applications like password management and internet messaging.
-The key benefit of end-to-end encryption is that all service providers (both network and storage) only see the encrypted data.
-Without breaking the encryption, lying about the application's behavior, or otherwise maliciously circumventing the system, the system provider cannot get the user's unencrypted data.
-This is useful for several reasons.
+End-to-end encryption has become common (though not universal) in applications like internet messaging and password management.
+The key benefit of end-to-end encryption is that all service providers (network, storage and compute) only see the encrypted data.
+Without breaking the encryption, lying about the application's behavior, or otherwise maliciously circumventing the system, the service provider cannot get the user's unencrypted data.
+There is more discussion of why this is important in the threat model section below.
 
 Unfortunately there is a big gap in the range of applications that can currently be end-to-end encrypted.
-As long as the system provider is only providing passive storage (as in password managers) or transient communication (as in messaging applications), the overall architecture is well understood.
-However, in applications where a team of users collaboratively edit a document or database, the service provider also runs the consistency protocol on their servers.
-In order to do this, the service provider needs access to the unecrypted data.
+There are well known architectures for applications that only provide passive storage (as in password managers) or transient communication (as in messaging applications).
+However, the authors are not aware of any Internet applications that give teams of users the ability to concurrently edit a document or database in an end-to-end encrypted fashion.
 
-One gap in the end-to-end encryption landscape is applications that allow teams of users to collaboratively edit a document/database.
+End-to-end encryption and concurrent editing are not an easy fit with each other.
+In existing concurrent editing applications the service provider is responsible for merging edits performed by different users to maintain a single consistent version of the shared data.
+This project is aimed at filling this gap.
 
-\subsection{Architecture}
+\subsection{Protocol Overview}
 
-The ManyHands protocol involves a central server, a cloud storage service for each user, and a client computer for each user.
+The ManyHands protocol involves a central server and multiple users, each of whom needs one or more client devices and a cloud storage account.
+Users belong to teams.
+Users can belong to multiple teams.
+Users do not send each other messages directly, rather they modify their teams' data.
+Users effectively receive messages from other users by monitoring their team data.
+
 The central server plays a small and inessential role; it is merely a convenience to help users log in from anywhere on the Internet.
+The central server never gets any plaintext user identity information, and it never gets any information about teams and their data at all.
 
-We assume that the cloud storage services are highly available.
-The access policy required of the storage service is trivial.
-The user must be able to read and write anything in her own account's storage.
-All other entities are allowed to read anything in the user's cloud storage account, but are not allowed to write anything.
-World-readability is not a privacy issue, because all sensitive data is encrypted with keys that only team members have access to.
+The most unusual thing about the ManyHands protocol is that all members of a team store a \emph{complete copy} of that team's data in their cloud accounts.
+The data is stored encrypted with keys shared with the members of that team.
+The details of the data consistency protocol are described below.
 
-The single-writer policy is somewhat interesting.
-Allowing more than one user to write to a single cloud storage location implies that the cloud storage provider has some information about the 
+There are two steps to the reasoning behind each user having their own copy of the team's data.
+In order for a concurrent editing application to be end-to-end encrypted, the merging must be performed by the clients themselves.
+However, we do not assume that any two users in a team are actually connected to the Internet at the same time (and we want the protocol to be usable by people who do not have the technical knowledge to run their own server).
+The merging protocol begins with users uploading their changes to their own cloud account.
+When other teammates are online, they notice changes uploaded by teammates and merge them into their own copy.
+
+In principle a team could use a single cloud account.
+However, this would require the cloud service provider to participate in authenticating the team membership of users and managing permissions.
+This is a potential privacy violation and a substantial technical requirement on the cloud service provider.
+By giving each user their own copy we dramatically simplify authentication and permissions from the cloud provider's perspective.
+Each user has unconstrained write permission to their own cloud account, and the whole world has read permission.
+The team's data is encrypted so it does not matter if a malicious actor is able to read some user's cloud account.
+
+An obvious cost of this architecture is that the aggregate storage requirements for a team scale linearly with the number of teammates.
+For this reason, ManyHands is not an appropriate protocol for very large teams and very large data.
+However for one common use case we have explored a mitigation strategy.
+If users want to share large files (e.g. movies), the system can store the file itself in a single user's cloud account and merge a link into the shared database.
 
 \section{Security and Attack Models}
 
-In this section we discuss the core assumptions that ManHands is based on, in terms of assets it is designed to protect and threats it is designed to resist.
+In this section we discuss the core assumptions that ManyHands is based on, in terms of assets it is designed to protect and threats it is designed to resist.
 
 \subsection{Assets and Users}
 
-The goal of the ManyHands protocol is to allow a team of users to collaboratively edit data online.
+The goal of the ManyHands protocol is to allow a team of users to concurrently edit data online.
 We assume that by default the team does not want anyone outside of the team to have \emph{any} access to the data.
 We further assume that the users are Regular People\texttrademark, by which we mean that they have access to consumer computers and subscription services, but not dedicated servers.
 
@@ -95,11 +115,11 @@ We assume that any provider of network, storage or compute services outside the 
 This may seem like an overly paranoid assumption; it is often argued that household name organizations like Google, Apple or Microsoft have a strong reputational interest in protecting their users' privacy (at least in some ways).
 However, even if users trust that some service provider will not behave maliciously, there are still good reasons for a zero trust policy towards networked application service providers.
 
-First, if an orgainization has access to a user's information, that means some subset of its employees and contractors have access.
+First, if an organization has access to a user's information, that means some subset of its employees and contractors have access.
 Some of these individuals may have personal motivations to violate the privacy of users.
 
 Second, even if an organization ``wants'' to behave completely responsibly with respect to the privacy of their users, powerful organizations, like governments, might compel it to violate that privacy.
-This risk has been shown to be quite real in several cases recently, and it is far from confined to ``totalitarian'' governments.
+This risk has been shown to be quite real in several cases recently, and it is not at all confined to ``totalitarian'' governments.
 
 Third, criminals can launch attacks on the service provider and exfiltrate and/or modify users' data.
 
@@ -107,13 +127,14 @@ Fourth, some level of trust may be reasonable in the case of household name comp
 However, many Internet users today place the same trust in much smaller organizations, without even thinking about it.
 Clearly the less well known an organization is, the less one can rely on it behaving well to protect its own reputation.
 
-For all these reasons, we think there is ample motivation for collaborative document editing applications that do not expose the users' data to service providers at all.
+For all these reasons, we think there is ample motivation for concurrent document editing applications that do not expose the users' data to service providers at all.
 
 One obvious adversary is the cloud storage provider.
 Because of the cryptographic protocols used, it is not possible for the cloud storage provider to extract private information about a user beyond the fact of some activity occurring.
-Nor is it possible for the cloud provider to inject counterfeit information, because all stored data is signed.
+Nor is it possible for the cloud provider to inject counterfeit information, because all stored data is signed with private keys.
+
 If multiple users use the same cloud provider, the provider could potentially correlate the timing of writes and overall database sizes to infer which users are members of the same teams.
-We consider this information relatively low risk.
+We consider thet exposure of this information low risk in most cases.
 However, users who are concerned about leaking even this information could arrange to use different cloud providers, or even run their own personal cloud services (obviously the latter strategy is only available to technically sophisticated users).
 
 A cloud provider could trivially mount a denial of service attack on a user by deleting their data (or modifying it in some way, if they wanted to make the attack less obvious).
@@ -134,7 +155,7 @@ If users have reason to suspect they might come under such an attack, they could
  S & \textbf{S}hared/\textbf{S}ymmertic \\
  V & signing/\textbf{V}erifying \\
  X & Diffie/Hellman key e\textbf{X}change \\
- \subscr{?}{A} & something that belongs to \textbf{A}lice \\
+ \subscr{?}{A}, \subscr{?}{B} & something that belongs to \textbf{A}lice or \textbf{B}ob \\
  H(?) & A \textbf{H}ash of something (SHA-256, unless otherwise specified) \\
  LoginSalt & Random bits generated at registration time \\
  LoginKey & A (symmetric) key derived from a user's credentials and their LoginSalt \\
@@ -158,12 +179,12 @@ In order to register, a user must provide:
 For login credentials we assume username/password, though other authentication systems could be used.
 The only change that would be required is a small modification to the derivation of the LoginKey.
 
-The core protocol requires very little sophistication from the cloud storage system, so in principle almost any should be useable.
+The core protocol requires very little sophistication from the cloud storage system, so in principle almost any should be usable.
 So far we have written implementations for DropBox, Google Drive and Microsoft OneDrive.
 The user must authenticate to their cloud account independently of the core ManyHands system.
 It is convenient for ManyHands implementations to cache cloud account authentication (for example, by saving a token), so that the user has to re-authenticate only infrequently.
 
-The following items are generated during the registration process:
+The following items are generated by Alice's client during the registration process:
 
 \begin{itemize}
 \item \subscr{UVK}{A}, \subscr{RVK}{A}, A public/private key-pair for signing by Alice; the public key is Alice's core identity
@@ -174,7 +195,7 @@ The following items are generated during the registration process:
 Using a password-based key derivation algorithm, a symmetric key called \subscr{LoginKey}{A} can be derived from Alice's credentials and \subscr{LoginSalt}{A}.
 The current implementation uses PBKDF2 and XXX iterations.
 
-Alice H(A), a hash of her username; this is Alice's identity for the purposes of the central server.
+H(A), a hash of Alice's username; this is Alice's identity for the purposes of the central server.
 Alice checks that H(A) is not already taken on the central server.
 
 Alice uploads the following to the central server:
@@ -240,19 +261,19 @@ To create a team, Alice must generate:
 \item \subscr{DB}{T}, A database that is initialized with at least the necessary information about Alice as a teammate
 \end{itemize}
 
-Alice uploads the team information to \subscr{ROOT}{A}\slash Teams\slash \subscr{TID}{TA}.
+Alice uploads the team information to the directory \subscr{ROOT}{A}\slash Teams\slash \subscr{TID}{TA}.
 Notice that the central server is not involved with team creation at all.
 
 \subsection{Teammate Invitation}
 
 Teammates can be added to teams by an existing teammate inviting a new user.
-The invitation process is fairly invovled.
+The invitation process is fairly involved.
 It is designed to leak as little information as possible about team and teammate identities.
 The process could be streamlined by involving a central server of some sort to act as an invitation broker.
 Such an invitation broker would naturally have the opportunity to gain information about teams.
 
 There are 4 major steps in the invitation process, which we call opening the invitation, responding to the invitation, completing the invitation, and joining the team.
-The first and third are performed by Alice, and the second and fourth are performed by Bob.
+The first and third are performed by Alice (the inviter), and the second and fourth are performed by Bob (the invitee).
 
 \subsubsection{Opening an Invitation}
 
@@ -306,8 +327,8 @@ Alice does the following to add Bob to the team:
 \item Download \subscr{ROOT}{B}\slash Invites\slash \subscr{N}{2}
 \item Decrypt the file with \subscr{SK}{AB} and verify signature with \subscr{UVK}{B} (now Alice has \subscr{TID}{TB} and \subscr{N}{1})
 \item Download \subscr{ROOT}{A}\slash Invites\slash \subscr{N}{1}\slash step1
-\item Decrypt the file with \subscr{MainKey}{A} and verify signature with \subscr{UVK}{A} (now Alice has her own information about Bob's identity and the team T)
-\item Invent a unique ID for bob in T: \subscr{UID}{BT}
+\item Decrypt the file with \subscr{MainKey}{A} and verify signature with \subscr{UVK}{A} (now Alice has her own information from step 1 about Bob's identity and the team T)
+\item Invent a unique ID for Bob in T: \subscr{UID}{BT}
 \item Add information about Bob to team T's database, including at least: (more information about the database update protocol below)
   \begin{itemize}
   \item \subscr{UID}{BT}
@@ -346,11 +367,96 @@ If Alice's cloud provider supports it, Bob's client can automatically monitor \s
 
 Now Bob is a member of team T.
 
+\subsubsection{Analysis of Invitations}
+
+One clear weakness in the invitation process is the unsecured transfer of information that happens in several places.
+An adversary could play man-in-the-middle, posing as Alice to Bob and Bob to Alice.
+This could result in the adversary joining Alice's team and Bob joining the adversary's team.
+
+If users are concerned about this kind of attack, they are free to use a more secure communication channel to exchange information during the invitation process.
+For example, a secure chat protocol like Signal might be appropriate.
+
+If Alice and Bob intend to be part of the same team for a long time, this attack on the invitation process might actually not be a problem.
+Some applications will naturally give users opportunities to observe whether the online behavior of teammates lines up with their offline knowledge of the actual person.
+With such observations, Alice can accumulate evidence about whether she believes the user claiming to be Bob in the context of the application is actually the real-world Bob.
+
 \section{Distributed Database Consistency Protocol}
 
-The distributed database consistency protocol is part of the ManyHands protocol.
-It is such an important piece, though, we decided to give it its own section.
+It should be possible to use a wide variety of database/document architectures with the ManyHands protocol.
+We have focused on accumulate-only databases, because they are easier to adapt to the distributed copying the goes on in ManyHands.
+
+Accumulate-only databases are those where new data is added, but existing data is never modified or deleted.
+If a user wants to conceptually modify something in the database (e.g. the address of a customer), they add new data that overrides, but does not replace the old data.
+
+Accumuate-only databases are not a good fit for all applications.
+In particular, applications with lots of transient data end up with lots of wasted space.
+Messaging protocols are designed to efficiently handle lots of transient data.
+So perhaps an application with both transient and persistent data could use a hybrid of ManyHands and a messaging protocol.
+
+Within the family of accumulate-only databases, we have experimented with a design inspired by Datomic.
+We do not claim that this design is best in any way.
+Rather, it should be understood as a proof of concept.
+We demonstrate that it is possible for client computers to maintain the consistency of a shared, encrypted database with performance that should be sufficient for many applications.
+
+\subsection{Data Model}
+
+The basic data model of the ManyHands database is a chain of transactions.
+Each transaction is composed of a sequence of data tuples, and optionally a transaction function.
+
+The data tuples are modified RDF-triples, just like Datomic datoms.
+Each tuple has four components:
+
+\begin{itemize}
+\item An entity (``subject'' in RDF)
+\item An attribute (``predicate'' in RDF)
+\item A value (``object'' in RDF)
+\item A reference to the time (or transaction ID) when this was added to the database
+\end{itemize}
+
+The components of a datom are abbreviated EAVT.
+
+All of the datoms in a transaction are committed or rejected atomically.
+
+
+The main use of the transaction function is to check if some condition holds (e.g. the balance of a bank account is greater than \$100) exactly at the point of committing.
+If the condition holds, the transaction is committed; otherwise it is rejected.
+
+
+\subsection{Multiple Chains}
+
+Each user maintains a complete copy of the transaction chain in their cloud account.
+In a perfect world, these copies would be identical.
+However, since users might try to commit transactions concurrently there is a posibility that two teammates have transaction chains that differ up to some suffix.
+The consistency protocol is designed to help teammates resolve these differences in a deterministic way.
+
+The resolution of differences between transaction chains bears some resemblance to the Bitcoin protocol.
+The ManyHands consistency protocol can be simpler than Bitcoin, because the Bitcoin protocol must address the fact that some Bitcoin miners might act maliciously.
+In the ManyHands protocol we assume that the users are attempting to behave cooperatively.
+
+\subsection{Trees}
+
+If a ManyHands implementation physically stored the database as a linked chain of transactions, querying for anything would scale linearly with the size of the database.
+This would be a disaster.
+Following the Datomic design, we store the database as a colelction
+
+\section{Evaluation}
+
+We implemented an instance of the ManyHands protocol and a fairly simple data sharing application on top of it.
+The application lets teams of people maintain a list of chores, and records when people do particular chores.
+While this is not the most sensitive information in the world, it is still something that many people would prefer to keep private.
+If adversaries got this information, they would be able to infer quite a lot about a person's daily routines and habits.
+
+\subsection{Performance Microbenchmarks}
+
+With all the encryption and consistency stuff going on, how good is the performance?
+
+We designed some microbenchmarks.
+
+In one we made a team with three members and wrote a script that generates small transactions at some rate.
+Table XXX shows that the consistency protocol functions properly up to a rate of XXX (10? 100?) transactions per teammate per second.
+This test was conducted on XXX network.
+
 
 \end{document}
 
-Alvarado Dodds Kuenning Libeskind-Hadas
+% Alvarado Dodds Kuenning Libeskind-Hadas
