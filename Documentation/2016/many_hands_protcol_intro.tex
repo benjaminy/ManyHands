@@ -1,9 +1,13 @@
-\documentclass[pldi,10pt,preprint]{sigplanconf-pldi16}
+\documentclass[pldi,10pt]{sigplanconf-pldi16}
+
+% \documentclass[pldi,10pt,preprint]{sigplanconf-pldi16}
 
 \begin{document}
 
-\newcommand{\LoginSalt}[1]{{$\textrm{LoginSalt}_{#1}$}}
 \newcommand{\subscr}[2]{{$\textrm{#1}_{#2}$}}
+\newcommand{\LoginSalt}[1]{{$\textrm{LoginSalt}_{#1}$}}
+\newcommand{\LoginKey}[1]{{$\textrm{LoginKey}_{#1}$}}
+\newcommand{\MainKey}[1]{{$\textrm{MainKey}_{#1}$}}
 
 \special{papersize=8.5in,11in}
 \setlength{\pdfpageheight}{\paperheight}
@@ -14,10 +18,10 @@
 \copyrightdata{978-1-nnnn-nnnn-n/yy/mm}
 % \doi{nnnnnnn.nnnnnnn}
 
-\titlebanner{Preprint.  Please do not redistribute}        % These are ignored unless
-\preprintfooter{Preprint.  Please do not redistribute}   % 'preprint' option specified.
+% \titlebanner{Preprint.  Please do not redistribute}        % These are ignored unless
+% \preprintfooter{Preprint.  Please do not redistribute}   % 'preprint' option specified.
 
-\title{Concurrent Editing of Documents Over the Internet Securely and Privately}
+\title{Concurrent Document Editing Over the Internet with Security and Privacy}
 \subtitle{subtitle?}
 
 %% \authorinfo{Blind Review}
@@ -39,7 +43,9 @@ This raises multiple serious security and privacy concerns.
 In response to related privacy concerns, end-to-end encryption has been incorporated into many Internet applications.
 End-to-end encryption has been most successful in messaging applications with only transient state, and applications where a single user manages non-shared data (for example, password managers).
 
-This project is the first to combine end-to-end encryption with shared, mutable state.
+Existing applications that combine shared state and end-to-end encryption do so in a coarse-grained way: files can be shared, but resolving conflicts arrising from concurrent edits is left up to the clients.
+
+This project is the first to combine end-to-end encryption with more fine-grained merging of concurrent edits to a shared document/database.
 The key technical challenge is that the clients that belong to a team must perform the consistency protocol amongst themselves, with no central authority.
 We assume that each team member will only be actively connected to the network intermittently, but also has a highly available read-only copy of the team's data.
 
@@ -73,7 +79,7 @@ Users do not send each other messages directly, rather they modify their teams' 
 Users effectively receive messages from other users by monitoring their team data.
 
 The central server plays a small and inessential role; it is merely a convenience to help users log in from anywhere on the Internet.
-The central server never gets any plaintext user identity information, and it never gets any information about teams and their data at all.
+The central server never gets any plaintext user identity information, and it never gets any information at all about teams and their data.
 
 The most unusual thing about the ManyHands protocol is that all members of a team store a \emph{complete copy} of that team's data in their cloud accounts.
 The data is stored encrypted with keys shared with the members of that team.
@@ -90,7 +96,7 @@ However, this would require the cloud service provider to participate in authent
 This is a potential privacy violation and a substantial technical requirement on the cloud service provider.
 By giving each user their own copy we dramatically simplify authentication and permissions from the cloud provider's perspective.
 Each user has unconstrained write permission to their own cloud account, and the whole world has read permission.
-The team's data is encrypted so it does not matter if a malicious actor is able to read some user's cloud account.
+The team's data is encrypted so it does not matter if an adversary can read some user's cloud account.
 
 An obvious cost of this architecture is that the aggregate storage requirements for a team scale linearly with the number of teammates.
 For this reason, ManyHands is not an appropriate protocol for very large teams and very large data.
@@ -105,14 +111,14 @@ In this section we discuss the core assumptions that ManyHands is based on, in t
 
 The goal of the ManyHands protocol is to allow a team of users to concurrently edit data online.
 We assume that by default the team does not want anyone outside of the team to have \emph{any} access to the data.
-We further assume that the users are Regular People\texttrademark, by which we mean that they have access to consumer computers and subscription services, but not dedicated servers.
+We further assume that the users are Regular People\texttrademark, by which we mean that they have access to consumer computers and subscription services, but little technical expertise.
 
 The data model is described in more detail below, but ManyHands is designed to support a very general notion of data that can be thought of as a database or any kind of document.
 
 \subsection{Threat Model}
 
 We assume that any provider of network, storage or compute services outside the users' direct control is a potential adversary.
-This may seem like an overly paranoid assumption; it is often argued that household name organizations like Google, Apple or Microsoft have a strong reputational interest in protecting their users' privacy (at least in some ways).
+This may seem like an overly paranoid assumption; it is often argued that household name organizations like Google, Apple or Microsoft have a strong interest in protecting their users' privacy (at least in some ways) for the sake of their own reputation.
 However, even if users trust that some service provider will not behave maliciously, there are still good reasons for a zero trust policy towards networked application service providers.
 
 First, if an organization has access to a user's information, that means some subset of its employees and contractors have access.
@@ -121,7 +127,7 @@ Some of these individuals may have personal motivations to violate the privacy o
 Second, even if an organization ``wants'' to behave completely responsibly with respect to the privacy of their users, powerful organizations, like governments, might compel it to violate that privacy.
 This risk has been shown to be quite real in several cases recently, and it is not at all confined to ``totalitarian'' governments.
 
-Third, criminals can launch attacks on the service provider and exfiltrate and/or modify users' data.
+Third, vandals and other criminals can launch attacks on the service provider to exfiltrate and/or modify users' data.
 
 Fourth, some level of trust may be reasonable in the case of household name companies, since they have a substantial investment in their own brand and do not want to be seen as bad on privacy.
 However, many Internet users today place the same trust in much smaller organizations, without even thinking about it.
@@ -133,9 +139,9 @@ One obvious adversary is the cloud storage provider.
 Because of the cryptographic protocols used, it is not possible for the cloud storage provider to extract private information about a user beyond the fact of some activity occurring.
 Nor is it possible for the cloud provider to inject counterfeit information, because all stored data is signed with private keys.
 
-If multiple users use the same cloud provider, the provider could potentially correlate the timing of writes and overall database sizes to infer which users are members of the same teams.
-We consider thet exposure of this information low risk in most cases.
-However, users who are concerned about leaking even this information could arrange to use different cloud providers, or even run their own personal cloud services (obviously the latter strategy is only available to technically sophisticated users).
+If multiple users use the same cloud provider, the provider could potentially correlate the timing of writes and database sizes to infer which users are members of the same teams.
+We consider the exposure of this information low risk in most cases.
+However, users who are concerned about leaking even this information could arrange to use different cloud providers, or even run their own personal cloud storage services (obviously the latter strategy is only available to technically sophisticated users).
 
 A cloud provider could trivially mount a denial of service attack on a user by deleting their data (or modifying it in some way, if they wanted to make the attack less obvious).
 In most cases it is hard to imagine why a cloud provider would do that.
@@ -152,7 +158,7 @@ If users have reason to suspect they might come under such an attack, they could
  K & \textbf{K}ey \\
  R & p\textbf{R}ivate \\
  U & p\textbf{U}blic \\
- S & \textbf{S}hared/\textbf{S}ymmertic \\
+ S & \textbf{S}hared/\textbf{S}ymmetric \\
  V & signing/\textbf{V}erifying \\
  X & Diffie/Hellman key e\textbf{X}change \\
  \subscr{?}{A}, \subscr{?}{B} & something that belongs to \textbf{A}lice or \textbf{B}ob \\
@@ -163,7 +169,7 @@ If users have reason to suspect they might come under such an attack, they could
  ROOT & The root directory for ManyHands in a user's cloud account \\
  \hline
  \end{tabular}
- \caption{Cheat Sheet}
+ \caption{Symbols and abbreviations used in the ManyHands protocol description.}
 \end{table}
 
 \subsection{Registration}
@@ -177,22 +183,22 @@ In order to register, a user must provide:
 \end{itemize}
 
 For login credentials we assume username/password, though other authentication systems could be used.
-The only change that would be required is a small modification to the derivation of the LoginKey.
+The only change required would be a small modification to the LoginKey derivation.
 
 The core protocol requires very little sophistication from the cloud storage system, so in principle almost any should be usable.
 So far we have written implementations for DropBox, Google Drive and Microsoft OneDrive.
 The user must authenticate to their cloud account independently of the core ManyHands system.
 It is convenient for ManyHands implementations to cache cloud account authentication (for example, by saving a token), so that the user has to re-authenticate only infrequently.
 
-The following items are generated by Alice's client during the registration process:
+The following items are generated by Alice's client during registration:
 
 \begin{itemize}
 \item \subscr{UVK}{A}, \subscr{RVK}{A}, A public/private key-pair for signing by Alice; the public key is Alice's core identity
 \item \subscr{UXK}{A}, \subscr{RXK}{A}, A public/private key-pair for Diffie-Hellman key exchange with Alice
-\item A XXX-byte-long random sequence called \subscr{LoginSalt}{A}
+\item \LoginSalt{A}, a XXX-byte-long random sequence
 \end{itemize}
 
-Using a password-based key derivation algorithm, a symmetric key called \subscr{LoginKey}{A} can be derived from Alice's credentials and \subscr{LoginSalt}{A}.
+Using a password-based key derivation algorithm, a symmetric key called \LoginKey{A} can be derived from Alice's credentials and \LoginSalt{A}.
 The current implementation uses PBKDF2 and XXX iterations.
 
 H(A), a hash of Alice's username; this is Alice's identity for the purposes of the central server.
@@ -202,10 +208,10 @@ Alice uploads the following to the central server:
 
 \begin{itemize}
 \item H(A)
-\item \subscr{LoginSalt}{A}
+\item \LoginSalt{A}
 \item \subscr{UVK}{A}
-\item A link to Alice's cloud account, encrypted with \subscr{LoginKey}{A} and signed with \subscr{RVK}{A}
-\item (optional) Cached authentication information (e.g. a token) for Alice's cloud account, encrypted with \subscr{LoginKey}{A} and signed with \subscr{RVK}{A}
+\item A link to Alice's cloud account, encrypted with \LoginKey{A} and signed with \subscr{RVK}{A}
+\item (optional) Cached authentication information (e.g. a token) for Alice's cloud account, encrypted with \LoginKey{A} and signed with \subscr{RVK}{A}
 \end{itemize}
 
 The central server's role is strictly a convenience for logging in.
@@ -215,17 +221,17 @@ Note that Alice's username is hashed and the link to her cloud account is encryp
 As detailed below, the central server plays no role in the primary parts of the protocol, like team creation and data exchange.
 So the operator of the central server has no information about how users are communicating with each other.
 
-Alice uploads her public signing key so that in the future if she wants to change any information about herself stored on the central server, she can sign the request with her private key and the server can verify the signature.
+Alice uploads her public verification key so that in the future if she wants to change any information about herself stored on the central server, she can sign the request with her private key and the server can verify the signature.
 
-Using Diffie-Hellman key exchange, a symmetric key called \subscr{MainKey}{A} can be derived from \subscr{RXK}{A} and \subscr{UXK}{A}.
+Using Diffie-Hellman key exchange, a symmetric key called \MainKey{A} can be derived from \subscr{RXK}{A} and \subscr{UXK}{A}.
 
 Alice uploads the following to her cloud account; all in the \subscr{ROOT}{A} directory:
 
 \begin{itemize}
-\item \subscr{LoginSalt}{A}
+\item \LoginSalt{A}
 \item \subscr{UVK}{A}, \subscr{UXK}{A}
-\item \subscr{RXK}{A}, encrypted with \subscr{LoginKey}{A} and signed with \subscr{RVK}{A}
-\item \subscr{RVK}{A}, encrypted with \subscr{MainKey}{A} and signed with \subscr{RVK}{A}
+\item \subscr{RXK}{A}, encrypted with \LoginKey{A} and signed with \subscr{RVK}{A}
+\item \subscr{RVK}{A}, encrypted with \MainKey{A} and signed with \subscr{RVK}{A}
 \item A Teams directory and an Invites directory; both initially empty
 \end{itemize}
 
@@ -237,14 +243,14 @@ The login process is a follows:
 \item Alice sends a request with H(A) to the central server
 \item If the server recognizes H(A), it responds with:
   \begin{itemize}
-  \item \subscr{LoginSalt}{A}
+  \item \LoginSalt{A}
   \item The encrypted link to Alice's cloud account
   \end{itemize}
-\item Alice derives \subscr{LoginKey}{A} and decrypts the link to her cloud account
+\item Alice derives \LoginKey{A} and decrypts the link to her cloud account
 \item Alice authenticates to her cloud account, possibly using cached credentials from the central server
 \item Alice downloads her keys from her cloud account
-\item Alice decrypts \subscr{RXK}{A} with \subscr{LoginKey}{A}
-\item Alice derives \subscr{MainKey}{A} and decrypts \subscr{RVK}{A}
+\item Alice decrypts \subscr{RXK}{A} with \LoginKey{A}
+\item Alice derives \MainKey{A} and decrypts \subscr{RVK}{A}
 \item Alice verifies the link, \subscr{RXK}{A} and \subscr{RVK}{A} with \subscr{RVK}{A}
 \end{enumerate}
 
@@ -270,10 +276,10 @@ Teammates can be added to teams by an existing teammate inviting a new user.
 The invitation process is fairly involved.
 It is designed to leak as little information as possible about team and teammate identities.
 The process could be streamlined by involving a central server of some sort to act as an invitation broker.
-Such an invitation broker would naturally have the opportunity to gain information about teams.
+Such an invitation broker would naturally have opportunities to gain information about teams.
 
 There are 4 major steps in the invitation process, which we call opening the invitation, responding to the invitation, completing the invitation, and joining the team.
-The first and third are performed by Alice (the inviter), and the second and fourth are performed by Bob (the invitee).
+The first and third are performed by the inviter (Alice), and the second and fourth are performed by the invitee (Bob).
 
 \subsubsection{Opening an Invitation}
 
@@ -282,7 +288,7 @@ To open an invitation of Bob to team T, Alice does the following:
 \begin{enumerate}
 \item Invent a unique number \subscr{N}{1}
 \item Make a file with something about Bob's identity and T
-\item Encrypt the file with \subscr{MainKey}{A} and sign with \subscr{RVK}{A}
+\item Encrypt the file with \MainKey{A} and sign with \subscr{RVK}{A}
 \item Upload the encrypted file to \subscr{ROOT}{A}\slash Invites\slash \subscr{N}{1}\slash step1
 \item Send to Bob the following:
   \begin{itemize}
@@ -294,7 +300,7 @@ To open an invitation of Bob to team T, Alice does the following:
 The ManyHands protocol does not specify how Alice sends this information to Bob.
 She could put it in an email or text message or whatever.
 If an adversary intercepts this information, they will learn that Alice plans to invite Bob to join a team, but no more.
-Of course, Alice is free to send along additional information explaining to Bob what team he is being invited to.
+Of course, Alice is free to send along additional information explaining to Bob about herself and the team.
 
 \subsubsection{Responding to an Invitation}
 
@@ -306,7 +312,7 @@ If Bob decides to accept Alice's invitation, he does the following:
 \item Download \subscr{UXK}{A}
 \item Derive \subscr{SK}{AB}, using \subscr{UXK}{A} and \subscr{RXK}{B}
 \item Make a file with \subscr{TID}{TB} and \subscr{N}{1}
-\item Encrypt the file with \subscr{SK}{AB}
+\item Encrypt the file with \subscr{SK}{AB}, sign with \subscr{RVK}{B}
 \item Upload the encrypted file to \subscr{ROOT}{B}\slash Invites\slash \subscr{N}{2}
 \item Send to Alice the following:
   \begin{itemize}
@@ -327,7 +333,7 @@ Alice does the following to add Bob to the team:
 \item Download \subscr{ROOT}{B}\slash Invites\slash \subscr{N}{2}
 \item Decrypt the file with \subscr{SK}{AB} and verify signature with \subscr{UVK}{B} (now Alice has \subscr{TID}{TB} and \subscr{N}{1})
 \item Download \subscr{ROOT}{A}\slash Invites\slash \subscr{N}{1}\slash step1
-\item Decrypt the file with \subscr{MainKey}{A} and verify signature with \subscr{UVK}{A} (now Alice has her own information from step 1 about Bob's identity and the team T)
+\item Decrypt the file with \MainKey{A} and verify signature with \subscr{UVK}{A} (now Alice has her own information from step 1 about Bob's identity and the team T)
 \item Invent a unique ID for Bob in T: \subscr{UID}{BT}
 \item Add information about Bob to team T's database, including at least: (more information about the database update protocol below)
   \begin{itemize}
@@ -436,8 +442,22 @@ In the ManyHands protocol we assume that the users are attempting to behave coop
 \subsection{Trees}
 
 If a ManyHands implementation physically stored the database as a linked chain of transactions, querying for anything would scale linearly with the size of the database.
-This would be a disaster.
-Following the Datomic design, we store the database as a colelction
+That would be a disaster.
+Following the Datomic design, we store the database as a collection of B+ trees, where each tree stores all the datoms, sorted in different ways.
+Applications can do efficient ``row-oriented'' queries with the entity-ordered tree, ``column-oriented'' queries with the attributed-oriented tree, and ``reverse'' queries with the value-ordered tree.
+
+Modifying the trees in the cloud is relatively expensive.
+Each modification involves downloading, decrypting, encrypting and uploading several moderately sized files.
+Therefore, it would be inefficient to do this for every transaction commit.
+So the database keeps a simple linear chain of the most recently added transactions.
+When this chain gets long enough, the client adds all of them to the index trees in one bulk operation.
+
+\section{Implementation Miscellany}
+
+We use a cipher block chaining mode for encrypting files stored in the cloud.
+All files are salted by prepending a block-sized chunk of random bits before encryption.
+After decryption the random bits are discarded.
+All files are also signed with the private key of the user.
 
 \section{Evaluation}
 
