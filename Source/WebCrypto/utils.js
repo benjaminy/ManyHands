@@ -1,5 +1,5 @@
-var FILE_SERVER_PORT = 8123;
-var FILE_SERVER_ADDR = 'http://localhost:'+FILE_SERVER_PORT;
+// var FILE_SERVER_PORT = 8123;
+// var FILE_SERVER_ADDR = 'http://localhost:'+FILE_SERVER_PORT;
 
 function AbstractMethodCallError(message, className) {
     this.name = "AbstractMethodCallError";
@@ -166,4 +166,33 @@ function combinedSort(array, cmp1, cmp2) {
     }
     
     return mergeBuckets(buckets);
+}
+
+function setInheritance( who, fromWhom ) {
+    if ( fromWhom instanceof Function )
+    {
+        who.prototype = new fromWhom();
+        who.prototype.constructor = this;
+    }
+    else
+    {
+        who.prototype = fromWhom;
+        who.prototype.constructor = this;
+    }
+}
+
+function promiseLoop(promises) {
+    var results = [];
+    function recursiveLooper(index) {
+        if (index < promises.length) {
+            return promises[index]().then(function(r) {
+                results.push(r);
+                return recursiveLooper(index+1);
+            })
+        }
+        return Promise.resolve();
+    }
+    return recursiveLooper(0).then(function() {
+        return Promise.resolve(results);
+    });
 }

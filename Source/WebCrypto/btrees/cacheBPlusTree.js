@@ -21,12 +21,103 @@ function binarySearch(treeStructure, key, startIndex, lastIndex) {
     }
 }
 
-var SFS = new SimpleFileServer("Janet");
+var changeEntry = {
+    node: null,
+    apply: function() {
+        throw new AbstractMethodCallError("Called an abstract method", "changeEntry");
+    }
+};
 
+var saveEntry = function(node) {
+    this.node = node;
+
+    this.apply = function() {
+        var linkFactory = new SharedFileFactory();
+        var cloud = SFS;
+        var thisNode = this.node;
+        var toSave = this.node.serialize();
+        var path = "treeNode";
+        return Promise.resolve().then(function() {
+            if (thisNode.link == null) {
+                return findFreeFileName(cloud, path, "").then(function (path) {
+                    return linkFactory.uploadAndShare(cloud, path, toSave);
+                });
+            } else {
+                return linkFactory.uploadAndShare(cloud, thisNode.link.path, toSave);
+            }
+        }).then(function (link) {
+            thisNode.link = link;
+            return Promise.resolve();
+        });
+    }
+};
+
+var removeEntry = function(node) {
+    this.node = node;
+
+    this.apply = function() {
+        cloud = SFS;
+        return cloud.removeFile(this.node.link.path);
+    }
+};
+
+var changeLog = function(previous) {
+    if (previous == null)
+        previous = null;
+    this.changes = [];
+    this.previous = previous;
+
+    this.flattenChanges = function(changes) {
+        var fromLast = 1;
+        var currentIndex = changes.length - fromLast;
+        while (currentIndex >= 0) {
+            var change = changes[currentIndex];
+            var thisRemoved = false;
+            var node = change.node;
+            for (var j = currentIndex-1; j >= 0; --j) {
+                if (changes[j].node == node) {
+                    var removedChange = changes[j];
+                    if (removedChange instanceof saveEntry) {
+                        if (removedChange.link == null && change instanceof removeEntry && !thisRemoved) {
+                            // if this is a new node that has to be deleted afterwards, we don't want to create it
+                            // or remove it
+                            changes.splice(currentIndex, 1);
+                        }
+                    }
+                    changes.splice(j, 1);
+                }
+            }
+            currentIndex = changes.length - fromLast;
+        }
+    };
+
+    this.addChange = function(change) {
+        this.changes.push(change);
+    };
+
+    this.process = function() {
+        function retrieveAll(changeLog) {
+            var changes = [];
+            if (changeLog.previous != null) {
+                changes = retrieveAll(changeLog.previous).concat(changes);
+            }
+            changes = changes.concat(changeLog.changes);
+            changeLog.changes = [];
+            return changes;
+        }
+        var changes = this.flattenChanges(retrieveAll(this));
+
+        return promiseLoop(changes.map(function(change) { return function() { change.apply() }; }));
+    }
+};
+
+var SFS = new SimpleFileServer("Janet");
 var FSBPlusTree = function(order) {
     this.root = new fsLeafNode(order);
+    this.changeLog = new changeLog();
 
     this.prepareRoot = function() {
+        var thisNode = this;
         return Promise.resolve().then(function() {
             if (thisNode.root instanceof unresolvedNode)
                 return thisNode.root.resolve().then(function(node) { thisNode.root = node; });
@@ -88,6 +179,10 @@ var FSBPlusTree = function(order) {
                         thisNode.root = result.children[0];
                         return Promise.resolve(true);
                     });
+                } else if (result.keyValuePairs && result.keyValuePairs.length == 0) {
+                    return thisNode.root.removeFile().then(function() {
+                        return Promise.resolve(true);
+                    });
                 } else {
                     return Promise.resolve(true);
                 }
@@ -108,6 +203,7 @@ var fsBPTreeStructure = function (order, link) {
     this.minValues = Math.floor(this.maxValues/2);
     this.children = null;
     this.link = link;
+    this.owner = null;
 
     this.insert = function(key, value) {
         throw new AbstractMethodCallError("Called an abstract method", "fsBPTreeStructure");
@@ -143,28 +239,11 @@ var fsBPTreeStructure = function (order, link) {
     };
 
     this.removeFile = function(cloud) {
-        cloud = SFS;
-        return cloud.removeFile(this.link.path);
+
     };
 
     this.save = function(linkFactory, cloud) {
-        linkFactory = new SharedFileFactory();
-        cloud = SFS;
-        var thisNode = this;
-        var toSave = this.serialize();
-        var path = "treeNode";
-        return Promise.resolve().then(function() {
-            if (thisNode.link == null) {
-                return findFreeFileName(cloud, path, "").then(function (path) {
-                    return linkFactory.uploadAndShare(cloud, path, toSave);
-                })
-            } else {
-                return linkFactory.uploadAndShare(cloud, thisNode.link.path, toSave);
-            }
-        }).then(function (link) {
-            thisNode.link = link;
-            return Promise.resolve();
-        });
+
     }
 };
 
@@ -253,23 +332,24 @@ var fsBranchNode = function(order) {
             index.index++;
         index = index.index;
 
-        var newChild = this.children[index].remove(key);
+        var thisNode = this;
 
-        if (newChild == null)
-            return null; // no changes
+        return this.retrieveChild(index).then(function(child) {
+            return child.remove(key).then(function(result){
+                if (result == null)
+                    return Promise.resolve(null); // no changes
 
-        var newBranch = this.clone();
-
-        newBranch.children[index] = newChild;
-        if (newChild.getKeysCount() < newChild.minValues) {
-            if (newChild.children == null) {
-                newBranch.fixChildlessChildUnderflow(newChild, index);
-            } else {
-                newBranch.fixChildbearingChildUnderflow(newChild, index);
-            }
-        }
-
-        return newBranch;
+                if (child.getKeysCount() < child.minValues) {
+                    if (child.children == null) {
+                        return thisNode.fixChildlessChildUnderflow(child, index);
+                    } else {
+                        return thisNode.fixChildbearingChildUnderflow(child, index);
+                    }
+                } else {
+                    return child.save().then(function() { return Promise.resolve(true);});
+                }
+            })
+        });
     };
 
     this.findSpot = function(key) {
@@ -305,102 +385,133 @@ var fsBranchNode = function(order) {
     };
 
     this.fixChildlessChildUnderflow = function(child, index) {
+        var thisNode = this;
         var fixed = false;
-        if (index != 0) {
-            var previousChild = this.children[index - 1];
-            if (previousChild.keyValuePairs.length > this.minValues) {
-                previousChild = previousChild.clone();
-                this.children[index-1] = previousChild;
-                var lastValue = previousChild.keyValuePairs.splice(previousChild.keyValuePairs.length - 1, 1)[0];
-                child.keyValuePairs.unshift(lastValue);
-                this.keys[index - 1] = lastValue.key;
-                fixed = true;
+        return Promise.resolve().then(function(){
+            if (index != 0) {
+                return thisNode.retrieveChild(index-1).then(function(previousChild) {
+                    if (previousChild.keyValuePairs.length > previousChild.minValues) {
+                        var lastValue = previousChild.keyValuePairs.splice(previousChild.keyValuePairs.length - 1, 1)[0];
+                        child.keyValuePairs.unshift(lastValue);
+                        thisNode.keys[index - 1] = lastValue.key;
+                        fixed = true;
+                        return Promise.all([child.save(), previousChild.save(), thisNode.save()]);
+                    }
+                    return Promise.resolve();
+                });
             }
-        }
-
-        if (!fixed) {
-            if (index != this.keys.length) {
-                var nextChild = this.children[index + 1];
-                if (nextChild.keyValuePairs.length > this.minValues) {
-                    nextChild = nextChild.clone();
-                    this.children[index+1] = nextChild;
-                    var firstValue = nextChild.keyValuePairs.splice(0, 1)[0];
-                    child.keyValuePairs.push(firstValue);
-                    this.keys[index] = nextChild.keyValuePairs[0].key;
-                    fixed = true;
+            return Promise.resolve();
+        }).then(function() {
+            if (!fixed) {
+                if (index != thisNode.keys.length) {
+                    return thisNode.retrieveChild(index+1).then(function(nextChild) {
+                        if (nextChild.keyValuePairs.length > nextChild.minValues) {
+                            var firstValue = nextChild.keyValuePairs.splice(0, 1)[0];
+                            child.keyValuePairs.push(firstValue);
+                            thisNode.keys[index] = nextChild.keyValuePairs[0].key;
+                            fixed = true;
+                            return Promise.all([child.save(), nextChild.save(), thisNode.save()]);
+                        }
+                        return Promise.resolve();
+                    });
                 }
             }
-        }
+            return Promise.resolve();
+        }).then(function() {
+            if (!fixed) {
+                // merge
+                if (index != 0) {
+                    return thisNode.retrieveChild(index-1).then(function(previousChild) {
+                        thisNode.keys.splice(index - 1, 1);
+                        previousChild.keyValuePairs = previousChild.keyValuePairs.concat(
+                            child.keyValuePairs);
+                        thisNode.children.splice(index, 1);
 
-        if (!fixed) {
-            // merge
-            if (index != 0) {
-                var previousChild = this.children[index-1].clone();
-                this.children[index-1] = previousChild;
-                this.keys.splice(index-1, 1);
-                previousChild.keyValuePairs = previousChild.keyValuePairs.concat(
-                    this.children.splice(index, 1)[0].keyValuePairs);
-            } else {
-                var nextChild = this.children[index+1].clone();
-                this.children[index+1] = nextChild;
-                this.keys.splice(index, 1)[0];
-                nextChild.keyValuePairs = this.children.splice(index, 1)[0].keyValuePairs.concat(
-                    nextChild.keyValuePairs);
+                        return Promise.all([child.removeFile(), previousChild.save(), thisNode.save()] );
+                    });
+                } else {
+                    return thisNode.retrieveChild(index+1).then(function(nextChild) {
+                        thisNode.keys.splice(index, 1);
+                        nextChild.keyValuePairs = child.keyValuePairs.concat(
+                            nextChild.keyValuePairs);
+                        thisNode.children.splice(index, 1);
+
+                        return Promise.all([child.removeFile(), nextChild.save(), thisNode.save()]);
+                    });
+                }
             }
-        }
+            return Promise.resolve();
+        }).then(function() {
+            return Promise.resolve(thisNode);
+        });
     };
 
     this.fixChildbearingChildUnderflow = function(child, index) {
         var fixed = false;
-        if (index != 0) {
-            var previousChild = this.children[index-1];
-            if (previousChild.keys.length > this.minValues) {
-                previousChild = previousChild.clone();
-                this.children[index - 1] = previousChild;
-                var lastValue = previousChild.keys.splice(previousChild.keys.length - 1, 1)[0];
-                var lastChild = previousChild.children.splice(previousChild.children.length - 1, 1)[0];
-                child.keys.unshift(this.keys[index-1]);
-                child.children.unshift(lastChild);
-                this.keys[index-1] = lastValue;
-                fixed = true;
+        var thisNode = this;
+        return Promise.resolve().then(function(){
+            if (index != 0) {
+                return thisNode.retrieveChild(index-1).then(function(previousChild) {
+                    if (previousChild.keys.length > previousChild.minValues) {
+                        var lastValue = previousChild.keys.splice(previousChild.keys.length - 1, 1)[0];
+                        var lastChild = previousChild.children.splice(previousChild.children.length - 1, 1)[0];
+                        child.keys.unshift(thisNode.keys[index - 1]);
+                        child.children.unshift(lastChild);
+                        thisNode.keys[index - 1] = lastValue;
+                        fixed = true;
+                        return Promise.all([thisNode.save(), child.save(), previousChild.save()]);
+                    }
+                    return Promise.resolve();
+                });
             }
-        }
-
-        if (!fixed) {
-            if (index != this.keys.length) {
-                var nextChild = this.children[index + 1];
-                if (nextChild.keys.length > this.minValues) {
-                    nextChild = nextChild.clone();
-                    this.children[index + 1] = nextChild;
-                    var firstValue = nextChild.keys.splice(0, 1)[0];
-                    var firstChild = nextChild.children.splice(0,1)[0];
-                    child.keys.push(this.keys[index]);
-                    child.children.push(firstChild);
-                    this.keys[index] = firstValue;
-                    fixed = true;
+            return Promise.resolve();
+        }).then(function() {
+            if (!fixed) {
+                if (index != thisNode.keys.length) {
+                    return thisNode.retrieveChild(index+1).then(function(nextChild) {
+                        if (nextChild.keys.length > nextChild.minValues) {
+                            var firstValue = nextChild.keys.splice(0, 1)[0];
+                            var firstChild = nextChild.children.splice(0, 1)[0];
+                            child.keys.push(thisNode.keys[index]);
+                            child.children.push(firstChild);
+                            thisNode.keys[index] = firstValue;
+                            fixed = true;
+                            return Promise.all([thisNode.save(), child.save(), nextChild.save()]);
+                        }
+                        return Promise.resolve();
+                    });
                 }
             }
-        }
-
-        if (!fixed) {
-            // merge
-            if (index != 0) {
-                var previousChild = this.children[index-1].clone();
-                this.children[index-1] = previousChild;
-                var separatingValue = this.keys.splice(index-1, 1)[0];
-                previousChild.keys.push(separatingValue);
-                previousChild.keys = previousChild.keys.concat(child.keys);
-                previousChild.children = previousChild.children.concat(child.children);
-            } else {
-                var nextChild = this.children[index+1].clone();
-                this.children[index+1] = nextChild;
-                var separatingValue = this.keys.splice(index, 1)[0];
-                nextChild.keys.unshift(separatingValue);
-                nextChild.keys = child.keys.concat(nextChild.keys);
-                nextChild.children = child.children.concat(nextChild.children);
+            return Promise.resolve();
+        }).then(function() {
+            if (!fixed) {
+                // merge
+                return Promise.resolve().then(function() {
+                    if (index != 0) {
+                        return thisNode.retrieveChild(index-1).then(function(previousChild) {
+                            var separatingValue = thisNode.keys.splice(index - 1, 1)[0];
+                            previousChild.keys.push(separatingValue);
+                            previousChild.keys = previousChild.keys.concat(child.keys);
+                            previousChild.children = previousChild.children.concat(child.children);
+                            return Promise.all([previousChild.save(), child.removeFile()]);
+                        });
+                    } else {
+                        return thisNode.retrieveChild(index+1).then(function(nextChild) {
+                            var separatingValue = thisNode.keys.splice(index, 1)[0];
+                            nextChild.keys.unshift(separatingValue);
+                            nextChild.keys = child.keys.concat(nextChild.keys);
+                            nextChild.children = child.children.concat(nextChild.children);
+                            return Promise.all([nextChild.save(), child.removeFile()]);
+                        });
+                    }
+                }).then(function() {
+                    thisNode.children.splice(index, 1);
+                    return thisNode.save();
+                });
             }
-            this.children.splice(index, 1);
-        }
+        }).then(function() {
+            return Promise.resolve(thisNode);
+        });
     };
 
     this.fixChildUnderflow = function(child) {
@@ -411,9 +522,9 @@ var fsBranchNode = function(order) {
         }
 
         if (child.children == null) {
-            this.fixChildlessChildUnderflow(child, index);
+            return this.fixChildlessChildUnderflow(child, index);
         } else {
-            this.fixChildbearingChildUnderflow(child, index);
+            return this.fixChildbearingChildUnderflow(child, index);
         }
     };
     
@@ -531,11 +642,10 @@ var fsLeafNode = function(order) {
     this.remove = function(key) {
         var location = this.findSpot(key);
         if (!location.found) {
-            return null; // no change
+            return Promise.resolve(null); // no change
         }
-        var newLeaf = this.clone();
-        newLeaf.keyValuePairs.splice(location.index, 1);
-        return newLeaf;
+        this.keyValuePairs.splice(location.index, 1);
+        return Promise.resolve(true);
     };
 
     this.serialize = function() {

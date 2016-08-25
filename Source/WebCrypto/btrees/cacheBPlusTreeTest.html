@@ -3,6 +3,75 @@
 <script type="text/javascript" src="../CloudStorageAbstraction/cloudHelpers.js" ></script>
 <script type="text/javascript" src="../CloudStorageAbstraction/simpleFileServerImplementation.js" ></script>
 <script type="text/javascript" src="../CloudStorageAbstraction/fileLinks.js"></script>
-<script type="text/javascript" src="cacheBPlusTree.js" ></script>
+<script type="text/javascript" src="cacheBPlusTreePersistent.js" ></script>
 <script>
+    FSBPlusTree.prototype.view = function(digitsPerKey) {
+        function Separator() {
+            this.level = 1;
+        }
+        function retrieveLevels(treeNode, levelsArray, currentLevel) {
+            if (!(currentLevel in levelsArray)) {
+                levelsArray[currentLevel] = [];
+            }
+            if (treeNode instanceof fsLeafNode) {
+                for (var i = 0; i < treeNode.keyValuePairs.length; ++i) {
+                    levelsArray[currentLevel].push(treeNode.keyValuePairs[i].key);
+                }
+            } else {
+                for (var i = 0; i < treeNode.keys.length; ++i) {
+                    levelsArray[currentLevel].push(treeNode.keys[i]);
+                }
+            }
+
+            levelsArray[currentLevel].push(new Separator());
+            if (treeNode.children != null) {
+                for (var i = 0; i < treeNode.children.length; ++i) {
+                    retrieveLevels(treeNode.children[i], levelsArray, currentLevel + 1);
+                }
+                // last value in the next level is now a separator
+                levelsArray[currentLevel+1][levelsArray[currentLevel+1].length - 1].level++;
+            }
+        }
+        var levelsArray = [];
+        retrieveLevels(this.root, levelsArray, 0);
+
+        var outputString = "";
+
+        var freeSpots = [];
+        var lastRow = levelsArray.length - 1;
+        for (var i = lastRow; i >= 0; --i) {
+            if (i == lastRow) {
+                for (var j = 0; j < levelsArray[i].length; ++j) {
+                    if (levelsArray[i][j] instanceof Separator) {
+                        outputString += new Array(digitsPerKey+2/*1 + 2*levelsArray[i][j].level*/).join(' ');
+                        freeSpots.push(j);
+                    } else {
+                        var numberString = "" + levelsArray[i][j];
+                        numberString = new Array(digitsPerKey - numberString.length + 1).join('0') + numberString;
+                        outputString += numberString + " ";
+                    }
+                }
+            } else {
+                var currentPosition = 0;
+                var toSplice = [];
+                for (var j = 0; j < levelsArray[i].length; ++j) {
+                    outputString += new Array((digitsPerKey+1)*(freeSpots[j]-currentPosition)+1).join(' ');
+                    currentPosition = freeSpots[j]+1;
+                    if (levelsArray[i][j] instanceof Separator) {
+                        outputString += new Array(digitsPerKey+2/*1 + 2*levelsArray[i][j].level*/).join(' ');
+                    } else {
+                        var numberString = "" + levelsArray[i][j];
+                        numberString = new Array(digitsPerKey - numberString.length + 1).join('0') + numberString;
+                        outputString += numberString + " ";
+                        toSplice.push(j);
+                    }
+                }
+                for (var j = toSplice.length-1; j >= 0; --j) {
+                    freeSpots.splice(toSplice[j],1);
+                }
+            }
+            outputString += "\n";
+        }
+        return outputString;
+    };
 </script>

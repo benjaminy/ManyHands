@@ -1,3 +1,8 @@
+// The fileLinks are a system of decorating sharedFiles, so that we can use encrypted data in the same way
+// as unencrypted data.
+
+// Base class. Represents a link to a file, and can be retrieved, encoded, etc
+// - just like shared file objects
 var Link = function() {
     this.path = null;
     this.retrieve = function() {
@@ -8,6 +13,7 @@ var Link = function() {
     }
 };
 
+// Derivation of the previous class - it enables encrypting the linked file
 var LinkToEncrypted = function(link, IV, key) {
     this.link = link;
     this.path = link.path;
@@ -28,6 +34,7 @@ var LinkToEncrypted = function(link, IV, key) {
     }
 };
 
+// Base class representing different ways to create a link object
 var LinkFactory = function() {
     this.createFromBytes = function (bytes) {
         throw new AbstractMethodCallError("Called an abstract method", "LinkFactory");
@@ -40,6 +47,7 @@ var LinkFactory = function() {
     }
 };
 
+// Encrypted link factory
 var EncLinkFactory = function(key) {
     this.key = key;
     this.create = function(sharedFile) {
@@ -61,7 +69,7 @@ var EncLinkFactory = function(key) {
             return cloud.shareFile(path);
         }).then(function(accessor) {
             return Promise.resolve(new LinkToEncrypted(accessor, newIv, factory.key));
-        })
+        });
     };
 };
 EncLinkFactory.prototype = LinkFactory.prototype;
