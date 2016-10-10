@@ -1,0 +1,22 @@
+TODO: Do all the stuff in this file
+
+Read in the users from a hardcoded json object
+
+X Signing and verifying transactions
+
+Switch the hashing function to SHA
+
+If Simple File Server is down, then stamps are reset to 0 (and that's bad)
+
+fuzz testing
+
+Set up authentication using a window in Dropbox (window.open(..), then check for window.closed,
+then use a cookie to transfer the access token.
+
+X Signing version file
+
+Browserify, require.js
+
+Check if the token is still working (and ask the user for log in)
+
+Crazy situations: losing connection and year (aka. super long) long session

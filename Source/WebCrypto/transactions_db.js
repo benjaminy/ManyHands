@@ -1,21 +1,5 @@
-// DEBUG:
-console.log2 = function() {
-    var args = [];
-    for(var i=0; i<arguments.length; i++) {
-        args.push(JSON.parse(JSON.stringify(arguments[i])));
-    }
-    console.log.apply(console, args);
-};
+var IN_MEMORY_TREE_ORDER = 32;
 
-// TODO: Get time stamp will need to use our own server to be able to bypass CORS requirements
-// other options include relying on computer's built-in time or using clouds' data.
-
-// This function retrieves the current timestamp from a time server. A promise with the timestamp
-// is returned
-function getTimeStamp() {
-    return Promise.resolve(Math.round(new Date().getTime()/1000.0));
-    // return Promise(time);
-}
 
 var Teammate = function (name, versionFileLink, resourcesLink) {
     this.name = name;
@@ -26,6 +10,11 @@ var Teammate = function (name, versionFileLink, resourcesLink) {
 function loadUsersOnTheTeam(cloudStorage, teamCatalog) {
     // TODO: Temporary, later load the list of users from the teamCatalog
     return Promise.resolve([]);
+}
+
+function getTimeStamp() {
+    return Promise.resolve(Math.round(new Date().getTime()/1000.0));
+    // return Promise(time);
 }
 
 var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
@@ -45,11 +34,13 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
     // Data from the cloud stored locally
     this.currentChain = [];
     this.currentLastTransactionLink = null;
+    this.baseTree = null;
 
     // States of the database
     this.currentDBs = [];
+    this.currentTrees = [];
 
-    // Link factory is used as a decorator for Shared Files. This way we can enable encryption
+    // Link factory is used as a decorator for Shared Files. This way, we can enable encryption
     // of the database without modification in the Transactions Manager.
     this.linkFactory = new SharedFileFactory();
 
@@ -60,46 +51,73 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
     // over.
     this.initialize = function() {
         var manager = this;
+
         return readMultipleSharedResourcesFromFile(manager.cloudStorage, manager.teamCatalog+"/links")
             .then(function (resources) {
-                manager.currentLastTransactionLink = resources["latestTransaction"];
-                return manager.loadOwnTransactionChain();
+                return resources["latestTransaction"].retrieve().then(function(lastTransact) {
+                    manager.currentLastTransactionLink = manager.linkFactory.createFromBytes(lastTransact);
+
+                    manager.baseTree = new BPlusTree(IN_MEMORY_TREE_ORDER);
+                    return manager.loadOwnTransactionChain();
+                    // return BPlusTree.readFromCloud(resources["transactionTree"], manager.linkFactory)
+                    //     .then(function(tree) {
+                    //         manager.baseTree = tree.withADifferentB(IN_MEMORY_TREE_ORDER);
+                    //         return manager.loadOwnTransactionChain();
+                    //     });
+                });
             }, function(result){
                 // if the file does not exist we assume that there's no transactions
+                manager.baseTree = new BPlusTree(IN_MEMORY_TREE_ORDER);
                 manager.currentLastTransactionLink = null;
                 // chain is going to be empty now
                 return Promise.resolve([]);
             }).then(function(chain) {
-            manager.currentChain = chain;
-            // Fetch the vector clock
-            // Get the first transaction and check its timestamp
-            if (chain.length == 0) {
-                manager.ownVectorClock = {};
-            } else {
-                manager.ownVectorClock = chain[chain.length - 1].ownVectorClock;
-            }
-            // apply the transactions from the chain, to determine the state of the database after
-            // each transaction.
-            var lastDB = new DB();
-            manager.currentDBs = [];
-            for (var i = 0; i < manager.currentChain.length; ++i) {
-                if (manager.currentChain[i].enabled)
-                    manager.currentChain[i].applyOn(lastDB);
-                manager.currentDBs[i] = lastDB.clone();
-            }
-            return initializeVersionFile(manager.cloudStorage, manager.teamCatalog+"/version");
-        }).then(function(versionFile) {
-            manager.ownVersionFile = versionFile;
-            return loadUsersOnTheTeam(manager.cloudStorage, manager.teamCatalog);
-        }).then(function(users) {
-            manager.usersOnTheTeam = users;
-            for (var i = 0; i < users.length; ++i) {
-                var teammate = users[i];
-                startUpdateCheck(teammate.versionFileLink, 3000, function(){
-                    manager.onOtherUserUpdate(teammate);
-                });
-            }
-        });
+                manager.currentChain = chain;
+                // Fetch the vector clock
+                // Get the first transaction and check its timestamp
+                if (chain.length == 0) {
+                    manager.ownVectorClock = {};
+                } else {
+                    manager.ownVectorClock = chain[chain.length - 1].ownVectorClock;
+                }
+                // apply the transactions from the chain, to determine the state of the database after
+                // each transaction.
+                var lastDB = new DB(); // manager.baseTree.getLast().DB;
+                manager.currentDBs = [];
+                manager.currentTrees[-1] = manager.baseTree;
+
+                for (var i = 0; i < manager.currentChain.length; ++i) {
+                    var transaction = manager.currentChain[i];
+                    if (transaction.enabled)
+                        transaction.applyOn(lastDB);
+                    manager.currentDBs[i] = lastDB.clone();
+                    var newTree = manager.currentTrees[i-1];
+                    for (var j = 0; j < transaction.events.length; ++j) {
+                        newTree = newTree.insert(""+transaction.owner+":"+transaction.initialIndex+":"+j,transaction.events[j]);
+                    }
+                    manager.currentTrees[i] = newTree;
+                }
+                return initializeVersionFile(manager.cloudStorage, manager.teamCatalog+"/version");
+            }).then(function(versionFile) {
+                manager.ownVersionFile = versionFile;
+                return loadUsersOnTheTeam(manager.cloudStorage, manager.teamCatalog);
+            }).then(function(users) {
+                manager.usersOnTheTeam = users;
+                for (var i = 0; i < users.length; ++i) {
+                    var teammate = users[i];
+                    startUpdateCheck(teammate.versionFileLink, 3000, function(){
+                        manager.onOtherUserUpdate(teammate);
+                    });
+                }
+            });
+    };
+
+    this.addTransactionTree = function (newTransaction) {
+        var newTree = this.currentTrees[this.currentTrees.length-1];
+        for (var j = 0; j < newTransaction.events.length; ++j) {
+            newTree = newTree.insert(""+newTransaction.owner+":"+newTransaction.initialIndex+":"+j,newTransaction.events[j]);
+        }
+        this.currentTrees.push(newTree);
     };
 
     // This method loads the transaction chain belonging to the current user (it fetches it from
@@ -274,15 +292,79 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
             manager.currentChain = manager.currentChain.slice(0, diff.indexOfFirstDifference).concat(mergedTransactions);
             var lastDB = (diff.indexOfFirstDifference > 0 ? manager.currentDBs[diff.indexOfFirstDifference-1].clone() : new DB());
             manager.currentDBs = manager.currentDBs.slice(0, diff.indexOfFirstDifference).
-                concat(DB.makeDBChain(lastDB, mergedTransactions));
+            concat(DB.makeDBChain(lastDB, mergedTransactions));
             console.log2(manager.userId, manager.currentChain);
             return Promise.resolve();
         });
     };
 
+    this.copyTransactions = function(startIndex, newPreviousTransactionLink, numberToCopy) {
+        var manager = this;
+
+        function recursiveCopy(previousLink, index, numberToCopy) {
+            if (numberToCopy == 0)
+                return Promise.resolve(previousLink);
+            return manager.uploadTransactionAfter(manager.currentChain[index], previousLink).then(function(link) {
+                return recursiveCopy(link, index+1, numberToCopy-1);
+            });
+        }
+
+        if (numberToCopy == 0)
+            return Promise.resolve(null);
+
+        manager.currentChain[startIndex].previousTransactionLink = newPreviousTransactionLink;
+        return manager.uploadTransactionAfter(manager.currentChain[startIndex],
+            startIndex != 0 ? manager.linkFactory.createFromBytes(encodeA(manager.currentChain[startIndex].previousTransactionLink))
+                                : null).then(function(link) {
+            return recursiveCopy(link, index+1, numberToCopy-1);
+        });
+    };
+
+    this.putChainToTheTree = function(cutoffIndex) {
+        if (cutoffIndex == 0)
+            return Promise.resolve();
+
+        var manager = this;
+        return this.lock.lock(function() {
+            var linkToCutoffTransaction = cutoffIndex < manager.currentChain.length ?
+                manager.linkFactory.createFromBytes(encodeA(manager.currentChain[cutoffIndex].previousTransactionLink)) :
+                manager.currentLastTransactionLink;
+
+            // prepare new branch of the chain
+            return manager.copyTransactions(cutoffIndex, null, manager.currentChain.length - cutoffIndex).then(function(link) {
+                return manager.setNewLastTransaction(link);
+            }).then(function() {
+                // remove old transactions from the file system
+                return manager.removeTransactions(linkToCutoffTransaction, null)
+                    .then(function() {
+                        // shorten the current chain
+                        manager.currentChain.splice(0,cutoffIndex);
+
+                        // shorten currentDBs
+                        manager.currentDBs.splice(0,cutoffIndex);
+
+                        // shorten currentTrees
+                        var newBaseTree = manager.currentTrees[cutoffIndex-1];
+                        manager.currentTrees.splice(0,cutoffIndex);
+                        manager.currentTrees[-1] = newBaseTree;
+
+                        // upload the new base tree
+                        return newBaseTree.saveToCloud(manager.cloudStorage, manager.teamCatalog+"/tree");
+                    }).then(function(linkToTree) {
+                        return updateMultipleResourcesFile(manager.cloudStorage, manager.teamCatalog+"/links", "transactionTree", linkToTree);
+                    }).then(function() {
+                        // set up the new end of the chain
+                        manager.currentChain[0].previousTransactionLink = null;
+                    });
+            });
+
+
+        });
+    };
+
     // this method removes the specified transactions from the chain
     // stored in the cloud
-    this.removeTransactions = function(from, to, removalPromises) {
+    this.removeTransactions = function(from, to) {
         if (from == null || (to != null && from.path == to.path)) {
             return Promise.resolve();
         }
@@ -313,8 +395,11 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
         var manager = this;
         var linksFileResources = {};
         manager.currentLastTransactionLink = newLastTransaction;
-        return manager.cloudStorage.uploadFile(newLastTransaction.encode(), manager.teamCatalog + "/last_transact")
-            .then(function () {
+
+        return manager.linkFactory.uploadAndShare(manager.cloudStorage, manager.teamCatalog + "/last_transact", newLastTransaction.encode())
+            .then(function (linkToLastTransact) {
+                return updateMultipleResourcesFile(manager.cloudStorage, manager.teamCatalog + "/links", "latestTransaction", linkToLastTransact);
+            }).then(function() {
                 return manager.ownVersionFile.advance();
             });
     };
@@ -369,8 +454,8 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
                 });
             }
             if (setTimestamps)
-                // If this method is supposed to update the timestamp, we need to fetch
-                // that timestamp
+            // If this method is supposed to update the timestamp, we need to fetch
+            // that timestamp
                 return getTimeStamp().then(function (stamp) {
                     timestamp = stamp;
                 }).then(function() {
@@ -539,19 +624,20 @@ var TransactionManager = function(_cloudStorage, _teamCatalog, _userId) {
         var manager = this;
         return this.lock.lock(function() {
             transaction.owner = manager.userId;
-                var lastTransactionNumber;
-                var linksFileResources = {};
+            var lastTransactionNumber;
+            var linksFileResources = {};
 
-                return manager.uploadTransactionAfter(transaction, manager.currentLastTransactionLink).then(function (accessor) {
-                    manager.currentChain.push(transaction);
-                    var newDBState = (manager.currentDBs.length > 0 ?
-                        manager.currentDBs[manager.currentDBs.length - 1].clone() : new DB());
-                    transaction.applyOn(newDBState);
-                    manager.currentDBs.push(newDBState);
-                    return manager.setNewLastTransaction(accessor);
-                }).then(function () {
-                    return Promise.resolve();
-                });
+            return manager.uploadTransactionAfter(transaction, manager.currentLastTransactionLink).then(function (accessor) {
+                manager.currentChain.push(transaction);
+                var newDBState = (manager.currentDBs.length > 0 ?
+                    manager.currentDBs[manager.currentDBs.length - 1].clone() : new DB());
+                transaction.applyOn(newDBState);
+                manager.currentDBs.push(newDBState);
+                manager.addTransactionTree(transaction);
+                return manager.setNewLastTransaction(accessor);
+            }).then(function () {
+                return Promise.resolve();
+            });
         });
     };
 };
@@ -901,3 +987,83 @@ var Task = function(name, id) {
     this.id = id;
     this.completedBy = null;
 };
+
+// var DB = function(cloud, teamCatalog, userId) {
+//     this.treePart = null;
+//     this.chainPart = null;
+//
+//     this.cloud = cloud;
+//     this.teamCatalog = teamCatalog;
+//     this.userId = userId;
+//     this.transactionManager = new TransactionManager(cloud, teamCatalog, userId);
+//
+//     this.loadFromCloud = function() {
+//         return this.transactionManager.initialize();
+//     };
+//     this.loadFromCloud();
+//
+//     this.buildTreeIndex = function(owner, initialIndex) {
+//         return '' + initialIndex + ':' + owner;
+//     };
+//
+//     this.findTransaction = function(owner, initialIndex) {
+//         var tree_lookup = this.treePart.get(this.buildTreeIndex(owner, initialIndex));
+//         if (tree_lookup != null)
+//             return tree_lookup;
+//
+//         for (var i = 0; i < this.chainPart.length; ++i) {
+//             if (t.owner == owner && t.initialIndex == initialIndex)
+//                 return t;
+//         }
+//     };
+//
+//     this.query = function(query) {
+//
+//     };
+// };
+//
+// DB.new = function()
+// {
+//     return { next_entity_id: 0, txns: [] };
+// };
+//
+// DB.new_entity = function( db )
+// {
+//     var rv = db.next_entity_id;
+//     db.next_entity_id++;
+//     return rv;
+// };
+//
+// DB.build_datom = function( e, a, v )
+// {
+//     return { e:e, a:a, v:v };
+// };
+//
+// DB.build_txn = function( conditions, datoms )
+// {
+//     return { conditions: conditions, datoms: datoms };
+// };
+//
+// DB.apply_txn = function( db, txn )
+// {
+//     /* XXX check conditions */
+//     db.txns = db.txns.concat( txn );
+// };
+//
+// DB.query = function( db, q )
+// {
+//     var datoms = [];
+//     function eatTxns( txn, i )
+//     {
+//         function eatDatoms( datom, j )
+//         {
+//             if( datom.a.startsWith( q ) )
+//             {
+//                 datoms.push( datom );
+//             }
+//         }
+//         txn.datoms.map( eatDatoms );
+//     }
+//     db.txns.map( eatTxns );
+//     return datoms;
+// };

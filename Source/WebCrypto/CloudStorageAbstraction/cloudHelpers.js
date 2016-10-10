@@ -95,6 +95,17 @@ function shareMultipleResources(resources, pathToStore, cloudStorage) {
         });
 }
 
+function updateMultipleResourcesFile(cloudStorage, pathToFile, resourceName, newAccessor) {
+    return readMultipleSharedResourcesFromFile(cloudStorage,pathToFile).then(function(resources) {
+        resources[resourceName] = newAccessor;
+        return shareMultipleResources(resources,pathToFile,cloudStorage);
+    }, function() {
+        var resources = {};
+        resources[resourceName] = newAccessor;
+        return shareMultipleResources(resources,pathToFile,cloudStorage);
+    });
+}
+
 // helper function which reverts character escapes \\, and \n
 // The parameter escapedString is the string in which escapes need to be reverted
 function revertEscapeCharacters(escapedString) {
@@ -144,3 +155,18 @@ function readMultipleSharedResourcesFromFile(cloudStorage, pathToFile) {
         return Promise.resolve(readMultipleSharedResourcesFromText(fileContents));
     });
 }
+
+// This method will try to find an unused file name by picking a random number
+// and checking if the path: prefix+randomNumber+suffix is free
+var findFreeFileName = function (cloudStorage, prefix, suffix) {
+    var randInt = Math.round(Math.random()*1000000000);
+    var path = prefix+randInt+suffix;
+
+    // check for file existence
+    return cloudStorage.downloadFile(path).then(function() {
+        return findFreeFileName(); // try again
+    }, function() {
+        // the file does not exist
+        return Promise.resolve(path);
+    });
+};

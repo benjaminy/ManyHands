@@ -120,7 +120,7 @@
             return findFileId(downloadPath).then(function(id) {
                 return getFileContentsById(id);
             }).then(function(contents) {
-                return Promise.resolve(encode(contents));
+                return Promise.resolve(encodeAscii(contents));
             });
         };
 

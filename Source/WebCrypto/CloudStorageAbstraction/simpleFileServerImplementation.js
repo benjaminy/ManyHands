@@ -31,7 +31,7 @@ var SimpleFileServer = function(userName) {
 
         return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p,
             { method  : 'POST',
-                body    : decode(content),
+                body    : decodeAscii(content),
                 headers : headers }
         ).then( function( resp ) {
             log( 'uploadFile response:', resp.status, resp.statusText );
@@ -83,7 +83,7 @@ var SimpleFileServer = function(userName) {
                 return resp.text();
             }
         }).then(function (text) {
-            return Promise.resolve(encode(text));
+            return Promise.resolve(encodeAscii(text));
         });
     };
 
@@ -121,13 +121,56 @@ var SimpleFileServer = function(userName) {
                 return Promise.resolve( resp );
         } );
     };
+
+    this.polled = [];
+    this.poll = function (filePath) {
+        var SFS = this;
+        var index = this.polled.findIndex(function(e) {return e.path == filePath;});
+        if (index == -1) {
+            this.polled.push({path: filePath, stamp: 0 });
+            index = this.polled.length-1;
+        }
+        var stamp = this.polled[index].stamp;
+
+        var pu = encode_path(this.user, filePath);
+        var headers = new Headers( { 'Longpoll': '1' , 'Stamp': ''+stamp } );
+        return fetch( FILE_SERVER_ADDR+'/'+pu.u+'/'+pu.p,
+            { method  : 'GET',
+              headers : headers }
+        ).then( function( resp ) {
+            log( 'poll response:', resp.status, resp.statusText );
+            /* log( 'uploadFile response', resp ); */
+            if( !resp.ok )
+            {
+                return new Promise( function( resolve, reject )
+                {
+                    if( resp.status >= 400 && resp.status < 500 )
+                        resp.text().then( function( t ) {
+                            reject( new RequestError( pu.p, resp.statusText + ' ' + t ) );
+                        } );
+                    else
+                        resp.text().then( function( t ) {
+                            reject( new ServerError( pu.p, resp.statusText + ' ' + t ) );
+                        } );
+                } );
+            }
+            else
+                return resp.text().then(function(text) {
+                    var result = JSON.parse(text);
+                    if (result.status == 'change') {
+                        SFS.polled[index].stamp = result['stamp'];
+                    }
+                    return Promise.resolve(result);
+                });
+        } );
+    };
 };
 SimpleFileServer.prototype = CloudStorage.prototype;
 
 SimpleFileServer.retrieveSharedFile = function (accessData) {
     return fetch( FILE_SERVER_ADDR+accessData
     ).then( function( resp ) {
-        log( 'downloadFile response:', resp.status, resp.statusText );
+        log( 'downloadFile response:', resp.status, resp.statusText, accessData );
         if( !resp.ok )
         {
             return new Promise( function( resolve, reject )
@@ -150,7 +193,7 @@ SimpleFileServer.retrieveSharedFile = function (accessData) {
             return resp.text();
         }
     } ).then( function(text) {
-        return Promise.resolve(encode(text));
+        return Promise.resolve(encodeAscii(text));
     });
 };
 

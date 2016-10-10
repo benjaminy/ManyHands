@@ -22,7 +22,6 @@ function binarySearch(treeStructure, key, startIndex, lastIndex) {
 }
 
 var SFS = new SimpleFileServer("Janet");
-
 var FSBPlusTree = function(order) {
     this.root = new fsLeafNode(order);
 
@@ -45,22 +44,19 @@ var FSBPlusTree = function(order) {
                 }
                 if (result.getKeysCount() > result.maxValues) {
                     var newRoot = new fsBranchNode(result.maxChildren);
-                    return result.removeFile().then(function () {
-                        return result.split();
-                    }).then(function (splitChild) {
+                    return result.split().then(function (splitChild) {
                         newRoot.keys = [splitChild.separator];
                         newRoot.children = [splitChild.left, splitChild.right];
                         var savePromises = [splitChild.left.save(), splitChild.right.save()];
                         return Promise.all(savePromises).then(function () {
                             return newRoot.save();
                         }).then(function () {
-                            thisNode.root = newRoot;
-                            return Promise.resolve(newRoot);
+                            return Promise.resolve(FSBPlusTree.fromRoot(newRoot));
                         });
                     });
                 } else {
                     return result.save().then(function () {
-                        return Promise.resolve(result);
+                        return Promise.resolve(FSBPlusTree.fromRoot(result));
                     });
                 }
             });
@@ -85,20 +81,25 @@ var FSBPlusTree = function(order) {
                 if (result == null)
                     return Promise.resolve(null); // no changes
                 if (result.keys && result.keys.length == 0) {
-                    return thisNode.root.removeFile().then(function() {
-                        thisNode.root = result.children[0];
-                        return Promise.resolve(true);
-                    });
+                    return Promise.resolve(FSBPlusTree.fromRoot(result.children[0]));
                 } else if (result.keyValuePairs && result.keyValuePairs.length == 0) {
-                    return thisNode.root.removeFile().then(function() {
-                        return Promise.resolve(true);
-                    });
+                    return Promise.resolve(FSBPlusTree.fromRoot(result));
                 } else {
-                    return Promise.resolve(true);
+                    return Promise.resolve(FSBPlusTree.fromRoot(result));
                 }
             });
         });
     };
+
+    this.save = function() {
+        function traverseNode(node) {
+            if (node.children != null) {
+                for (var i = 0; i < node.children.length; ++i) {
+                    // work in progress
+                }
+            }
+        }
+    }
 };
 
 FSBPlusTree.fromRoot = function(root) {
@@ -113,6 +114,8 @@ var fsBPTreeStructure = function (order, link) {
     this.minValues = Math.floor(this.maxValues/2);
     this.children = null;
     this.link = link;
+    this.owner = null;
+    this.needsSaving = false;
 
     this.insert = function(key, value) {
         throw new AbstractMethodCallError("Called an abstract method", "fsBPTreeStructure");
@@ -146,31 +149,9 @@ var fsBPTreeStructure = function (order, link) {
     this.serialize = function() {
         throw new AbstractMethodCallError("Called an abstract method", "fsBPTreeStructure");
     };
-
-    this.removeFile = function(cloud) {
-        cloud = SFS;
-        return cloud.removeFile(this.link.path);
+    this.save = function() {
+        this.needsSaving = true;
     };
-
-    this.save = function(linkFactory, cloud) {
-        linkFactory = new SharedFileFactory();
-        cloud = SFS;
-        var thisNode = this;
-        var toSave = this.serialize();
-        var path = "treeNode";
-        return Promise.resolve().then(function() {
-            if (thisNode.link == null) {
-                return findFreeFileName(cloud, path, "").then(function (path) {
-                    return linkFactory.uploadAndShare(cloud, path, toSave);
-                })
-            } else {
-                return linkFactory.uploadAndShare(cloud, thisNode.link.path, toSave);
-            }
-        }).then(function (link) {
-            thisNode.link = link;
-            return Promise.resolve();
-        });
-    }
 };
 
 fsBPTreeStructure.decodeTreeNode = function (contents) {
@@ -216,34 +197,33 @@ var fsBranchNode = function(order) {
     };
 
     this.insert = function(key, value) {
-        var thisNode = this;
+        var clone = this.clone();
 
-        var index = this.findSpot(key);
+        var index = clone.findSpot(key);
         if (index.found)
             index.index++;
         index = index.index;
 
-        return this.retrieveChild(index).then(function(child) {
+        return clone.retrieveChild(index).then(function(child) {
             return child.insert(key, value);
         }).then(function(newChild) {
             if (newChild == null) {
                 return Promise.resolve(null); // no changes
             }
             if (newChild.getKeysCount() > newChild.maxValues) {
-                return newChild.removeFile().then(function() {
-                    return newChild.split();
-                }).then(function(splitChild){
+                return newChild.split().then(function(splitChild){
                     var savePromises = [splitChild.left.save(), splitChild.right.save()];
                     return Promise.all(savePromises).then(function(){
-                        thisNode.children.splice(index, 1, splitChild.left, splitChild.right);
-                        thisNode.keys.splice(index, 0, splitChild.separator);
-                        return Promise.resolve(thisNode);
+                        clone.children.splice(index, 1, splitChild.left, splitChild.right);
+                        clone.keys.splice(index, 0, splitChild.separator);
+                        return Promise.resolve(clone);
                     });
                 });
             } else {
+                clone.children.splice(index, 1, newChild);
                 return newChild.save().then(function() {
-                    return Promise.resolve(thisNode);
-                });
+                    return Promise.resolve(clone);
+                });                
             }
         });
     };
@@ -258,23 +238,24 @@ var fsBranchNode = function(order) {
             index.index++;
         index = index.index;
 
-        var thisNode = this;
+        var clone = this.clone();
 
-        return this.retrieveChild(index).then(function(child) {
-            return child.remove(key).then(function(result){
-                if (result == null)
+        return clone.retrieveChild(index).then(function(child) {
+            return child.remove(key).then(function(modifiedChild){
+                if (modifiedChild == null)
                     return Promise.resolve(null); // no changes
 
-                if (child.getKeysCount() < child.minValues) {
-                    if (child.children == null) {
-                        return thisNode.fixChildlessChildUnderflow(child, index);
+                clone.children[index] = modifiedChild;
+                if (modifiedChild.getKeysCount() < modifiedChild.minValues) {
+                    if (modifiedChild.children == null) {
+                        return clone.fixChildlessChildUnderflow(modifiedChild, index);
                     } else {
-                        return thisNode.fixChildbearingChildUnderflow(child, index);
+                        return clone.fixChildbearingChildUnderflow(modifiedChild, index);
                     }
                 } else {
-                    return child.save().then(function() { return Promise.resolve(true);});
+                    return modifiedChild.save().then(function() { return Promise.resolve(clone);});
                 }
-            })
+            });
         });
     };
 
@@ -289,23 +270,24 @@ var fsBranchNode = function(order) {
         if (spot.found)
             spot.index++;
 
-        return this.retrieveChild(spot.index).then(function(child) {
+        return clone.retrieveChild(spot.index).then(function(child) {
             return child.find(key);
         });
     };
 
     this.split = function() {
-        var halfLength = Math.floor(this.keys.length/2);
+        var clone = this.clone();
+        var halfLength = Math.floor(clone.keys.length/2);
 
-        var leftTree = new fsBranchNode(this.maxChildren);
-        var rightTree = new fsBranchNode(this.maxChildren);
+        var leftTree = new fsBranchNode(clone.maxChildren);
+        var rightTree = new fsBranchNode(clone.maxChildren);
 
-        leftTree.keys = this.keys.splice(0, halfLength);
-        var medianKey = this.keys.splice(0,1)[0];
-        rightTree.keys = this.keys.splice(0);
+        leftTree.keys = clone.keys.splice(0, halfLength);
+        var medianKey = clone.keys.splice(0,1)[0];
+        rightTree.keys = clone.keys.splice(0);
 
-        leftTree.children = this.children.splice(0, halfLength + 1);
-        rightTree.children = this.children.splice(0);
+        leftTree.children = clone.children.splice(0, halfLength + 1);
+        rightTree.children = clone.children.splice(0);
 
         return { separator: medianKey, left: leftTree, right: rightTree };
     };
@@ -317,6 +299,8 @@ var fsBranchNode = function(order) {
             if (index != 0) {
                 return thisNode.retrieveChild(index-1).then(function(previousChild) {
                     if (previousChild.keyValuePairs.length > previousChild.minValues) {
+                        previousChild = previousChild.clone();
+                        thisNode.children[index-1] = previousChild;
                         var lastValue = previousChild.keyValuePairs.splice(previousChild.keyValuePairs.length - 1, 1)[0];
                         child.keyValuePairs.unshift(lastValue);
                         thisNode.keys[index - 1] = lastValue.key;
@@ -332,6 +316,8 @@ var fsBranchNode = function(order) {
                 if (index != thisNode.keys.length) {
                     return thisNode.retrieveChild(index+1).then(function(nextChild) {
                         if (nextChild.keyValuePairs.length > nextChild.minValues) {
+                            nextChild = nextChild.clone();
+                            thisNode.children[index+1] = nextChild;
                             var firstValue = nextChild.keyValuePairs.splice(0, 1)[0];
                             child.keyValuePairs.push(firstValue);
                             thisNode.keys[index] = nextChild.keyValuePairs[0].key;
@@ -348,21 +334,25 @@ var fsBranchNode = function(order) {
                 // merge
                 if (index != 0) {
                     return thisNode.retrieveChild(index-1).then(function(previousChild) {
+                        previousChild = previousChild.clone();
+                        thisNode.children[index-1] = previousChild;
                         thisNode.keys.splice(index - 1, 1);
                         previousChild.keyValuePairs = previousChild.keyValuePairs.concat(
                             child.keyValuePairs);
                         thisNode.children.splice(index, 1);
 
-                        return Promise.all([child.removeFile(), previousChild.save(), thisNode.save()] );
+                        return Promise.all([previousChild.save(), thisNode.save()] );
                     });
                 } else {
                     return thisNode.retrieveChild(index+1).then(function(nextChild) {
+                        nextChild = nextChild.clone();
+                        thisNode.children[index+1] = nextChild;
                         thisNode.keys.splice(index, 1);
                         nextChild.keyValuePairs = child.keyValuePairs.concat(
                             nextChild.keyValuePairs);
                         thisNode.children.splice(index, 1);
 
-                        return Promise.all([child.removeFile(), nextChild.save(), thisNode.save()]);
+                        return Promise.all([nextChild.save(), thisNode.save()]);
                     });
                 }
             }
@@ -379,6 +369,8 @@ var fsBranchNode = function(order) {
             if (index != 0) {
                 return thisNode.retrieveChild(index-1).then(function(previousChild) {
                     if (previousChild.keys.length > previousChild.minValues) {
+                        previousChild = previousChild.clone();
+                        thisNode.children[index-1] = previousChild;
                         var lastValue = previousChild.keys.splice(previousChild.keys.length - 1, 1)[0];
                         var lastChild = previousChild.children.splice(previousChild.children.length - 1, 1)[0];
                         child.keys.unshift(thisNode.keys[index - 1]);
@@ -396,6 +388,8 @@ var fsBranchNode = function(order) {
                 if (index != thisNode.keys.length) {
                     return thisNode.retrieveChild(index+1).then(function(nextChild) {
                         if (nextChild.keys.length > nextChild.minValues) {
+                            nextChild = nextChild.clone();
+                            thisNode.children[index+1] = nextChild;
                             var firstValue = nextChild.keys.splice(0, 1)[0];
                             var firstChild = nextChild.children.splice(0, 1)[0];
                             child.keys.push(thisNode.keys[index]);
@@ -415,19 +409,23 @@ var fsBranchNode = function(order) {
                 return Promise.resolve().then(function() {
                     if (index != 0) {
                         return thisNode.retrieveChild(index-1).then(function(previousChild) {
+                            previousChild = previousChild.clone();
+                            thisNode.children[index-1] = previousChild;
                             var separatingValue = thisNode.keys.splice(index - 1, 1)[0];
                             previousChild.keys.push(separatingValue);
                             previousChild.keys = previousChild.keys.concat(child.keys);
                             previousChild.children = previousChild.children.concat(child.children);
-                            return Promise.all([previousChild.save(), child.removeFile()]);
+                            return Promise.all([previousChild.save()]);
                         });
                     } else {
                         return thisNode.retrieveChild(index+1).then(function(nextChild) {
+                            nextChild = nextChild.clone();
+                            thisNode.children[index+1] = nextChild;
                             var separatingValue = thisNode.keys.splice(index, 1)[0];
                             nextChild.keys.unshift(separatingValue);
                             nextChild.keys = child.keys.concat(nextChild.keys);
                             nextChild.children = child.children.concat(nextChild.children);
-                            return Promise.all([nextChild.save(), child.removeFile()]);
+                            return Promise.all([nextChild.save()]);
                         });
                     }
                 }).then(function() {
@@ -453,7 +451,7 @@ var fsBranchNode = function(order) {
             return this.fixChildbearingChildUnderflow(child, index);
         }
     };
-
+    
     this.serialize = function() {
         var json = {keys: this.keys, order: this.maxChildren, children: [] };
         for (var i = 0; i < this.children.length; ++i) {
@@ -529,14 +527,15 @@ var fsLeafNode = function(order) {
     };
 
     this.split = function() {
-        var halfLength = Math.floor(this.keyValuePairs.length/2);
+        var clone = this.clone();
+        var halfLength = Math.floor(clone.keyValuePairs.length/2);
 
-        var leftLeaf = new fsLeafNode(this.maxChildren);
-        var rightLeaf = new fsLeafNode(this.maxChildren);
+        var leftLeaf = new fsLeafNode(clone.maxChildren);
+        var rightLeaf = new fsLeafNode(clone.maxChildren);
 
-        leftLeaf.keyValuePairs = this.keyValuePairs.splice(0, halfLength);
-        var medianKey = this.keyValuePairs[0].key;
-        rightLeaf.keyValuePairs = this.keyValuePairs.splice(0);
+        leftLeaf.keyValuePairs = clone.keyValuePairs.splice(0, halfLength);
+        var medianKey = clone.keyValuePairs[0].key;
+        rightLeaf.keyValuePairs = clone.keyValuePairs.splice(0);
 
         return { left: leftLeaf, separator: medianKey, right: rightLeaf };
     };
@@ -556,22 +555,24 @@ var fsLeafNode = function(order) {
     };
 
     this.insert = function(key, value) {
-        var location = this.findSpot(key);
+        var clone = this.clone();
+        var location = clone.findSpot(key);
         if (location.found) {
             return null; // no change
         }
-        this.keyValuePairs.splice(location.index, 0, new KeyValuePair(key, value));
+        clone.keyValuePairs.splice(location.index, 0, new KeyValuePair(key, value));
 
-        return Promise.resolve(this);
+        return Promise.resolve(clone);
     };
 
     this.remove = function(key) {
-        var location = this.findSpot(key);
+        var clone = this.clone();
+        var location = clone.findSpot(key);
         if (!location.found) {
             return Promise.resolve(null); // no change
         }
-        this.keyValuePairs.splice(location.index, 1);
-        return Promise.resolve(true);
+        clone.keyValuePairs.splice(location.index, 1);
+        return Promise.resolve(clone);
     };
 
     this.serialize = function() {
