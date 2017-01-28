@@ -14,7 +14,7 @@ var sym_enc_algo  = { name: 'AES-CBC', length: 256  };
 var zeros = new Uint8Array( 16 );
 
 function pbkdf_algo( salt )
-{ return { name: 'PBKDF2', salt: salt, iterations: 1000, hash: { name: 'SHA-1' } }; }
+{ return { name: 'PBKDF2', salt: salt, iterations: PBKDF2_ITER, hash: { name: 'SHA-1' } }; }
 
 function makeUniqueId( ids, len )
 {
