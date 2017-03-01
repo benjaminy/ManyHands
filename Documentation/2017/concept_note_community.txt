@@ -1,0 +1,3 @@
+The community around this project is current only the few people who have worked on developing the early prototype.
+The development is all being done in public on GitHub.
+When there is a useable prototype, Ben plans to reach out to fellow researchers to experiment with potential applications.

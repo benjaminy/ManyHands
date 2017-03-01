@@ -1,0 +1,16 @@
+The ManyHands project brings the benefits of end-to-end encryption to collaborative editing applications like Google Docs and Trello.
+Current collaborative editing applications rely on a service provider who plays the essential role of integrating edits made by different team members into a single coherent document/database.
+This central server is a clear target for privacy attacks.
+Obviously service providers themselves (or a rogue employee) could misuse users' data.
+External organizations (government or corporate) could coerce service providers into misusing users' data.
+Also attackers could exfiltrate users' data.
+
+In other application domains, like messaging and single-user data storage, end-to-end encryption has been used to mitigate these kinds of privacy threats.
+Services like WhatsApp and LastPass allow users to communicate and store data on the Internet with greater assurance that their private data will not be misused.
+
+Collaborative editing is more challenging than messaging or single-user storage, because of the need for multiple parties to come to agreement about the state of a document, to which users could be attempting to apply changes at any time.
+For the ManyHands project we are building a system that can work for most Internet users, meaning we have to assume that team members do not have servers that can be actively communicating with each other at all times.
+Our prototype design assumes that each user has a commodity cloud storage account (Dropbox, Google Drive, ...) in which they store a complete copy of the team's data.
+The data model we are working with is Bitcoin-like in the sense that it consists of an accumulate-only chain of transactions.
+When clients are online, they upload their new edits to their own copy of the chain and look for edits in their teammates' chains to integrate into their own.
+The protocol uses vector clock timestamps and application-level logic to resolve concurrent edit conflicts, when they arise.
