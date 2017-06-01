@@ -40,6 +40,10 @@ var exportKeyJwk = async_no_scp( function *( k )
 
 function importKeyJwk( s, algo, ops, scp )
 {
+    /* assert( typeof( s )    == raw key buffer ) */
+    /* assert( typeof( algo ) == crypto algorithm ) */
+    /* assert( typeof( ops )  == sequence of supported operations ) */
+    /* assert( typeof( scp )  == scope object ) */
     var [ scp, log ] = Scope.enter( scp, 'ImportKey' );
     /* s is a string in JSON format */
     var j;
@@ -73,17 +77,16 @@ function stringsToBuf( strings )
     /* assert( forall i. typeof( strings[i] ) == 'string' ) */
     var bufs = [];
     var total_bytes = 0;
-    for( var i = 0; i < strings.length; i++ )
-    {
-        bufs.push( encode( strings[ i ] ) );
+    strings.forEach( function( s, i ) {
+        bufs.push( encode( s ) );
         total_bytes += bufs[ i ].length;
-    }
+    } );
     var b = new Uint8Array( total_bytes );
     var byte_ptr = 0;
     for( var i = 0; i < bufs.length; i++ )
     {
         b.set( bufs[i], byte_ptr );
-        byte_ptr += bufs[i];
+        byte_ptr += bufs[i].length;
     }
     return b;
 }
@@ -96,7 +99,7 @@ var makeLoginKey = async_no_scp( function *( username, password, salt )
     var up = stringsToBuf( [ username, password ] );
     return C.deriveKey(
         pbkdf_algo( salt ),
-        yield C.importKey( 'raw', up, { name: 'PBKDF2' }, true, [ 'deriveKey' ] ),
+        yield C.importKey( 'raw', up, { name: 'PBKDF2' }, false, [ 'deriveKey' ] ),
         sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
 } );
 

@@ -200,15 +200,17 @@ return async_local( scp, 'Team', function *( scp, log, team_dir )
 } );
 }
 
-var initTeamState = async( 'Init', function *( scp, log, team_name, user )
+var initTeamState = async( 'Init', function *( scp, log, user, team_name )
 {
+    /* assert( typeof( user ) == UWS user object ) */
+    /* assert( typeof( team_name ) == string ) */
+    log( 'Begin', user )
     var team = {
         name:          team_name,
         dir:           makeUniqueId( user.teams ),
         self_id:       makeUniqueId( {} ),
         teammates:     {},
         db:            DB.new() };
-    log( 'Begin', user )
     var team_id = DB.new_entity( team.db );
     var datoms = [ DB.build_datom( team_id, 'team:name', team_name ) ];
     var teammate_ent = DB.new_entity( team.db );
@@ -236,14 +238,18 @@ var initTeamState = async( 'Init', function *( scp, log, team_name, user )
     return team;
 } );
 
-var uploadTeam = async( 'Cloud', function *( scp, log, team, user )
+var uploadTeam = async( 'Cloud', function *( scp, log, user, team )
 {
-    /* This loop is a scalability bug, but team creation should be
-     * infrequent, so it's not urgent.  Could be made incremental at
-     * non-trivial cost in code complexity. */
+    /* assert( typeof( user ) == UWS user object ) */
+    /* assert( typeof( team ) == UWS team object ) */
+    /* This loop is a scalability bug.  It should not be necessary to
+     * recreate the manifest for all teams when uploading a single team.
+     * But team creation should be infrequent, so it's not urgent.
+     * Could be made incremental at non-trivial cost in code
+     * complexity. */
     var teams_manifest = {};
-    for( var d in user.teams )
-        teams_manifest[ d ] = team.self_id;
+    for( var dir in user.teams )
+        teams_manifest[ dir ] = user.teams[ dir ].self_id;
 
     function encrypt( [ k, d ] )
     { return aes_cbc_ecdsa.encryptThenSignSalted( k, user.key_signing, d ); }
@@ -269,12 +275,14 @@ var uploadTeam = async( 'Cloud', function *( scp, log, team, user )
         uploadFile( scp, user.cloud_text, [ 'Teams', 'manifest' ], teams_manifest ) ) );
 } );
 
-var createTeam = async( 'CreateTeam', function *( scp, log, team_name, user )
+var createTeam = async( 'CreateTeam', function *( scp, log, user, team_name )
 {
+    /* assert( typeof( user ) == UWS user object ) */
+    /* assert( typeof( team_name ) == string ) */
     log( 'Start', team_name );
-    var team = yield initTeamState( scp, team_name, user );
+    var team = yield initTeamState( scp, user, team_name );
     log( 'Initialized team state' );
-    var [ e, v, d, s, t, c ] = yield uploadTeam( scp, team, user );
+    var [ e, v, d, s, t, c ] = yield uploadTeam( scp, user, team );
     log( 'Finish' );
     return team.dir;
 } );

@@ -9,12 +9,13 @@ TEST_ROOT=$(TEST_DIR)/Root
 TEST_CLOUD=$(TEST_DIR)/Cloud
 TEST_CERT=$(TEST_DIR)/Cert
 SRC_DIR=$(MH_DIR)/Source/WebCrypto
+NODE_CMD=nodejs
 
-start_file_server:
-	node $(SRC_DIR)/../simple_file_server.js --dir $(TEST_CLOUD) --port 8123 --cert $(TEST_CERT)/mh_test_cert.crt --key $(TEST_CERT)/mh_test_server.key
+start_file_server: $(TEST_CERT)/mh_test_server.key
+	$(NODE_CMD) $(SRC_DIR)/../simple_file_server.js --dir $(TEST_CLOUD) --port 8123 --cert $(TEST_CERT)/mh_test_cert.crt --key $(TEST_CERT)/mh_test_server.key
 
 start_mh_server: $(TEST_CERT)/mh_test_server.key copy_everything
-	node $(TEST_ROOT)/many_hands_server.js --db $(TEST_DB) --front $(SRC_DIR) --cert $(TEST_CERT)/mh_test_cert.crt --key $(TEST_CERT)/mh_test_server.key
+	$(NODE_CMD) $(TEST_ROOT)/many_hands_server.js --db $(TEST_DB) --front $(SRC_DIR) --cert $(TEST_CERT)/mh_test_cert.crt --key $(TEST_CERT)/mh_test_server.key
 
 copy_everything:
 	mkdir -p $(TEST_ROOT)
@@ -29,3 +30,14 @@ clean_cert:
 $(TEST_CERT)/mh_test_server.key:
 	mkdir -p $(TEST_CERT)
 	openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout $(TEST_CERT)/mh_test_server.key -out $(TEST_CERT)/mh_test_cert.crt
+
+install_node_modules:
+	cd Testing
+	npm install serve-static
+	npm install finalhandler
+	npm install node-getopt
+	sudo npm install -g node-pre-gyp
+	npm install --no-bin-links sqlite3
+	npm install multiparty
+#	export NODE_PATH=$PWD
+	cd ..

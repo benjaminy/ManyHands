@@ -3,11 +3,11 @@ Ben, the leader of the project and a college professor, has done this work in co
 The current prototype is written in JavaScript and is designed to use standard APIs, like WebCrypto, so that it can easily be adapted to run in a browser or other JavaScript ecosystems like Electron and Ionic.
 
 The next major milestone is to complete a basic prototype to validate that the core protocols can scale to reasonable team and data sizes.
-Ben plans do a substantial amount of the programming himself; grant money would accelerate this work greatly by providing sumemr funding and relief from teaching obligations.
+Ben plans do a substantial amount of the programming himself; grant money would accelerate this work greatly by providing summer funding and relief from teaching obligations.
 We also expect to continue funding student work on the project, both over the summer and potentially also during the school year.
 
 More specific milestones include:
 - Support for removal of team members (requires more sophisticated key management)
 - Integration of encrypted database code with consistency protocol
 - Formal review of cryptographic protocols
-- Development of prototype application frontend
+- Development of prototype application front-end

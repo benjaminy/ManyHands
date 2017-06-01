@@ -89,7 +89,7 @@ function onCreateTeam()
         return;
     }
     alert( elemTeamName.value );
-    return createTeam( elemTeamName.value, logged_in_user )
+    return createTeam( logged_in_user, elemTeamName.value )
     .catch( function( err ) {
         log( 'Error during team creation', err );
     } )

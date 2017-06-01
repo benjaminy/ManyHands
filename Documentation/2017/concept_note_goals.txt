@@ -1,6 +1,6 @@
 It has become common for teams to collaboratively manage data with Internet applications like Google Docs and Trello.
 Currently these kinds of applications do not protect the privacy of users' data from the application provider at all.
-In many cases this lack of privacy protection poses an undesireable, but tolerable risk to users.
+In many cases this lack of privacy protection poses an undesirable, but tolerable risk to users.
 In some more sensitive cases, users avoid these kinds of applications entirely.
 
 The goal of the ManyHands project is to make it possible for teams of all kinds, from families to social clubs to business teams to political parties, to make use of these kinds of powerful collaboration tools, without risking the privacy of their data.
