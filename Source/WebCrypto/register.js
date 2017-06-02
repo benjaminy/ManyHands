@@ -6,11 +6,18 @@
 var register = async( 'Register', function *( scp, log, uid, passwd )
 {
     log( 'Enter', uid );
+    // TODO uid sanity check
+    // TODO password sanity check
     var user = { uid: uid };
     yield checkUidAvailability( scp, uid, user );
     yield initializeUserAccount( scp, uid, passwd, user );
     yield initializeCloudStorage( scp, user );
-    yield submitRegistrationInfo( scp, user );
+    try {
+        yield submitRegistrationInfo( scp, user );
+    }
+    catch( err ) {
+        // TODO clean up cloud account
+    }
     log( 'Exit', uid );
     return user;
 } );
