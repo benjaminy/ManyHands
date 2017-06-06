@@ -32,7 +32,7 @@
  *    - Copy the state of the team from Alice
  */
 
-/* alice invites bob to team_id */
+/* alice sets up an invite for bob to team_id */
 var inviteStep1 = async( 'InviteStep1', function *( scp, log, alice, bob, team_id )
 {
     /* typeof( alice )   == UWS user object */
@@ -60,7 +60,7 @@ var inviteStep1 = async( 'InviteStep1', function *( scp, log, alice, bob, team_i
 var inviteStep2 = async( 'InviteStep2', function *( scp, log, bob, step1_pub )
 {
     /* typeof( bob )       == UWS user object */
-    /* typeof( step1_pub ) == string (... description ...) */
+    /* typeof( step1_pub ) == string (serialized invitation) */
     var step1 = JSON.parse( step1_pub );
     var step2_id = makeUniqueId( bob.invites );
     var k = yield downloadFile( scp, step1.cloud, 'key_pub_dh', true );
@@ -85,7 +85,7 @@ var inviteStep2 = async( 'InviteStep2', function *( scp, log, bob, step1_pub )
 var inviteStep3 = async( 'InviteStep3', function *( scp, log, alice, step2_pub )
 {
     /* typeof( alice )     == UWS user object */
-    /* typeof( step2_pub ) == string (... description ...) */
+    /* typeof( step2_pub ) == string (serialized invitation acceptance) */
     var bob = {};
     var step2 = JSON.parse( step2_pub );
     yield inviteStep3A( scp, alice, bob, step2 );

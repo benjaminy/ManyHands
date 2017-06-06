@@ -113,7 +113,7 @@ function onInvite()
         try
         {
             elemInvite.innerText = yield inviteStep1(
-                elemInviteName.value, team_id, logged_in_user );
+                logged_in_user, elemInviteName.value, team_id );
         }
         catch( err )
         {
