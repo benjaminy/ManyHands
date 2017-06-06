@@ -210,14 +210,13 @@ var initTeamState = async( 'Init', function *( scp, log, user, team_name )
         dir       : makeUniqueId( user.teams ),
         self_id   : makeUniqueId( {} ),
         teammates : {},
-        db        : DB.new() };
+        db        : DB.new( team ) };
     var txn = [ DB.buildAddStmt( 'team', 'team:name', team_name ),
                 DB.buildMapStmt( 'teammate', [
                     [ 'id'                 , team.self_id ],
                     [ 'cloud_text'         , user.cloud_text ],
                     [ 'key_verify_exported', user.key_verify_exported ],
                     [ 'dir'                , team.dir ] ] ) ];
-    DB.prepareTxn( team.db, txn );
     user.teams[ team.dir ] = team;
     var keys_dh   = yield C.generateKey( pub_enc_algo,  true, [ 'deriveKey', 'deriveBits' ] );
     var keys_sign = yield C.generateKey( signing_kalgo, true, [ 'sign', 'verify' ] );

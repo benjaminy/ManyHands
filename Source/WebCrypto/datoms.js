@@ -10,9 +10,14 @@ var TXN_STMT_FORM_FN      = 4;
 
 var DB = {}
 
-DB.new = function()
+DB.new = function( team )
 {
-    return { next_entity_id: 0, datoms: [] };
+    return {
+        team           : team,
+        datoms         : [],
+        cloud_head     : null,
+        next_entity_id : 0
+    };
 }
 
 DB.new_entity = function( db )
@@ -30,6 +35,7 @@ DB.buildAddStmt = function( e, a, v )
                  value    : v };
     if( e )
         stmt.entity = e;
+    return stmt;
 }
 
 DB.buildMapStmt = function( e, avs )
@@ -39,18 +45,21 @@ DB.buildMapStmt = function( e, avs )
                  avs  : avs };
     if( e )
         stmt.entity = e;
+    return stmt;
 }
 
 DB.buildRetractStmt = function( e, a, v )
 {
     /* TODO: error-check parameters */
-    return { form     : TXN_STMT_FORM_RETRACT,
-             attribute: a,
-             value    : v };
+    var stmt = { form     : TXN_STMT_FORM_RETRACT,
+                 attribute: a,
+                 value    : v };
     if( e )
         stmt.entity = e;
+    return stmt;
 }
 
+/* Totally broken, because of serialization */
 DB.buildFnStmt = function( f )
 {
     /* TODO: error-check parameters */
@@ -58,7 +67,7 @@ DB.buildFnStmt = function( f )
              fn   : f };
 }
 
-DB.prepareTxn = function( db, txn )
+DB.prepareTxn = function*( db, txn )
 {
     /* assert( typeof( db )  == database ) */
     /* assert( typeof( txn ) == array of statements ) */
@@ -119,6 +128,17 @@ DB.prepareTxn = function( db, txn )
     catch( err ) {
     }
 }
+
+DB.uploadTxn = async( '', function *( db, txn )
+{
+    var wrapped = {
+        t: txn,
+        n: db.cloud_head,
+        v: db.current_vector
+    };
+    /* new random file name */
+    /* add timestamp */
+} );
 
 DB.sync = function( db )
 {
