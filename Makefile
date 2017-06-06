@@ -36,8 +36,8 @@ install_node_modules:
 	npm install serve-static
 	npm install finalhandler
 	npm install node-getopt
+	npm install multiparty
 	sudo npm install -g node-pre-gyp
 	npm install --no-bin-links sqlite3
-	npm install multiparty
-#	export NODE_PATH=$PWD
+#	export NODE_PATH=$PWD/node_modules
 	cd ..

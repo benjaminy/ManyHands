@@ -2,11 +2,17 @@
  *
  */
 
+/* TODO: enumify */
+var TXN_STMT_FORM_ADD     = 1;
+var TXN_STMT_FORM_RETRACT = 2;
+var TXN_STMT_FORM_MAP     = 3;
+var TXN_STMT_FORM_FN      = 4;
+
 var DB = {}
 
 DB.new = function()
 {
-    return { next_entity_id: 0, txns: [] };
+    return { next_entity_id: 0, datoms: [] };
 }
 
 DB.new_entity = function( db )
@@ -16,20 +22,107 @@ DB.new_entity = function( db )
     return rv;
 }
 
-DB.build_datom = function( e, a, v )
+DB.buildAddStmt = function( e, a, v )
 {
-    return { e:e, a:a, v:v };
+    /* TODO: error-check parameters */
+    var stmt = { form     : TXN_STMT_FORM_ADD,
+                 attribute: a,
+                 value    : v };
+    if( e )
+        stmt.entity = e;
 }
 
-DB.build_txn = function( conditions, datoms )
+DB.buildMapStmt = function( e, avs )
 {
-    return { conditions: conditions, datoms: datoms };
+    /* TODO: error-check parameters */
+    var stmt = { form : TXN_STMT_FORM_ADD,
+                 avs  : avs };
+    if( e )
+        stmt.entity = e;
 }
 
-DB.apply_txn = function( db, txn )
+DB.buildRetractStmt = function( e, a, v )
 {
-    /* XXX check conditions */
-    db.txns = db.txns.concat( txn );
+    /* TODO: error-check parameters */
+    return { form     : TXN_STMT_FORM_RETRACT,
+             attribute: a,
+             value    : v };
+    if( e )
+        stmt.entity = e;
+}
+
+DB.buildFnStmt = function( f )
+{
+    /* TODO: error-check parameters */
+    return { form : TXN_STMT_FORM_FN,
+             fn   : f };
+}
+
+DB.prepareTxn = function( db, txn )
+{
+    /* assert( typeof( db )  == database ) */
+    /* assert( typeof( txn ) == array of statements ) */
+
+    var datoms = [];
+    var temp_ids = {};
+
+    function getEntity( stmt ) {
+        try {
+            var e = stmt.entity;
+            if( Number.isInteger( e ) )
+            {
+                /* TODO: check that e is a valid entity id */
+                return e;
+            }
+            if( e in temp_ids )
+            {
+                return temp_ids[ e ];
+            }
+            var eid = DB.new_entity( db );
+            temp_ids[ e ] = eid;
+            return eid
+        }
+        catch( err ) {
+            return DB.new_entity( db );
+        }
+    }
+
+    function processStmt( stmt, i ) {
+        if( stmt.form == TXN_STMT_FORM_ADD ) {
+            var entity_id = getEntity( stmt );
+            acc.datoms.push( { e: entity_id, a: stmt.attribute, v: stmt.value } );
+            return acc;
+        }
+        else if( stmt.form == TXN_STMT_FORM_RETRACT ) {
+            var entity_id = getEntity( stmt );
+            acc.datoms.push( { e: entity_id, a: stmt.attribute, v: stmt.value, r: true } );
+            return acc;
+        }
+        else if( stmt.form == TXN_STMT_FORM_MAP ) {
+            var entity_id = getEntity( stmt );
+            stmt.avs.forEach( function( [ a, v ] ) {
+                acc.datoms.push( { e: entity_id, a: a, v: v } );
+            } );
+            return acc;
+        }
+        else if( stmt.form == TXN_STMT_FORM_FN ) {
+            stmt.fn( acc );
+        }
+        else {
+            throw new Error( 'malformed stmt' );
+        }
+    }
+
+    try {
+        db.txns.forEach( processStmt );
+    }
+    catch( err ) {
+    }
+}
+
+DB.sync = function( db )
+{
+    // ffoooo
 }
 
 DB.query = function( db, q )

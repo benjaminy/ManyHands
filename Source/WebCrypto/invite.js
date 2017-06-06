@@ -32,62 +32,79 @@
  *    - Copy the state of the team from Alice
  */
 
-var inviteStep1 = async( 'InviteStep1', function *( scp, log, bob, team_id, alice )
+/* alice invites bob to team_id */
+var inviteStep1 = async( 'InviteStep1', function *( scp, log, alice, bob, team_id )
 {
-    var step1_id  = makeUniqueId( alice.invites );
+    /* typeof( alice )   == UWS user object */
+    /* typeof( bob )     == string (some identifying info about Bob) */
+    /* typeof( team_id ) == UWS team ID */
+    var step1_id   = makeUniqueId( alice.invites );
     var step1_priv = yield aes_cbc_ecdsa.encryptThenSignSalted(
         alice.key_main, alice.key_signing,
         encode( JSON.stringify( { bob: bob, team: team_id } ) ), scp )
     log( 'Encrypted step1_priv' );
-    function upload( [ d, n, t ] )
-    { return uploadFile( scp, alice.cloud_text, [ 'Invites', step1_id, n ], d, t ); }
-    fs = [ [ step1_priv, 'step1' ], [ '', 'step3', 'text/plain' ] ];
-    yield P.all( fs.map( upload ) );
+    function upload( [ data, name, type ] )
+    { return uploadFile( scp, alice.cloud_text,
+                         [ 'Invites', step1_id, name ],
+                         data,
+                         type ); }
+    files = [ [ step1_priv, 'step1' ],
+              [ '', 'step3', 'text/plain' ] ];
+    yield P.all( files.map( upload ) );
     log( 'Uploaded step1_priv and dummy step3' );
-    var step1_pub = JSON.stringify( { cloud: alice.cloud_text, step1_id: step1_id } );
+    var step1_pub = JSON.stringify( { cloud: alice.cloud_text, id: step1_id } );
     return step1_pub;
 } );
 
-var inviteStep2 = async( 'InviteStep2', function *( scp, log, step1_pub_text, bob )
+/* bob accepts the invitation */
+var inviteStep2 = async( 'InviteStep2', function *( scp, log, bob, step1_pub )
 {
-    var step1_pub = JSON.parse( step1_pub_text );
+    /* typeof( bob )       == UWS user object */
+    /* typeof( step1_pub ) == string (... description ...) */
+    var step1 = JSON.parse( step1_pub );
     var step2_id = makeUniqueId( bob.invites );
-    var k = yield downloadFile( scp, step1_pub.cloud, 'key_pub_dh', true );
-    log( 'Downloaded Alice\'s key' );
+    var k = yield downloadFile( scp, step1.cloud, 'key_pub_dh', true );
+    log( "Downloaded Alice's key" );
     var k = yield importKeyPubDH( k );
-    log( 'Imported Alice\'s key' );
+    log( "Imported Alice's key" );
     var k = yield ecdh_aesDeriveKey( k, bob.key_priv_dh );
     log( 'Derived shared key' );
     var bob_dir = makeUniqueId( bob.teams );
-    var step2_priv = JSON.stringify( { d: bob_dir, i: step1_pub.step1_id } );
+    var step2_priv = JSON.stringify( { dir: bob_dir, id: step1.id } );
     var step2_priv = yield aes_cbc_ecdsa.encryptThenSignSalted(
         k, bob.key_signing, encode( step2_priv ), scp )
     log( 'Encrypted and signed step2' );
     yield uploadFile(
         scp, bob.cloud_text, [ 'Invites', step2_id, 'step2' ], step2_priv, false );
     log( 'Uploaded step2' );
-    var step2_pub = JSON.stringify( { cloud: bob.cloud_text, step2_id: step2_id } );
+    var step2_pub = JSON.stringify( { cloud: bob.cloud_text, id: step2_id } );
     return step2_pub;
 } );
 
-var inviteStep3 = async( 'InviteStep3', function *( scp, log, step2_pub_text, alice )
+/* alice adds bob to the team */
+var inviteStep3 = async( 'InviteStep3', function *( scp, log, alice, step2_pub )
 {
-    /* assert( step2_pub_text is valid ) */
-    /* assert( alice is valid ) */
+    /* typeof( alice )     == UWS user object */
+    /* typeof( step2_pub ) == string (... description ...) */
     var bob = {};
-    var step2_pub = JSON.parse( step2_pub_text );
-                     yield inviteStep3A( scp, step2_pub, alice, bob );
+    var step2 = JSON.parse( step2_pub );
+    yield inviteStep3A( scp, alice, bob, step2 );
     var step1_priv = yield inviteStep3B( scp, alice, bob );
-    return                 inviteStep3C( scp, step1_priv, alice, bob );
+    return inviteStep3C( scp, alice, bob, step1_priv );
 } );
 
-var inviteStep3A = async( 'A', function *( scp, log, step2_pub, alice, bob )
+/* alice downlods and decrypts information about bob.
+ * Results stored in the bob object.  */
+var inviteStep3A = async( 'A', function *( scp, log, alice, bob, step2_pub )
 {
+    /* typeof( alice )     == UWS user object */
+    /* typeof( bob )       == empty object */
+    /* typeof( step2_pub ) == step 2 invite object */
     function downloadBob( [ p, t ] ) { return downloadFile( scp, step2_pub.cloud, p, t ) };
-    bob.step2_id = step2_pub.step2_id;
+    bob.id = step2_pub.id;
     var files = [ [ 'key_pub_dh', true ],
                   [ 'key_verify', true ],
-                  [ [ 'Invites', bob.step2_id, 'step2' ] ]];
+                  [ [ 'Invites', bob.id, 'step2' ] ]];
     var step2_enc;
     [ bob.key_pub_dh_exported, bob.key_verify_exported, step2_enc ] =
         yield P.all( files.map( downloadBob ) );
@@ -101,14 +118,17 @@ var inviteStep3A = async( 'A', function *( scp, log, step2_pub, alice, bob )
     var step2_priv = JSON.parse( decode( yield aes_cbc_ecdsa.verifyThenDecryptSalted(
         bob.sym_AB, bob.key_verify, step2_enc, scp ) ) );
     log( 'Decrypted step2', step2_priv );
-    bob.step1_id = step2_priv.i;
-    bob.dir = step2_priv.d;
+    bob.id  = step2_priv.id;
+    bob.dir = step2_priv.dir;
 } );
 
+/* alice downloads and decrypts her own step 1 info */
 var inviteStep3B = async( 'B', function *( scp, log, alice, bob )
 {
+    /* typeof( alice ) == UWS user object */
+    /* typeof( bob )   == object with invitation info */
     var step1_priv = yield downloadFile(
-        scp, alice.cloud_text, [ 'Invites', bob.step1_id, 'step1' ], null )
+        scp, alice.cloud_text, [ 'Invites', bob.id, 'step1' ], null )
     log( 'Downloaded step1' );
     var step1_priv = yield aes_cbc_ecdsa.verifyThenDecryptSalted(
         alice.key_main, alice.key_verify, step1_priv, scp );
@@ -117,8 +137,12 @@ var inviteStep3B = async( 'B', function *( scp, log, alice, bob )
     return step1_priv;
 } );
 
-var inviteStep3C = async( 'C', function *( scp, log, step1_priv, alice, bob )
+/* alice adds bob to the team */
+var inviteStep3C = async( 'C', function *( scp, log, alice, bob, step1_priv )
 {
+    /* typeof( alice )      == UWS user object */
+    /* typeof( bob )        == object with bob's invitation info */
+    /* typeof( step1_priv ) == object with alice's invitation info */
     function upload( [ p, c, t ] ) { return uploadFile( scp, alice.cloud_text, p, c, t ) };
     var team = alice.teams[ step1_priv.team ];
     if( !team )
@@ -132,7 +156,7 @@ var inviteStep3C = async( 'C', function *( scp, log, step1_priv, alice, bob )
                                        u: bob.team_uid,
                                        d: team.key_priv_dh_exported,
                                        s: team.key_signing_exported,
-                                       i: bob.step2_id } );
+                                       i: bob.id } );
     var bob_ent = DB.new_entity( team.db );
     var bob_datom_frags = [
         [ 'id', bob.team_uid ],
@@ -146,7 +170,7 @@ var inviteStep3C = async( 'C', function *( scp, log, step1_priv, alice, bob )
     { return aes_cbc_ecdsa.encryptThenSignSalted( k, alice.key_signing, encode( d ) ); }
     var step3_enc = yield encrypt( bob.sym_AB,    step3_priv );
     var db        = yield encrypt( team.key_main, JSON.stringify( team.db ) );
-    var files = [ [ [ 'Invites', bob.step1_id, 'step3' ], step3_enc ],
+    var files = [ [ [ 'Invites', bob.id, 'step3' ], step3_enc ],
                   [ [ 'Teams', team.dir, 'Data', 'data' ], db ] ];
     function upload( [ p, c ] ) { return uploadFile( scp, alice.cloud_text, p, c, null ) };
     return P.all( files.map( upload ) );
@@ -157,7 +181,7 @@ var inviteStep3C = async( 'C', function *( scp, log, step1_priv, alice, bob )
  * know when this happened?  Not sure.  One idea is to monitor the file
  * with long-polling/notifications.
  */
-var inviteStep4 = async( 'InviteStep4', function *( scp, log, step1_pub_text, bob )
+var inviteStep4 = async( 'InviteStep4', function *( scp, log, bob, step1_pub_text )
 {
     function downloadAlice( [ p, t ] )
     { return downloadFile( scp, step1_pub.cloud, p, t ); }
@@ -174,14 +198,14 @@ var inviteStep4 = async( 'InviteStep4', function *( scp, log, step1_pub_text, bo
     var step3_enc;
     [ alice.sym_AB, step3_enc ] =
         yield P.all( [ ecdh_aesDeriveKey( alice.key_pub_dh, bob.key_priv_dh ),
-                       downloadAlice( [ [ 'Invites', step1_pub.step1_id, 'step3' ] ] ) ] );
+                       downloadAlice( [ [ 'Invites', step1_pub.id, 'step3' ] ] ) ] );
     log( 'Derived shared key and downloaded step3' );
     var step3_priv = JSON.parse( decode(
         yield aes_cbc_ecdsa.verifyThenDecryptSalted(
             alice.sym_AB, alice.key_verify, step3_enc, scp ) ) );
     log( 'Decrypted step3' );
     alice.team_dir = step3_priv.t;
-    alice.step2_id = step3_priv.i;
+    alice.id = step3_priv.i;
     team.self_id = step3_priv.u;
     team.key_priv_dh_exported = step3_priv.d;
     team.key_signing_exported = step3_priv.s;

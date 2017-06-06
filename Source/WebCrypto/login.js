@@ -206,22 +206,18 @@ var initTeamState = async( 'Init', function *( scp, log, user, team_name )
     /* assert( typeof( team_name ) == string ) */
     log( 'Begin', user )
     var team = {
-        name:          team_name,
-        dir:           makeUniqueId( user.teams ),
-        self_id:       makeUniqueId( {} ),
-        teammates:     {},
-        db:            DB.new() };
-    var team_id = DB.new_entity( team.db );
-    var datoms = [ DB.build_datom( team_id, 'team:name', team_name ) ];
-    var teammate_ent = DB.new_entity( team.db );
-    var teammate_datoms = [
-        [ 'id', team.self_id ],
-        [ 'cloud_text', user.cloud_text ],
-        [ 'key_verify_exported', user.key_verify_exported ],
-        [ 'dir', team.dir ] ];
-    datoms = datoms.concat( teammate_datoms.map( function( [ a, v ] ) {
-        return DB.build_datom( teammate_ent, 'teammate:'+a, v ); } ) );
-    DB.apply_txn( team.db, DB.build_txn( [], datoms ) );
+        name      : team_name,
+        dir       : makeUniqueId( user.teams ),
+        self_id   : makeUniqueId( {} ),
+        teammates : {},
+        db        : DB.new() };
+    var txn = [ DB.buildAddStmt( 'team', 'team:name', team_name ),
+                DB.buildMapStmt( 'teammate', [
+                    [ 'id'                 , team.self_id ],
+                    [ 'cloud_text'         , user.cloud_text ],
+                    [ 'key_verify_exported', user.key_verify_exported ],
+                    [ 'dir'                , team.dir ] ] ) ];
+    DB.prepareTxn( team.db, txn );
     user.teams[ team.dir ] = team;
     var keys_dh   = yield C.generateKey( pub_enc_algo,  true, [ 'deriveKey', 'deriveBits' ] );
     var keys_sign = yield C.generateKey( signing_kalgo, true, [ 'sign', 'verify' ] );
@@ -244,7 +240,7 @@ var uploadTeam = async( 'Cloud', function *( scp, log, user, team )
     /* assert( typeof( team ) == UWS team object ) */
     /* This loop is a scalability bug.  It should not be necessary to
      * recreate the manifest for all teams when uploading a single team.
-     * But team creation should be infrequent, so it's not urgent.
+     * But team creation should be infrequent, so it's not high priority.
      * Could be made incremental at non-trivial cost in code
      * complexity. */
     var teams_manifest = {};
