@@ -62,12 +62,19 @@ var downloadFile = async( 'Download', function *( scp, log, user, path, isText )
 
 function uploadToTeam( cloud, team, scp )
 {
-    return ( [ p, c, t ] ) =>
-        { return uploadFile( scp, cloud, [ 'Teams', team ].concat( p ) , c, t ); }
+    return ( [ path, content, type ] ) =>
+        { return uploadFile( scp,
+                             cloud,
+                             [ 'Teams', team ].concat( path ),
+                             content,
+                             type ); }
 }
 
 function downloadFromTeam( cloud, team, scp )
 {
-    return ( [ p, t ] ) =>
-        { return downloadFile( scp, cloud, [ 'Teams', team ].concat( p ), t ); }
+    return ( [ path, type ] ) =>
+        { return downloadFile( scp,
+                               cloud,
+                               [ 'Teams', team ].concat( path ),
+                               type ); }
 }

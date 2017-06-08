@@ -162,3 +162,20 @@ DB.query = function( db, q )
     db.txns.map( eatTxns );
     return datoms;
 }
+
+var DB.readFromCloud = async( 'DB.readFromCloud', function *(
+    scp, log, download, decrypt ) {
+    var txn_pointer_encrypted = yield download( [ 'Data', 'Txns' ] );
+    var txn_pointer_encoded   = yield decrypt( txn_pointer_encrypted );
+    var txn_pointer           =       JSON.parse( decode( txn_pointer_encoded ) );
+    var filename = txn_pointer.filename;
+    var txns = [];
+    do {
+        var txn_encrypted = yield download( [ 'Data', filename ] );
+        var txn_encoded   = yield decrypt( txn_encrypted );
+        var txn           =       JSON.parse( decode( txn_encoded ) );
+        filename          = txn.n;
+        txns.push( txn );
+    } while( filename );
+    return txns;
+} );

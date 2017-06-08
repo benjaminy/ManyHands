@@ -14,9 +14,11 @@ function getRandomBytes( num_bytes )
     return x;
 }
 
+/* NOTE: No reason to iterate in this function, because of races.  There
+ * will always need to be an "outer" loop. */
 var randomName = function( num_chars, encoding, prefix, suffix )
 {
-    var NUM_CHARS      = num_chars | 18;
+    var CHARS_PER_NAME = num_chars | 18;
     var ENCODING       = encoding  | 'base32crock';
     var PREFIX         = prefix    | 'F';
     var SUFFIX         = suffix    | '.data';
@@ -27,6 +29,27 @@ var randomName = function( num_chars, encoding, prefix, suffix )
     var NUM_CHARS      = ALPHABET.length;
     var WORD_SIZE      = 32;
     var CHARS_PER_WORD = 6; /* XXX should be computed from WORD_SIZE and NUM_CHARS */
+    var WORDS_PER_NAME = Math.ceil( CHARS_PER_NAME / CHARS_PER_WORD );
+    var WORDS          = new Uint32Array( WORDS_PER_NAME );
+
+    window.crypto.getRandomValues( WORDS );
+
+    var chars_left     = 0;
+    var name           = '';
+    var word;
+
+    for( var i = 0; i < CHARS_PER_NAME; i++ )
+    {
+        if( chars_left < 1 ) {
+            word = WORDS[ Math.floor( i / CHARS_PER_WORD ) ];
+            chars_left = CHARS_PER_WORD;
+        }
+        name       += ALPHABET  [ word % NUM_CHARS ];
+        word        = Math.floor( word / NUM_CHARS );
+        chars_left -= 1;
+    }
+
+    return PREFIX + name + SUFFIX;
 }
 
 function encodeDecodeFunctions( encoding )
