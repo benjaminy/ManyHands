@@ -14,6 +14,21 @@ function getRandomBytes( num_bytes )
     return x;
 }
 
+var randomName = function( num_chars, encoding, prefix, suffix )
+{
+    var NUM_CHARS      = num_chars | 18;
+    var ENCODING       = encoding  | 'base32crock';
+    var PREFIX         = prefix    | 'F';
+    var SUFFIX         = suffix    | '.data';
+    var ALPHABETS      = {
+        base32crock : '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+    };
+    var ALPHABET       = ALPHABETS[ encoding ];
+    var NUM_CHARS      = ALPHABET.length;
+    var WORD_SIZE      = 32;
+    var CHARS_PER_WORD = 6; /* XXX should be computed from WORD_SIZE and NUM_CHARS */
+}
+
 function encodeDecodeFunctions( encoding )
 {
     var encoder = new TextEncoder( encoding );
