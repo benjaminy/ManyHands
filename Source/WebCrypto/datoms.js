@@ -180,47 +180,43 @@ var DB.readFromCloud = async( 'DB.readFromCloud', function *(
     return txns;
 } );
 
-DB.ident       = Symbol( ':db/ident' );
-DB.doc         = Symbol( ':db/doc' );
-DB.index       = Symbol( ':db/index' );
-DB.fulltext    = Symbol( ':db/fulltext' );
-DB.noHistory   = Symbol( ':db/noHistory' );
-DB.isComponent = Symbol( ':db/isComponent' );
+DB.ident       = keyword( ':db/ident' );
+DB.doc         = keyword( ':db/doc' );
+DB.index       = keyword( ':db/index' );
+DB.fulltext    = keyword( ':db/fulltext' );
+DB.noHistory   = keyword( ':db/noHistory' );
+DB.isComponent = keyword( ':db/isComponent' );
 
-DB.cardinalityAttr = Symbol( ':db/cardinalityAttr' );
+DB.cardinalityAttr = keyword( ':db/cardinalityAttr' );
 DB.cardinality = {};
-DB.cardinality.one  = Symbol( ':db.cardinality/one' );
-DB.cardinality.many = Symbol( ':db.cardinality/many' );
+DB.cardinality.one  = keyword( ':db.cardinality/one' );
+DB.cardinality.many = keyword( ':db.cardinality/many' );
 DB.cardinalities = new Set( [ DB.cardinality.one, DB.cardinality.many ] );
 
-DB.valueType = Symbol( ':db/valueType' );
+DB.valueType = keyword( ':db/valueType' );
 DB.type = {}
-DB.type.keyword = Symbol( ':db.type/keyword' ); // interned
-DB.type.string  = Symbol( ':db.type/string' );  // encoding???
-DB.type.boolean = Symbol( ':db.type/boolean' );
-DB.type.long    = Symbol( ':db.type/long' );    // stupid JS numbers
-DB.type.bigint  = Symbol( ':db.type/bigint' );  // library???
-DB.type.float   = Symbol( ':db.type/float' );   // stupid JS numbers
-DB.type.double  = Symbol( ':db.type/double' );  // yay JS numbers!
-DB.type.bigdec  = Symbol( ':db.type/bigdec' );  // library???
-DB.type.ref     = Symbol( ':db.type/ref' );
-DB.type.instant = Symbol( ':db.type/ref' );     // library???
-DB.type.uuid    = Symbol( ':db.type/uuid' );    // library???
-DB.type.bytes   = Symbol( ':db.type/uuid' );    // huh.
+DB.type.keyword = keyword( ':db.type/keyword' ); // interned
+DB.type.string  = keyword( ':db.type/string' );  // encoding???
+DB.type.boolean = keyword( ':db.type/boolean' );
+DB.type.long    = keyword( ':db.type/long' );    // stupid JS numbers
+DB.type.bigint  = keyword( ':db.type/bigint' );  // library???
+DB.type.float   = keyword( ':db.type/float' );   // stupid JS numbers
+DB.type.double  = keyword( ':db.type/double' );  // yay JS numbers!
+DB.type.bigdec  = keyword( ':db.type/bigdec' );  // library???
+DB.type.ref     = keyword( ':db.type/ref' );
+DB.type.instant = keyword( ':db.type/ref' );     // library???
+DB.type.uuid    = keyword( ':db.type/uuid' );    // library???
+DB.type.bytes   = keyword( ':db.type/uuid' );    // huh.
 DB.types = new Set( [
     DB.type.keyword, DB.type.string, DB.type.boolean, DB.type.long, DB.type.bigint,
     DB.type.float, DB.type.double, DB.type.bigdec, DB.type.ref, DB.type.instant,
     DB.type.uuid, DB.type.bytes ] );
 
-DB.uniqueAttr = Symbol( ':db/unique' );
+DB.uniqueAttr = keyword( ':db/unique' );
 DB.unique = {}
-DB.unique.value    = Symbol( ':db.unique/value' );
-DB.unique.identity = Symbol( ':db.unique/identity' );
+DB.unique.value    = keyword( ':db.unique/value' );
+DB.unique.identity = keyword( ':db.unique/identity' );
 DB.uniques = new Set( [ DB.unique.value, DB.unique.identity ] );
-
-/* :name  -or-  :namespace/name  -or-  :namespace.namespace/name  ... */
-/* \w may not be the right choice here.  It's fine for now, though. */
-DB.keyword_regex = /^:\w+(?:(?:\.\w+)*\/\w+)?$/;
 
 DB.makeAttribute( ident, valueType, cardinality,
                   doc, unique, index, fulltext, noHistory, isComponent )
@@ -228,35 +224,38 @@ DB.makeAttribute( ident, valueType, cardinality,
     attr = {};
     if( !DB.keyword_regex.test( ident ) )
         throw new Error( 'Bad ident keyword '+ident );
-    attr[ DB.ident ] = ident;
+    attr[ DB.ident.idx ] = ident;
 
     if( !DB.types.has( valueType ) )
         throw new Error( 'Bad valueType '+valueType.toString() );
-    attr[ DB.valueType ] = valueType;
+    attr[ DB.valueType.idx ] = valueType;
 
     if( !DB.cardinalities.has( cardinality ) )
         throw new Error( 'Bad cardinality '+cardinality.toString() );
-    attr[ DB.cardinality ] = cardinality;
+    attr[ DB.cardinality.idx ] = cardinality;
 
     if( doc )
-        attr[ DB.doc ] = doc.toString();
+        attr[ DB.doc.idx ] = doc.toString();
 
     if( DB.uniques.has( unique ) )
-        attr[ DB.uniqueAttr ] = unique;
+        attr[ DB.uniqueAttr.idx ] = unique;
 
     if( index === true || index === false )
-        attr[ DB.index ] = index;
+        attr[ DB.index.idx ] = index;
 
     if( fulltext === true || fulltext === false )
-        attr[ DB.fulltext ] = fulltext;
+        attr[ DB.fulltext.idx ] = fulltext;
 
     if( noHistory === true || noHistory === false )
-        attr[ DB.noHistory ] = noHistory;
+        attr[ DB.noHistory.idx ] = noHistory;
 
     if( isComponent === true || isComponent === false )
-        attr[ DB.isComponent ] = isComponent;
+        attr[ DB.isComponent.idx ] = isComponent;
 
 }
+
+var example = [ DB.find, '?e', '?x',
+                DB.where, [ '?e', ':age', '42' ], [ '?e', ':likes', '?x' ] ]
 
 :db/doc specifies a documentation string.
 :db/unique - specifies a uniqueness constraint for the values of an attribute. Setting an attribute :db/unique also implies :db/index. The values allowed for :db/unique are:
@@ -316,5 +315,15 @@ DB.Query.findTuple = function( TODO )
 DB.Query.variable = function( name )
 {
     return { vname: name };
+}
+
+DB.Query.exprClause = function( param )
+{
+    
+}
+
+DB.Query.dataPattern = function( params )
+{
+    
 }
 

@@ -333,6 +333,52 @@ var handleServerError = async( null, function *( scp, log, msg, resp )
     throw new ServerError( msg, resp.statusText + ' ' + t, scp );
 } );
 
+/* :name  -or-  :namespace/name  -or-  :namespace.namespace/name  ... */
+/* \w may not be the right choice here.  It's fine for now, though. */
+keyword_regex = /^:\w+(?:(?:\.\w+)*\/\w+)?$/;
+keyword_trie = {};
+keyword_intern = [];
+keyword_token = Symbol();
+
+/* TODO: Convert from a vanilla trie to a compressed version */
+var keyword = function( k )
+{
+    if( !keyword_regex.test( k ) )
+        throw new Error( 'Bad keyword '+k );
+    var trie = keyword_trie;
+    for( var i = 0; i < k.length; i++ )
+    {
+        if( !trie.hasOwnProperty( k[ i ] ) )
+        {
+            trie[ k[ i ] ] = {};
+        }
+        trie = trie[ k[ i ] ];
+    }
+    if( trie.hasOwnProperty( 'key' ) )
+    {
+        return trie.key;
+    }
+    var key = {};
+    key.idx = keyword_intern.length;
+    key.toString = function() { return keyword_intern[ this.idx ]; }
+    key.token    = keyword_token;
+    keyword_intern.push( k );
+    trie.key = key;
+    return key;
+}
+
+var isKeyword = function( k )
+{
+    try
+    {
+        return k.token == keyword_token;
+    }
+    catch( err )
+    {
+        return false;
+    }
+}
+
 /* Graveyard */
 
 //     sessionStorage.setItem( 'filePort', p );
