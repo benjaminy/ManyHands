@@ -180,6 +180,107 @@ var DB.readFromCloud = async( 'DB.readFromCloud', function *(
     return txns;
 } );
 
+DB.ident       = Symbol( ':db/ident' );
+DB.doc         = Symbol( ':db/doc' );
+DB.index       = Symbol( ':db/index' );
+DB.fulltext    = Symbol( ':db/fulltext' );
+DB.noHistory   = Symbol( ':db/noHistory' );
+DB.isComponent = Symbol( ':db/isComponent' );
+
+DB.cardinalityAttr = Symbol( ':db/cardinalityAttr' );
+DB.cardinality = {};
+DB.cardinality.one  = Symbol( ':db.cardinality/one' );
+DB.cardinality.many = Symbol( ':db.cardinality/many' );
+DB.cardinalities = new Set( [ DB.cardinality.one, DB.cardinality.many ] );
+
+DB.valueType = Symbol( ':db/valueType' );
+DB.type = {}
+DB.type.keyword = Symbol( ':db.type/keyword' ); // interned
+DB.type.string  = Symbol( ':db.type/string' );  // encoding???
+DB.type.boolean = Symbol( ':db.type/boolean' );
+DB.type.long    = Symbol( ':db.type/long' );    // stupid JS numbers
+DB.type.bigint  = Symbol( ':db.type/bigint' );  // library???
+DB.type.float   = Symbol( ':db.type/float' );   // stupid JS numbers
+DB.type.double  = Symbol( ':db.type/double' );  // yay JS numbers!
+DB.type.bigdec  = Symbol( ':db.type/bigdec' );  // library???
+DB.type.ref     = Symbol( ':db.type/ref' );
+DB.type.instant = Symbol( ':db.type/ref' );     // library???
+DB.type.uuid    = Symbol( ':db.type/uuid' );    // library???
+DB.type.bytes   = Symbol( ':db.type/uuid' );    // huh.
+DB.types = new Set( [
+    DB.type.keyword, DB.type.string, DB.type.boolean, DB.type.long, DB.type.bigint,
+    DB.type.float, DB.type.double, DB.type.bigdec, DB.type.ref, DB.type.instant,
+    DB.type.uuid, DB.type.bytes ] );
+
+DB.uniqueAttr = Symbol( ':db/unique' );
+DB.unique = {}
+DB.unique.value    = Symbol( ':db.unique/value' );
+DB.unique.identity = Symbol( ':db.unique/identity' );
+DB.uniques = new Set( [ DB.unique.value, DB.unique.identity ] );
+
+/* :name  -or-  :namespace/name  -or-  :namespace.namespace/name  ... */
+/* \w may not be the right choice here.  It's fine for now, though. */
+DB.keyword_regex = /^:\w+(?:(?:\.\w+)*\/\w+)?$/;
+
+DB.makeAttribute( ident, valueType, cardinality,
+                  doc, unique, index, fulltext, noHistory, isComponent )
+{
+    attr = {};
+    if( !DB.keyword_regex.test( ident ) )
+        throw new Error( 'Bad ident keyword '+ident );
+    attr[ DB.ident ] = ident;
+
+    if( !DB.types.has( valueType ) )
+        throw new Error( 'Bad valueType '+valueType.toString() );
+    attr[ DB.valueType ] = valueType;
+
+    if( !DB.cardinalities.has( cardinality ) )
+        throw new Error( 'Bad cardinality '+cardinality.toString() );
+    attr[ DB.cardinality ] = cardinality;
+
+    if( doc )
+        attr[ DB.doc ] = doc.toString();
+
+    if( DB.uniques.has( unique ) )
+        attr[ DB.uniqueAttr ] = unique;
+
+    if( index === true || index === false )
+        attr[ DB.index ] = index;
+
+    if( fulltext === true || fulltext === false )
+        attr[ DB.fulltext ] = fulltext;
+
+    if( noHistory === true || noHistory === false )
+        attr[ DB.noHistory ] = noHistory;
+
+    if( isComponent === true || isComponent === false )
+        attr[ DB.isComponent ] = isComponent;
+
+}
+
+:db/doc specifies a documentation string.
+:db/unique - specifies a uniqueness constraint for the values of an attribute. Setting an attribute :db/unique also implies :db/index. The values allowed for :db/unique are:
+  :db.unique/value - only one entity can have a given value for this attribute. Attempts to assert a duplicate value for the same attribute for a different entity id will fail. More documentation on unique values is available here.
+  :db.unique/identity - only one entity can have a given value for this attribute and "upsert" is enabled; attempts to insert a duplicate value for a temporary entity id will cause all attributes associated with that temporary id to be merged with the entity already in the database. More documentation on unique identities is available here.
+:db/unique defaults to nil.
+
+:db/index specifies a boolean value indicating that an index should be generated for this attribute. Defaults to false.
+:db/fulltext specifies a boolean value indicating that an eventually consistent fulltext search index should be generated for the attribute. Defaults to false.
+Fulltext search is constrained by several defaults (which cannot be altered): searches are case insensitive, remove apostrophe or apostrophe and s sequences, and filter out the following common English stop words:
+
+"a", "an", "and", "are", "as", "at", "be", "but", "by",
+"for", "if", "in", "into", "is", "it",
+"no", "not", "of", "on", "or", "such",
+"that", "the", "their", "then", "there", "these",
+"they", "this", "to", "was", "will", "with"
+
+:db/isComponent specifies a boolean value indicating that an attribute whose type is :db.type/ref refers to a subcomponent of the entity to which the attribute is applied. When you retract an entity with :db.fn/retractEntity, all subcomponents are also retracted. When you touch an entity, all its subcomponent entities are touched recursively. Defaults to false.
+
+:db/noHistory specifies a boolean value indicating whether past values of an attribute should not be retained. Defaults to false.
+The purpose of :db/noHistory is to conserve storage, not to make semantic guarantees about removing information. The
+
+}
+
 
 DB.Query = {};
 
