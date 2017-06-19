@@ -173,6 +173,9 @@ return async_local( scp, 'Team', function *( scp, log, team_dir )
     // assert( datoms.length == 1 )
     team.name = datoms[ 0 ].v;
     function stripPrefix( prefix, s ) { return s.substring( prefix.length ); }
+
+    /* [ :find ?t
+         :where [ _ :team/teammate ?t ]  ]  */
     datoms = DB.query( team.db, 'teammate:' );
     // assert( datoms.length > 0 )
     var ids = {}
