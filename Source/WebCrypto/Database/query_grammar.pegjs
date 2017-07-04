@@ -107,15 +107,15 @@ RuleVars
     / "[" _ "[" _ VariableList _ "]" _ VariableList _ "]" {}
 
 ClauseAndClauseList
-    = ClauseAndClause __ ClauseAndClauseList {}
-    / ClauseAndClause                     {}
+    = c:ClauseAndClause __ l:ClauseAndClauseList { l.unshift( c ); return l; }
+    / c:ClauseAndClause                          { return [ c ]; }
 
 ClauseAndClause
-    = Clause    {}
-    / AndClause {}
+    = c:Clause    { return c; }
+    / c:AndClause { return c; }
 
 AndClause
-    = "[" _ "and" _ ClauseList _ "]" {}
+    = "[" _ "and" _ l:ClauseList _ "]" { return { clause_type:'and-clause', clauses:l }; }
 
 RuleArgList
     = r:RuleArg __ l:RuleArgList { l.unshift( r ); return l; }

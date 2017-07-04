@@ -67,6 +67,31 @@ DB.buildFnStmt = function( f )
              fn   : f };
 }
 
+DB.addDbFunction( db, name, params, body )
+{
+    /* TODO: validate input */
+    var f = 'DB.db_functions[ '+name+' ] = function( 'params.join( ',' ) + ' ) { ' + body + ' }';
+    /* DEBUG: log f */
+    eval( f );
+}
+
+example = '[ "p1", "p2", "p3" ] {  }';
+
+DB.callDbFunction();
+
+DB.buildDbFunctionTxn( name, params, body )
+{
+    /* TODO: validate input */
+    datoms = {
+        keyword( ':DB/functionName' ) : name;
+        keyword( ':DB/functionBody' ) : body;
+    }
+    params.forEach( function( p ) {
+        keyword( ':DB/functionParam' ) : p;
+    } );
+    return buildMapStmt( 'fn', datoms );
+}
+
 DB.prepareTxn = function*( db, txn )
 {
     /* assert( typeof( db )  == database ) */
@@ -104,6 +129,7 @@ DB.prepareTxn = function*( db, txn )
         }
         else if( stmt.form == TXN_STMT_FORM_RETRACT ) {
             var entity_id = getEntity( stmt );
+            /* Check that v is e's value for attribute a? */
             acc.datoms.push( { e: entity_id, a: stmt.attribute, v: stmt.value, r: true } );
             return acc;
         }

@@ -1,5 +1,5 @@
 /*
- *
+ * Top Matter
  */
 
 /* Returns a Promise that resolves to the user object */
@@ -16,6 +16,7 @@ var register = async( 'Register', function *( scp, log, uid, passwd )
         yield submitRegistrationInfo( scp, user );
     }
     catch( err ) {
+        log( 'Registration with central server failed', err );
         // TODO clean up cloud account
     }
     log( 'Exit', uid );

@@ -233,6 +233,7 @@ var initTeamState = async( 'Init', function *( scp, log, user, team_name )
     team.key_priv_dh_exported = yield exportKeyJwk( team.key_priv_dh );
     team.key_verify_exported  = yield exportKeyJwk( team.key_verify );
     team.key_signing_exported = yield exportKeyJwk( team.key_signing );
+    team.txns = [ txn ];
     return team;
 } );
 
