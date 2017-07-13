@@ -16,7 +16,9 @@ DB.new = function( team )
         team           : team,
         datoms         : [],
         cloud_head     : null,
-        next_entity_id : 0
+        next_entity_id : 0,
+        attributes     : {},
+        functions      : {}
     };
 }
 
@@ -27,45 +29,15 @@ DB.new_entity = function( db )
     return rv;
 }
 
-DB.buildAddStmt = function( e, a, v )
-{
-    /* TODO: error-check parameters */
-    var stmt = { form     : TXN_STMT_FORM_ADD,
-                 attribute: a,
-                 value    : v };
-    if( e )
-        stmt.entity = e;
-    return stmt;
-}
 
-DB.buildMapStmt = function( e, avs )
-{
-    /* TODO: error-check parameters */
-    var stmt = { form : TXN_STMT_FORM_ADD,
-                 avs  : avs };
-    if( e )
-        stmt.entity = e;
-    return stmt;
-}
+/*
+ * Transaction statements are arrays of one of the following shapes:
+ * [ TXN_STMT_ADD,     e, a, v ]
+ * [ TXN_STMT_MAP,     e, avs ]
+ * [ TXN_STMT_RETRACT, e, a, v ]
+ * [ TXN_STMT_FN,      fn-keyword, p1, p2, p3, ... ]
+ */
 
-DB.buildRetractStmt = function( e, a, v )
-{
-    /* TODO: error-check parameters */
-    var stmt = { form     : TXN_STMT_FORM_RETRACT,
-                 attribute: a,
-                 value    : v };
-    if( e )
-        stmt.entity = e;
-    return stmt;
-}
-
-/* Totally broken, because of serialization */
-DB.buildFnStmt = function( f )
-{
-    /* TODO: error-check parameters */
-    return { form : TXN_STMT_FORM_FN,
-             fn   : f };
-}
 
 DB.addDbFunction( db, name, params, body )
 {
@@ -92,7 +64,9 @@ DB.buildDbFunctionTxn( name, params, body )
     return buildMapStmt( 'fn', datoms );
 }
 
-DB.prepareTxn = function*( db, txn )
+/* Input: an array of txn statements
+ * Output: either raise an exception, or return an array of datoms */
+DB.processTxn = function*( db, txn )
 {
     /* assert( typeof( db )  == database ) */
     /* assert( typeof( txn ) == array of statements ) */
@@ -101,44 +75,45 @@ DB.prepareTxn = function*( db, txn )
     var temp_ids = {};
 
     function getEntity( stmt ) {
-        try {
-            var e = stmt.entity;
+        if( stmt[ 1 ] )
+        {
+            var e = stmt[ 1 ];
             if( Number.isInteger( e ) )
             {
                 /* TODO: check that e is a valid entity id */
                 return e;
             }
-            if( e in temp_ids )
+            /* else: */ if( e in temp_ids )
             {
                 return temp_ids[ e ];
             }
+            /* else: */
             var eid = DB.new_entity( db );
             temp_ids[ e ] = eid;
             return eid
         }
-        catch( err ) {
+        else
+        {
             return DB.new_entity( db );
         }
     }
 
     function processStmt( stmt, i ) {
-        if( stmt.form == TXN_STMT_FORM_ADD ) {
+        if( stmt[ 0 ] == TXN_STMT_FORM_ADD ) {
             var entity_id = getEntity( stmt );
-            acc.datoms.push( { e: entity_id, a: stmt.attribute, v: stmt.value } );
-            return acc;
+            
+            datoms.push( { e: entity_id, a: stmt.attribute, v: stmt.value } );
         }
         else if( stmt.form == TXN_STMT_FORM_RETRACT ) {
             var entity_id = getEntity( stmt );
             /* Check that v is e's value for attribute a? */
-            acc.datoms.push( { e: entity_id, a: stmt.attribute, v: stmt.value, r: true } );
-            return acc;
+            datoms.push( { e: entity_id, a: stmt.attribute, v: stmt.value, r: true } );
         }
         else if( stmt.form == TXN_STMT_FORM_MAP ) {
             var entity_id = getEntity( stmt );
             stmt.avs.forEach( function( [ a, v ] ) {
-                acc.datoms.push( { e: entity_id, a: a, v: v } );
+                datoms.push( { e: entity_id, a: a, v: v } );
             } );
-            return acc;
         }
         else if( stmt.form == TXN_STMT_FORM_FN ) {
             stmt.fn( acc );

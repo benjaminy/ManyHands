@@ -343,6 +343,11 @@ keyword_token = Symbol();
 /* TODO: Convert from a vanilla trie to a compressed version */
 var keyword = function( k )
 {
+    if( 'idx' in k && 'toString' in k && 'token' in k )
+    {
+        /* convenience: if k is already a keyword, just return it. */
+        return k;
+    }
     if( !keyword_regex.test( k ) )
         throw new Error( 'Bad keyword '+k );
     var trie = keyword_trie;
