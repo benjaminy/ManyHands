@@ -35,7 +35,7 @@ DB.new_entity = function( db )
  * [ TXN_STMT_ADD,     e, a, v ]
  * [ TXN_STMT_MAP,     e, avs ]
  * [ TXN_STMT_RETRACT, e, a, v ]
- * [ TXN_STMT_FN,      fn-keyword, p1, p2, p3, ... ]
+ * [ TXN_STMT_FN,      fn-name (keyword), p1, p2, p3, ... ]
  */
 
 
@@ -74,10 +74,9 @@ DB.processTxn = function*( db, txn )
     var datoms = [];
     var temp_ids = {};
 
-    function getEntity( stmt ) {
-        if( stmt[ 1 ] )
+    function getEntity( e ) {
+        if( e )
         {
-            var e = stmt[ 1 ];
             if( Number.isInteger( e ) )
             {
                 /* TODO: check that e is a valid entity id */
@@ -98,25 +97,38 @@ DB.processTxn = function*( db, txn )
         }
     }
 
+    function addDatom( e, a, v )
+    {
+        var attribute = db.getAttribute( a );
+        var value     = db.checkValue( attribute, v );
+        datoms.push( [ e, attribute, value ] );
+    }
+
     function processStmt( stmt, i ) {
         if( stmt[ 0 ] == TXN_STMT_FORM_ADD ) {
-            var entity_id = getEntity( stmt );
-            
-            datoms.push( { e: entity_id, a: stmt.attribute, v: stmt.value } );
+            addDatom( getEntity( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
         }
-        else if( stmt.form == TXN_STMT_FORM_RETRACT ) {
-            var entity_id = getEntity( stmt );
+        else if( stmt[ 0 ] == TXN_STMT_FORM_RETRACT ) {
+            var e = getEntity( stmt[ 1 ] );
+            var attribute = db.getAttribute( stmt[ 2 ] );
+            var value     = db.checkValue( attribute, stmt[ 3 ] );
             /* Check that v is e's value for attribute a? */
-            datoms.push( { e: entity_id, a: stmt.attribute, v: stmt.value, r: true } );
+            datoms.push( [ e, attribute, value, true ] );
         }
-        else if( stmt.form == TXN_STMT_FORM_MAP ) {
-            var entity_id = getEntity( stmt );
-            stmt.avs.forEach( function( [ a, v ] ) {
-                datoms.push( { e: entity_id, a: a, v: v } );
+        else if( stmt[ 0 ] == TXN_STMT_FORM_MAP ) {
+            var e = getEntity( stmt[ 1 ] );
+            stmt[ 2 ].forEach( function( [ a, v ] ) {
+                addDatom( e, a, v );
             } );
         }
-        else if( stmt.form == TXN_STMT_FORM_FN ) {
-            stmt.fn( acc );
+        else if( stmt[ 0 ] == TXN_STMT_FORM_FN ) {
+            var f = db.functions[ keyword( stmt[ 1 ] ).idx ];
+            stmt.shift(); // remove statement kind
+            stmt.shift(); // remove function name
+            var fn_datoms = f.fn.apply( db, stmt );
+            fn_datoms.forEach( function( [ e, a, v ] ) {
+                addDatom( getEntity( e ), a, v );
+            } );
         }
         else {
             throw new Error( 'malformed stmt' );
