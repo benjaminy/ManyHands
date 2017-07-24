@@ -64,6 +64,69 @@ DB.buildDbFunctionTxn( name, params, body )
     return buildMapStmt( 'fn', datoms );
 }
 
+DB.getAttribute( attr )
+{
+    return this.attributes[ keyword( attr ).idx ];
+}
+
+DB.checkValue( attribute, value )
+{
+    var attr = keyword( attribute.valueType );
+    if( attr === DB.type.keyword )
+        var v = keyword( value );
+    else if( attr === DB.type.string )
+        var v = value.toString();
+    else if( attr === DB.type.boolean )
+    {
+        if( value === true || value === false )
+            var v = value;
+        else
+            throw new Error( 'TODO' );
+    }
+    /* XXX stupid JavaScript numbers! */
+    else if( attr === DB.type.long )
+    {
+        if( Number.isInteger( value ) )
+            var v = value;
+        else
+            throw new Error( 'TODO' );
+    }
+    else if( attr === DB.type.bigint )
+        throw new Error( 'Unimplemented' );
+    else if( attr === DB.type.float )
+    {
+        if( Number.isInteger( value ) )
+            var v = value;
+        else
+            throw new Error( 'TODO' );
+    }
+
+
+    :db.type/float
+    :db.type/double
+    :db.type/bigdec
+    :db.type/ref
+    :db.type/instant
+    :db.type/uuid
+    :db.type/uri
+    :db.type/bytes
+
+
+:db/cardinality specifies whether an attribute associates a single value or a set of values with an entity. The values allowed for :db/cardinality are:
+:db.cardinality/one - the attribute is single valued, it associates a single value with an entity
+
+:db.cardinality/many - the attribute is multi valued, it associates a set of values with an entity
+
+Transactions can add or retract individual values for multi-valued attributes.
+
+
+:db/unique - specifies a uniqueness constraint for the values of an attribute. Setting an attribute :db/unique also implies :db/index. The values allowed for :db/unique are:
+:db.unique/value - only one entity can have a given value for this attribute. Attempts to assert a duplicate value for the same attribute for a different entity id will fail. More documentation on unique values is available here.
+:db.unique/identity - only one entity can have a given value for this attribute and "upsert" is enabled; attempts to insert a duplicate value for a temporary entity id will cause all attributes associated with that temporary id to be merged with the entity already in the database. More documentation on unique identities is available here.
+:db/unique defaults to nil.
+    
+}
+
 /* Input: an array of txn statements
  * Output: either raise an exception, or return an array of datoms */
 DB.processTxn = function*( db, txn )
@@ -105,23 +168,23 @@ DB.processTxn = function*( db, txn )
     }
 
     function processStmt( stmt, i ) {
-        if( stmt[ 0 ] == TXN_STMT_FORM_ADD ) {
+        if( stmt[ 0 ] === TXN_STMT_FORM_ADD ) {
             addDatom( getEntity( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
         }
-        else if( stmt[ 0 ] == TXN_STMT_FORM_RETRACT ) {
+        else if( stmt[ 0 ] === TXN_STMT_FORM_RETRACT ) {
             var e = getEntity( stmt[ 1 ] );
             var attribute = db.getAttribute( stmt[ 2 ] );
             var value     = db.checkValue( attribute, stmt[ 3 ] );
             /* Check that v is e's value for attribute a? */
             datoms.push( [ e, attribute, value, true ] );
         }
-        else if( stmt[ 0 ] == TXN_STMT_FORM_MAP ) {
+        else if( stmt[ 0 ] === TXN_STMT_FORM_MAP ) {
             var e = getEntity( stmt[ 1 ] );
             stmt[ 2 ].forEach( function( [ a, v ] ) {
                 addDatom( e, a, v );
             } );
         }
-        else if( stmt[ 0 ] == TXN_STMT_FORM_FN ) {
+        else if( stmt[ 0 ] === TXN_STMT_FORM_FN ) {
             var f = db.functions[ keyword( stmt[ 1 ] ).idx ];
             stmt.shift(); // remove statement kind
             stmt.shift(); // remove function name
