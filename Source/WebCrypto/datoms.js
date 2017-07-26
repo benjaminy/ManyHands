@@ -69,63 +69,75 @@ DB.getAttribute( attr )
     return this.attributes[ keyword( attr ).idx ];
 }
 
-DB.checkValue( attribute, value )
+/*
+ * Convert "value" into the proper kind of value, as indicated by
+ * "attribute".valueType.
+ *
+ * If value is already the proper kind, just return value.
+ *
+ * If conversion is not possible (i.e. the input is bad), raise an Error.
+ */
+DB.normalizeValue( attribute, value )
 {
-    var attr = keyword( attribute.valueType );
-    if( attr === DB.type.keyword )
+    var vType = keyword( attribute.valueType );
+    if( vType === DB.type.bigint )
+        throw new Error( 'Unimplemented' );
+
+    else if( vType === DB.type.float )
+        throw new Error( 'Unimplemented' );
+
+    else if( vType === DB.type.instant )
+        throw new Error( 'Unimplemented' );
+
+    else if( vType === DB.type.uuid )
+        throw new Error( 'Unimplemented' );
+
+    else if( vType === DB.type.uri )
+        throw new Error( 'Unimplemented' );
+
+    else if( vType === DB.type.bytes )
+        throw new Error( 'Unimplemented' );
+
+    else if( vType === DB.type.keyword )
         var v = keyword( value );
-    else if( attr === DB.type.string )
+
+    else if( vType === DB.type.double )
+        var v = 0.0 + value;
+
+    else if( vType === DB.type.string )
         var v = value.toString();
-    else if( attr === DB.type.boolean )
+
+    else if( vType === DB.type.boolean )
     {
         if( value === true || value === false )
             var v = value;
         else
             throw new Error( 'TODO' );
     }
-    /* XXX stupid JavaScript numbers! */
-    else if( attr === DB.type.long )
+
+    /* XXX stupid JavaScript numbers!  Only get 52 bits. */
+    else if( vType === DB.type.long )
     {
-        if( Number.isInteger( value ) )
-            var v = value;
-        else
-            throw new Error( 'TODO' );
-    }
-    else if( attr === DB.type.bigint )
-        throw new Error( 'Unimplemented' );
-    else if( attr === DB.type.float )
-    {
-        if( Number.isInteger( value ) )
-            var v = value;
-        else
+        var v = 0.0 + value;
+        if( !Number.isInteger( v ) )
             throw new Error( 'TODO' );
     }
 
+    else if( vType === DB.type.ref )
+    {
+        var v = 0.0 + value;
+        if( !Number.isInteger( v ) )
+            throw new Error( 'TODO' );
+        /* TODO: check that v is an entity in the database */
+    }
 
-    :db.type/float
-    :db.type/double
-    :db.type/bigdec
-    :db.type/ref
-    :db.type/instant
-    :db.type/uuid
-    :db.type/uri
-    :db.type/bytes
+    else
+        throw new Error( 'Invalid attribute valueType ' + vType );
 
-
-:db/cardinality specifies whether an attribute associates a single value or a set of values with an entity. The values allowed for :db/cardinality are:
-:db.cardinality/one - the attribute is single valued, it associates a single value with an entity
-
-:db.cardinality/many - the attribute is multi valued, it associates a set of values with an entity
-
-Transactions can add or retract individual values for multi-valued attributes.
-
-
-:db/unique - specifies a uniqueness constraint for the values of an attribute. Setting an attribute :db/unique also implies :db/index. The values allowed for :db/unique are:
-:db.unique/value - only one entity can have a given value for this attribute. Attempts to assert a duplicate value for the same attribute for a different entity id will fail. More documentation on unique values is available here.
-:db.unique/identity - only one entity can have a given value for this attribute and "upsert" is enabled; attempts to insert a duplicate value for a temporary entity id will cause all attributes associated with that temporary id to be merged with the entity already in the database. More documentation on unique identities is available here.
-:db/unique defaults to nil.
-    
+    return v;
 }
+
+
 
 /* Input: an array of txn statements
  * Output: either raise an exception, or return an array of datoms */
@@ -163,7 +175,35 @@ DB.processTxn = function*( db, txn )
     function addDatom( e, a, v )
     {
         var attribute = db.getAttribute( a );
-        var value     = db.checkValue( attribute, v );
+        var value     = db.normalizeValue( attribute, v );
+
+        if( attribute.unique )
+        {
+            var unique = keyword( attribute.unique );
+
+            if( unique == DB.unique.value )
+            {
+                throw new Error( 'Unimplemented' );
+            }
+
+            else if( unique == DB.unique.identity )
+            {
+                throw new Error( 'Unimplemented' );
+            }
+
+            else
+                throw new Error( 'Invalid attribute uniqueness ' + unique.toString() );
+        }
+
+        var card = keyword( attribute.cardinality );
+        if( :db.cardinality/one )
+            DB.cardinality.many
+        
+:db/cardinality
+
+:db.cardinality/many
+
+        
         datoms.push( [ e, attribute, value ] );
     }
 
@@ -174,7 +214,7 @@ DB.processTxn = function*( db, txn )
         else if( stmt[ 0 ] === TXN_STMT_FORM_RETRACT ) {
             var e = getEntity( stmt[ 1 ] );
             var attribute = db.getAttribute( stmt[ 2 ] );
-            var value     = db.checkValue( attribute, stmt[ 3 ] );
+            var value     = db.normalizeValue( attribute, stmt[ 3 ] );
             /* Check that v is e's value for attribute a? */
             datoms.push( [ e, attribute, value, true ] );
         }

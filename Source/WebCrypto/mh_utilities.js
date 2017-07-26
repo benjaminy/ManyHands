@@ -341,15 +341,33 @@ keyword_intern = [];
 keyword_token = Symbol();
 
 /* TODO: Convert from a vanilla trie to a compressed version */
+/*
+ * k can be one of three things:
+ * - A string in keyword format
+ *     Look up k in the trie.
+ *       If found, just return the keyword object
+ *       Otherwise, insert a new keyword object into the global trie and intern array
+ * - An integer
+ *     Look up k in the intern array
+ * - Already a keyword
+ *     In this case, just return k (this is a convenience)
+ */
 var keyword = function( k )
 {
-    if( 'idx' in k && 'toString' in k && 'token' in k )
-    {
-        /* convenience: if k is already a keyword, just return it. */
-        return k;
+    try {
+        if( k.token === keyword_token )
+            return k;
     }
+    catch( err ) { }
+
+    try {
+        return keyword_intern[ k ];
+    }
+    catch( err ) { }
+
     if( !keyword_regex.test( k ) )
-        throw new Error( 'Bad keyword '+k );
+        throw new Error( 'Bad keyword ' + k );
+
     var trie = keyword_trie;
     for( var i = 0; i < k.length; i++ )
     {
@@ -359,18 +377,22 @@ var keyword = function( k )
         }
         trie = trie[ k[ i ] ];
     }
+
     if( trie.hasOwnProperty( 'key' ) )
     {
         return trie.key;
     }
+
     var key = {};
     key.idx = keyword_intern.length;
-    key.toString = function() { return keyword_intern[ this.idx ]; }
-    key.token    = keyword_token;
-    keyword_intern.push( k );
+    key.str = k;
+    key.token = keyword_token;
+    keyword_intern.push( key );
     trie.key = key;
     return key;
 }
+
+var keywordByIdx
 
 var isKeyword = function( k )
 {
