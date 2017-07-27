@@ -41,7 +41,7 @@ var login = async( 'Login', function *( scp, log, uid, passwd )
 
 var getRegistrationInfo = async( 'GetReg', function *( scp, log, uid, passwd, user )
 {
-    var hashedUID = yield C.digest( 'SHA-256', encode( uid ) );
+    var hashedUID = yield C.digest( 'SHA-512', encode( uid ) );
     log( 'Hashed UID', bufToHex( hashedUID ) );
     var resp = yield fetch( '/Users/'+bufToHex( hashedUID ) );
     log( 'Fetched reg info', resp.status, resp.statusText );

@@ -23,19 +23,23 @@ var register = async( 'Register', function *( scp, log, uid, passwd )
     return user;
 } );
 
-/* Checks if the desired user name is available at the central server */
+/*
+ * Checks if the desired user name is available at the central server.
+ * There could still be a race on the user name, but might as well check
+ * before doing all the account init work.
+ */
 var checkUidAvailability = async( 'Check', function *( scp, log, uid, user )
 {
-    var h = yield C.digest( 'SHA-256', encode( uid ) );
-    user.huid = bufToHex( h );
+    user.huid = bufToHex( yield C.digest( 'SHA-512', encode( uid ) ) );
     log( 'HashedUID', user.huid, '.  Querying central server ...' );
-    var path = '/Users/'+user.huid;
+    var path = '/Users/' + user.huid;
     var resp = yield fetch( path );
     log( 'Response', resp.status, resp.statusText );
     if( resp.ok )
         throw new NameNotAvailableError( uid, scp );
     else if( resp.status != 404 )
         handleServerError( scp, path, resp );
+    /* seems "user" is available ... */
 } );
 
 /* Initializes the necessary components of a user object (mostly keys) */
@@ -58,7 +62,8 @@ var initializeUserAccount = async( 'Init', function *( scp, log, uid, passwd, us
     user.key_main_exported    = yield exportKeyJwk( user.key_main );
 } );
 
-/* Uploads a user's information to the cloud.
+/*
+ * Uploads a user's information to the cloud.
  * TODO: Currently this code assumes it is uploading a freshly minted user object.
  *   It would be nice to make a more general user info uploader that knew when things
  *   were dirty and needed to be uploaded. */
@@ -73,8 +78,27 @@ var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
 
 
     /* meta DB */
-    DB.makeAttribute( ':team/dir', valueType, cardinality,
-                      doc, unique, index, fulltext, noHistory, isComponent )
+    DB.makeAttribute(
+        ':team/dir',
+        ':db.type/string',
+        ':db.cardinality/one',
+        "The name of the directory where this user stores this team's data",
+        ':db.unique/value' );
+    DB.makeAttribute(
+        ':user.key/pub_dh',
+        ':db.type/string',
+        ':db.cardinality/one',
+        "The user's public key exchange key" );
+    DB.makeAttribute(
+        ':user.key/verify',
+        ':db.type/string',
+        ':db.cardinality/one',
+        "The user's (public) verification key" );
+    DB.makeAttribute(
+        ':user.key/priv_dh',
+        ':db.type/string',
+        ':db.cardinality/one',
+        "The user's (public) verification key" );
 
     
     var key_sign         = yield encrypt( user.key_main, user.key_signing_exported );

@@ -140,7 +140,7 @@ DB.normalizeValue( attribute, value )
 
 
 /* Input: an array of txn statements
- * Output: either raise an exception, or return an array of datoms */
+ * Output: either throw an exception, or return an array of datoms */
 DB.processTxn = function*( db, txn )
 {
     /* assert( typeof( db )  == database ) */
@@ -152,19 +152,26 @@ DB.processTxn = function*( db, txn )
     function getEntity( e ) {
         if( e )
         {
-            if( Number.isInteger( e ) )
-            {
-                /* TODO: check that e is a valid entity id */
-                return e;
-            }
-            /* else: */ if( e in temp_ids )
+            if( e in temp_ids )
             {
                 return temp_ids[ e ];
             }
+
+            /* "else" */ if( typeof( e ) === 'string' )
+            {
+                var eid = DB.new_entity( db );
+                temp_ids[ e ] = eid;
+                return eid
+            }
+
+            var eid = 0.0 + e;
+            if( !Number.isInteger( e ) )
+            {
+                throw new Error( 'Invalid entity ' + e );
+            }
             /* else: */
-            var eid = DB.new_entity( db );
-            temp_ids[ e ] = eid;
-            return eid
+            /* TODO: check that e is a valid entity id */
+            return e;
         }
         else
         {
@@ -196,14 +203,19 @@ DB.processTxn = function*( db, txn )
         }
 
         var card = keyword( attribute.cardinality );
-        if( :db.cardinality/one )
-            DB.cardinality.many
-        
-:db/cardinality
+        if( card === DB.cardinality.one )
+        {
+            /* TODO: add retract if there is an existing value */
+        }
+        else if( card === DB.cardinality.many )
+        {
+            /* TODO: nothing??? */
+        }
+        else
+        {
+            throw new Error( 'Invalid attribute cardinality ' + card.str );
+        }
 
-:db.cardinality/many
-
-        
         datoms.push( [ e, attribute, value ] );
     }
 
@@ -335,7 +347,7 @@ DB.unique.identity = keyword( ':db.unique/identity' );
 DB.uniques = new Set( [ DB.unique.value, DB.unique.identity ] );
 
 DB.makeAttribute( ident, valueType, cardinality,
-                  doc, unique, index, fulltext, noHistory, isComponent )
+                  doc, unique, index, fulltext, isComponent, noHistory )
 {
     attr = {};
     if( !DB.keyword_regex.test( ident ) )
