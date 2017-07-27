@@ -70,6 +70,13 @@ var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
     function encrypt( k, d )
     { return aes_cbc_ecdsa.encryptThenSignSalted(
         k, user.key_signing, encode( d ), scp ); }
+
+
+    /* meta DB */
+    DB.makeAttribute( ':team/dir', valueType, cardinality,
+                      doc, unique, index, fulltext, noHistory, isComponent )
+
+    
     var key_sign         = yield encrypt( user.key_main, user.key_signing_exported );
     var teams_manifest   = yield encrypt( user.key_main, '[]' );
     var invites_manifest = yield encrypt( user.key_main, '{}' );
