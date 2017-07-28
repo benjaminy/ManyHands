@@ -349,38 +349,56 @@ DB.uniques = new Set( [ DB.unique.value, DB.unique.identity ] );
 DB.makeAttribute( ident, valueType, cardinality,
                   doc, unique, index, fulltext, isComponent, noHistory )
 {
-    attr = {};
-    if( !DB.keyword_regex.test( ident ) )
-        throw new Error( 'Bad ident keyword '+ident );
-    attr[ DB.ident.idx ] = ident;
+    ident       = keyword( ident );
+    valueType   = keyword( valueType );
+    cardinality = keyword( cardinality );
+
+    attr             = {};
+    attr.ident       = ident;
+    attr.doc         = '';
+    attr.unique      = null;
+    attr.index       = false;
+    attr.fulltext    = false;
+    attr.isComponent = false;
+    attr.noHistory   = false;
+
+    /* TODO: check that ident doesn't break any naming rules */
 
     if( !DB.types.has( valueType ) )
-        throw new Error( 'Bad valueType '+valueType.toString() );
-    attr[ DB.valueType.idx ] = valueType;
+        throw new Error( 'Invalid attribute valueType: ' + valueType.str );
+    attr.valueType = valueType;
 
     if( !DB.cardinalities.has( cardinality ) )
-        throw new Error( 'Bad cardinality '+cardinality.toString() );
-    attr[ DB.cardinality.idx ] = cardinality;
+        throw new Error( 'Invalid attribute cardinality: ' + cardinality.str );
+    attr.cardinality = cardinality;
 
     if( doc )
-        attr[ DB.doc.idx ] = doc.toString();
+        attr.doc = doc.toString();
 
-    if( DB.uniques.has( unique ) )
-        attr[ DB.uniqueAttr.idx ] = unique;
+    if( unique )
+    {
+        unique = keyword( unique );
+        if( !DB.uniques.has( unique ) )
+            throw new Error( 'Invalid attribute uniqueness: ' + unique.str );
+        attr.uniqueAttr = unique;
+    }
 
     if( index === true || index === false )
-        attr[ DB.index.idx ] = index;
+        attr.index = index;
 
     if( fulltext === true || fulltext === false )
-        attr[ DB.fulltext.idx ] = fulltext;
+        attr.fulltext = fulltext;
 
     if( noHistory === true || noHistory === false )
-        attr[ DB.noHistory.idx ] = noHistory;
+        attr.noHistory = noHistory;
 
     if( isComponent === true || isComponent === false )
-        attr[ DB.isComponent.idx ] = isComponent;
+        attr.isComponent = isComponent;
 
+    return attr;
 }
+
+
 
 var example = [ DB.find, '?e', '?x',
                 DB.where, [ '?e', ':age', '42' ], [ '?e', ':likes', '?x' ] ]

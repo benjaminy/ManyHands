@@ -90,21 +90,28 @@ var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
         ':db.cardinality/one',
         "The user's public key exchange key" );
     DB.makeAttribute(
+        ':user.key/priv_dh',
+        ':db.type/string',
+        ':db.cardinality/one',
+        "The user's private key exchange key" );
+    DB.makeAttribute(
         ':user.key/verify',
         ':db.type/string',
         ':db.cardinality/one',
         "The user's (public) verification key" );
     DB.makeAttribute(
-        ':user.key/priv_dh',
+        ':user.key/sign',
         ':db.type/string',
         ':db.cardinality/one',
-        "The user's (public) verification key" );
+        "The user's (private) signing key" );
+
+    { ':user.key/priv_dh' : yield encrypt( user.key_login, user.key_priv_dh_exported ),
+      ':user.key/sign'    : yield encrypt( user.key_login, user.key_signing_exported ),
+                                        }
 
     
-    var key_sign         = yield encrypt( user.key_main, user.key_signing_exported );
     var teams_manifest   = yield encrypt( user.key_main, '[]' );
     var invites_manifest = yield encrypt( user.key_main, '{}' );
-    var key_priv_dh      = yield encrypt( user.key_login, user.key_priv_dh_exported );
     log( 'Encrypted a bunch of stuff.  Uploading ...' );
     function upload( [ p, c, t ] ) { return uploadFile( scp, user.cloud_text, p, c, t ) };
     var fs = [ [ 'key_pub_dh', user.key_pub_dh_exported, 'text/plain' ],
