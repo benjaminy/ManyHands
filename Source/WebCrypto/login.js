@@ -17,7 +17,7 @@
  * signing_pair is the primary public/private key pair for
  * signing/verification for the user.
  *
- * key_main is a symmetric key that is the workhorse for
+ * key_self is a symmetric key that is the workhorse for
  * en/decrypting personal information
  *
  * cloud is the information needed to access the user's cloud
@@ -92,10 +92,10 @@ var loginCloud = async( 'Cloud', function *( scp, log, user )
     log( 'Decrypted private D-H key' );
     user.key_priv_dh = yield importKeyPrivDH( user.key_priv_dh_exported );
     log( 'Imported private D-H key' );
-    user.key_main = yield ecdh_aesDeriveKey( user.key_pub_dh, user.key_priv_dh );
+    user.key_self = yield ecdh_aesDeriveKey( user.key_pub_dh, user.key_priv_dh );
     log( 'Downloaded signing key, manifests; derived main key' );
     function decrypt( d )
-    { return aes_cbc_ecdsa.verifyThenDecryptSalted( user.key_main, user.key_verify, d ); }
+    { return aes_cbc_ecdsa.verifyThenDecryptSalted( user.key_self, user.key_verify, d ); }
     var decrypted = yield P.all( to_decrypt.map( decrypt ) );
     log( 'Decrypted signing key, manifests' );
     /* TODO: verify the things that we skipped verifying before */
@@ -146,23 +146,23 @@ return async_local( scp, 'Team', function *( scp, log, team_dir )
     team.key_priv_dh_exported =
         decode(
             yield aes_cbc_ecdsa.verifyThenDecryptSalted(
-                user.key_main, user.key_verify,
+                user.key_self, user.key_verify,
                 yield download( [ 'key_priv_dh' ] ) ) ),
     team.key_pub_dh_exported = yield download( [ 'key_pub_dh', true ] );
     log( 'Main and decrypt keys decrypted; encrypt key downloaded' );
     team.key_priv_dh = yield importKeyPrivDH( team.key_priv_dh_exported );
     team.key_pub_dh  = yield importKeyPubDH(  team.key_pub_dh_exported );
     log( 'Main, decrypt and encrypt keys imported' );
-    team.key_main = yield ecdh_aesDeriveKey( team.key_pub_dh, team.key_priv_dh );
+    team.key_self = yield ecdh_aesDeriveKey( team.key_pub_dh, team.key_priv_dh );
     log( team_dir, 'Shared key derived' );
     var files_to_dl =
         [ [ 'key_verify', true ], [ 'key_sign' ], [ 'self_id' ], [ [ 'Data', 'data' ] ] ];
     [ team.key_verify_exported, ...files ] = yield P.all( files_to_dl.map( download ) );
     log( 'Bunch of files downloaded' );
     team.key_verify = yield importKeyVerify( team.key_verify_exported );
-    var to_decrypt = [ [ user.key_main, files[ 0 ] ],
-                       [ user.key_main, files[ 1 ] ],
-                       [ team.key_main, files[ 2 ] ] ];
+    var to_decrypt = [ [ user.key_self, files[ 0 ] ],
+                       [ user.key_self, files[ 1 ] ],
+                       [ team.key_self, files[ 2 ] ] ];
     function decrypt( [ k, d ] )
     { return aes_cbc_ecdsa.verifyThenDecryptSalted( k, user.key_verify, d ); }
     var decrypted = yield P.all( to_decrypt.map( decrypt ) );
@@ -227,8 +227,8 @@ var initTeamState = async( 'Init', function *( scp, log, user, team_name )
     team.key_priv_dh = keys_dh.privateKey;
     team.key_verify  = keys_sign.publicKey;
     team.key_signing = keys_sign.privateKey;
-    team.key_main = yield ecdh_aesDeriveKey( team.key_pub_dh, team.key_priv_dh );
-    team.key_main_exported    = yield exportKeyJwk( team.key_main );
+    team.key_self = yield ecdh_aesDeriveKey( team.key_pub_dh, team.key_priv_dh );
+    team.key_self_exported    = yield exportKeyJwk( team.key_self );
     team.key_pub_dh_exported  = yield exportKeyJwk( team.key_pub_dh );
     team.key_priv_dh_exported = yield exportKeyJwk( team.key_priv_dh );
     team.key_verify_exported  = yield exportKeyJwk( team.key_verify );
@@ -254,11 +254,11 @@ var uploadTeam = async( 'Cloud', function *( scp, log, user, team )
     { return aes_cbc_ecdsa.encryptThenSignSalted( k, user.key_signing, d ); }
     function encd_jstr(x) { return encode( JSON.stringify( x ) ) };
     var to_encrypt =
-        [ [ team.key_main, encd_jstr( team.db ) ],
-          [ user.key_main, encode( team.key_priv_dh_exported ) ],
-          [ user.key_main, encode( team.key_signing_exported ) ],
-          [ user.key_main, encd_jstr( team.self_id ) ],
-          [ user.key_main, encd_jstr( teams_manifest ) ] ];
+        [ [ team.key_self, encd_jstr( team.db ) ],
+          [ user.key_self, encode( team.key_priv_dh_exported ) ],
+          [ user.key_self, encode( team.key_signing_exported ) ],
+          [ user.key_self, encd_jstr( team.self_id ) ],
+          [ user.key_self, encd_jstr( teams_manifest ) ] ];
     var files = yield P.all( to_encrypt.map( encrypt ) );
     log( 'Encrypted files. Teams manifest:', new Uint8Array( files[ 4 ] ) );
     var teams_manifest = files[ 4 ];

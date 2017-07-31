@@ -53,13 +53,13 @@ var initializeUserAccount = async( 'Init', function *( scp, log, uid, passwd, us
     user.key_signing = keys_sg.privateKey;
     user.key_verify  = keys_sg.publicKey;
     user.key_login   = yield makeLoginKey( uid, passwd, user.login_salt );
-    user.key_main    = yield ecdh_aesDeriveKey( user.key_pub_dh, user.key_priv_dh );
+    user.key_self    = yield generateRandomAesKey();
     user.key_pub_dh_exported  = yield exportKeyJwk( user.key_pub_dh );
     user.key_priv_dh_exported = yield exportKeyJwk( user.key_priv_dh );
     user.key_signing_exported = yield exportKeyJwk( user.key_signing );
     user.key_verify_exported  = yield exportKeyJwk( user.key_verify );
     user.key_login_exported   = yield exportKeyJwk( user.key_login );
-    user.key_main_exported    = yield exportKeyJwk( user.key_main );
+    user.key_self_exported    = yield exportKeyJwk( user.key_self );
 } );
 
 /*
@@ -77,7 +77,19 @@ var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
         k, user.key_signing, encode( d ), scp ); }
 
 
-    /* meta DB */
+    root_obj = {
+        random_number  : bufToHex( getRandomBytes( 5 ) ),
+        public_key     : user.key_verify_exported,
+        public_key_idx : 1,
+        self_key       : user.key_self,
+        self_key_idx   : 3,
+        private_db_ptr : ???
+    }
+
+    var blob = encode( JSON.stringify( root_obj ) )
+    /*...*/ yield encrypt( user.key_login, blob )
+
+    /* private DB */
     DB.makeAttribute(
         ':team/dir',
         ':db.type/string',
@@ -85,15 +97,21 @@ var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
         "The name of the directory where this user stores this team's data",
         ':db.unique/value' );
     DB.makeAttribute(
+        ':team/name',
+        ':db.type/string',
+        ':db.cardinality/one',
+        "This team's name",
+        ':db.unique/value' );
+    DB.makeAttribute(
         ':user.key/pub_dh',
         ':db.type/string',
         ':db.cardinality/one',
-        "The user's public key exchange key" );
+        "The user's D-H key exchange public key" );
     DB.makeAttribute(
         ':user.key/priv_dh',
         ':db.type/string',
         ':db.cardinality/one',
-        "The user's private key exchange key" );
+        "The user's D-H key exchange private key" );
     DB.makeAttribute(
         ':user.key/verify',
         ':db.type/string',
@@ -104,14 +122,19 @@ var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
         ':db.type/string',
         ':db.cardinality/one',
         "The user's (private) signing key" );
+    DB.makeAttribute(
+        ':user.key/id',
+        ':db.type/long',
+        ':db.cardinality/one',
+        "This key's identifier; each key (or key-pair) has an arbitrary unique id" );
 
     { ':user.key/priv_dh' : yield encrypt( user.key_login, user.key_priv_dh_exported ),
       ':user.key/sign'    : yield encrypt( user.key_login, user.key_signing_exported ),
                                         }
 
     
-    var teams_manifest   = yield encrypt( user.key_main, '[]' );
-    var invites_manifest = yield encrypt( user.key_main, '{}' );
+    var teams_manifest   = yield encrypt( user.key_self, '[]' );
+    var invites_manifest = yield encrypt( user.key_self, '{}' );
     log( 'Encrypted a bunch of stuff.  Uploading ...' );
     function upload( [ p, c, t ] ) { return uploadFile( scp, user.cloud_text, p, c, t ) };
     var fs = [ [ 'key_pub_dh', user.key_pub_dh_exported, 'text/plain' ],

@@ -5,7 +5,7 @@
 	<key>ApplicationVersion</key>
 	<array>
 		<string>com.omnigroup.OmniGraffle7</string>
-		<string>179.8.0.291433</string>
+		<string>179.14.0.293243</string>
 	</array>
 	<key>CreationDate</key>
 	<string>2017-07-29 16:06:04 +0000</string>
@@ -91,7 +91,7 @@
 			<key>BackgroundGraphic</key>
 			<dict>
 				<key>Bounds</key>
-				<string>{{-747, -567}, {1984, 2018}}</string>
+				<string>{{-952, -942}, {2394, 2768}}</string>
 				<key>Class</key>
 				<string>GraffleShapes.CanvasBackgroundGraphic</string>
 				<key>ID</key>
@@ -174,15 +174,15 @@
 \deftab720
 \pard\pardeftab720\partightenfactor0
 
-\f0\fs32 \cf0 Root/\
-  login bundle \{\
+\f0\fs32 \cf0 Cloud/\
+  root \{\
     public key\
     public key idx\
     self key\
     self key idx\
     private DB pointer \
   \}\
-  login lock???\
+  root lock???\
   Private/\
     DB XYZ contains:\
       public DB pointer\
@@ -296,7 +296,7 @@
 		<key>CurrentSheet</key>
 		<integer>0</integer>
 		<key>Frame</key>
-		<string>{{-0, -0}, {1405, 877}}</string>
+		<string>{{182, 154}, {1610, 1252}}</string>
 		<key>ShowInfo</key>
 		<true/>
 		<key>ShowRuler</key>
@@ -308,7 +308,7 @@
 		<key>Sidebar_Tab</key>
 		<integer>0</integer>
 		<key>VisibleRegion</key>
-		<string>{{-1.5, 29.5}, {872, 704}}</string>
+		<string>{{-1.5, 29.5}, {1077, 1079}}</string>
 		<key>ZoomValues</key>
 		<array>
 			<array>
