@@ -128,9 +128,12 @@ var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
         ':db.cardinality/one',
         "This key's identifier; each key (or key-pair) has an arbitrary unique id" );
 
-    { ':user.key/priv_dh' : yield encrypt( user.key_login, user.key_priv_dh_exported ),
-      ':user.key/sign'    : yield encrypt( user.key_login, user.key_signing_exported ),
-                                        }
+    { ':user.key/verify'  : user.key_verify_exported,
+      ':user.key/sign'    : user.key_signing_exported,
+      ':user.key/id'      : 1 }
+    { ':user.key/priv_dh' : user.key_priv_dh_exported,
+      ':user.key/pub_dh'  : user.key_pub_dh_exported,
+      ':user.key/id'      : 2 }
 
     
     var teams_manifest   = yield encrypt( user.key_self, '[]' );
