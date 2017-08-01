@@ -40,7 +40,7 @@ var inviteStep1 = async( 'InviteStep1', function *( scp, log, alice, bob, team_i
     /* typeof( team_id ) == UWS team ID */
     var step1_id   = makeUniqueId( alice.invites );
     var step1_priv = yield aes_cbc_ecdsa.encryptThenSignSalted(
-        alice.key_main, alice.key_signing,
+        alice.key_self, alice.key_signing,
         encode( JSON.stringify( { bob: bob, team: team_id } ) ), scp )
     log( 'Encrypted step1_priv' );
     function upload( [ data, name, type ] )
@@ -131,7 +131,7 @@ var inviteStep3B = async( 'B', function *( scp, log, alice, bob )
         scp, alice.cloud_text, [ 'Invites', bob.id, 'step1' ], null )
     log( 'Downloaded step1' );
     var step1_priv = yield aes_cbc_ecdsa.verifyThenDecryptSalted(
-        alice.key_main, alice.key_verify, step1_priv, scp );
+        alice.key_self, alice.key_verify, step1_priv, scp );
     step1_priv = JSON.parse( decode( step1_priv ) );
     log( 'Decrypted step1', step1_priv );
     return step1_priv;
@@ -169,7 +169,7 @@ var inviteStep3C = async( 'C', function *( scp, log, alice, bob, step1_priv )
     function encrypt( k, d )
     { return aes_cbc_ecdsa.encryptThenSignSalted( k, alice.key_signing, encode( d ) ); }
     var step3_enc = yield encrypt( bob.sym_AB,    step3_priv );
-    var db        = yield encrypt( team.key_main, JSON.stringify( team.db ) );
+    var db        = yield encrypt( team.key_self, JSON.stringify( team.db ) );
     var files = [ [ [ 'Invites', bob.id, 'step3' ], step3_enc ],
                   [ [ 'Teams', team.dir, 'Data', 'data' ], db ] ];
     function upload( [ p, c ] ) { return uploadFile( scp, alice.cloud_text, p, c, null ) };
@@ -222,5 +222,5 @@ var inviteStep4 = async( 'InviteStep4', function *( scp, log, bob, step1_pub_tex
     log( 'Downloaded team files' );
     team.key_verify = yield importKeyVerify( key_verify_exported, scp );
     team.key_pub_dh = yield importKeyPubDH( key_dh_exported, scp )
-    team.key_main = yield ecdh_aesDeriveKey( team.key_pub_dh, team.key_priv_dh );
+    team.key_self = yield ecdh_aesDeriveKey( team.key_pub_dh, team.key_priv_dh );
 } );
