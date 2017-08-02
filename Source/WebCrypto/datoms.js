@@ -270,8 +270,18 @@ DB.uploadTxn = async( '', function *( db, txn )
 
 DB.save = function()
 {
+    var txn_head = {}
+    var datoms_head = {}
+    var txn_prev = txn_head;
+    var datoms_prev = datoms_head;
     for( var i = this.txn_chain.length - 1; i >= 0; i-- )
     {
+        var txn = txn_chain[ i ];
+        if( txn.saved )
+            break;
+        file = save;
+        txn_prev.next = file;
+        txn_prev = txn;
     }
     // ffoooo
 }
