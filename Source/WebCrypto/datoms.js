@@ -13,9 +13,9 @@ var DB = {}
 DB.new = function( team )
 {
     return {
-        team           : team,
-        datoms         : [],
-        cloud_head     : null,
+        data_store     : '',
+        datom_chain    : [],
+        txn_chain      : null,
         next_entity_id : 0,
         attributes     : {},
         functions      : {}
@@ -268,8 +268,11 @@ DB.uploadTxn = async( '', function *( db, txn )
     /* add timestamp */
 } );
 
-DB.sync = function( db )
+DB.save = function()
 {
+    for( var i = this.txn_chain.length - 1; i >= 0; i-- )
+    {
+    }
     // ffoooo
 }
 
