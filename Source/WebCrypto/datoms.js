@@ -268,13 +268,36 @@ DB.uploadTxn = async( '', function *( db, txn )
     /* add timestamp */
 } );
 
+DB.txnStatementToWire( stmt )
+{
+ * [ TXN_STMT_ADD,     e, a, v ]
+ * avs
+ * [ TXN_STMT_RETRACT, e, a, v ]
+ * [ fn-name (keyword), p1, p2, p3, ... ]
+ */
+}
+
+DB.uploadOneTxn = async( '', function *( txn )
+{
+    var wire_txn = {
+        prev : txn.prev;
+    }
+}
+
 DB.save = function()
 {
     var txn_head = {}
     var datoms_head = {}
     var txn_prev = txn_head;
     var datoms_prev = datoms_head;
-    for( var i = this.txn_chain.length - 1; i >= 0; i-- )
+    var i;
+    for( i = this.txn_chain.length - 1; i >= 0; i-- )
+    {
+        if( txn.saved )
+            break;
+    }
+    i++;
+    for( ; i < this.txn_chain.length; i++ )
     {
         var txn = txn_chain[ i ];
         if( txn.saved )
