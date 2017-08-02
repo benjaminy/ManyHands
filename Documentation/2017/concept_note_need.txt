@@ -1,0 +1,7 @@
+This project is needed because teams can be much more effective with online collaboration tools, but privacy threats limit who can use these tools and what they can use them for.
+Research funding is particularly important for this project because it runs directly against the current of the dominant commercial funding models for Internet applications.
+Many commercial application developers aim to collect as much of their users' data as they can, and monetize that data through advertising, direct sale to information aggregators, or whatever.
+The ManyHands protocol makes it possible to develop collaborative editing tools over the Internet in a way that no service provider gets any information about the users.
+This is potentially very valuable for privacy.
+But regular users are notorious for putting little monetary value on their own privacy.
+Therefore, the development of technologies like these cannot rely on commercial research and development models.
