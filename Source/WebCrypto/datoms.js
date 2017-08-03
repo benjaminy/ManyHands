@@ -2,12 +2,6 @@
  *
  */
 
-/* TODO: enumify */
-var TXN_STMT_FORM_ADD     = 1;
-var TXN_STMT_FORM_RETRACT = 2;
-var TXN_STMT_FORM_MAP     = 3;
-var TXN_STMT_FORM_FN      = 4;
-
 var DB = {}
 
 DB.new = function( team )
@@ -220,33 +214,44 @@ DB.processTxn = function*( db, txn )
     }
 
     function processStmt( stmt, i ) {
-        if( stmt[ 0 ] === TXN_STMT_FORM_ADD ) {
-            addDatom( getEntity( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
+        try { /* try block for all forms, except map */
+            var kind = stmt[ 0 ];
+            if( stmt[ 0 ] === DB.add ) {
+                addDatom( getEntity( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
+            }
+            else if( stmt[ 0 ] === DB.retract ) {
+                var e = getEntity( stmt[ 1 ] );
+                var attribute = db.getAttribute( stmt[ 2 ] );
+                var value     = db.normalizeValue( attribute, stmt[ 3 ] );
+                /* Check that v is e's value for attribute a? */
+                datoms.push( [ e, attribute, value, true ] );
+            }
+            else if( stmt[ 0 ] === TXN_STMT_FORM_FN ) {
+                var f = db.functions[ keyword( stmt[ 1 ] ).idx ];
+                stmt.shift(); // remove statement kind
+                stmt.shift(); // remove function name
+                var fn_datoms = f.fn.apply( db, stmt );
+                fn_datoms.forEach( function( [ e, a, v ] ) {
+                    addDatom( getEntity( e ), a, v );
+                } );
+            }
+            else {
+                throw new Error( 'malformed stmt' );
+            }
         }
-        else if( stmt[ 0 ] === TXN_STMT_FORM_RETRACT ) {
-            var e = getEntity( stmt[ 1 ] );
-            var attribute = db.getAttribute( stmt[ 2 ] );
-            var value     = db.normalizeValue( attribute, stmt[ 3 ] );
-            /* Check that v is e's value for attribute a? */
-            datoms.push( [ e, attribute, value, true ] );
-        }
-        else if( stmt[ 0 ] === TXN_STMT_FORM_MAP ) {
-            var e = getEntity( stmt[ 1 ] );
-            stmt[ 2 ].forEach( function( [ a, v ] ) {
-                addDatom( e, a, v );
-            } );
-        }
-        else if( stmt[ 0 ] === TXN_STMT_FORM_FN ) {
-            var f = db.functions[ keyword( stmt[ 1 ] ).idx ];
-            stmt.shift(); // remove statement kind
-            stmt.shift(); // remove function name
-            var fn_datoms = f.fn.apply( db, stmt );
-            fn_datoms.forEach( function( [ e, a, v ] ) {
-                addDatom( getEntity( e ), a, v );
-            } );
-        }
-        else {
-            throw new Error( 'malformed stmt' );
+        catch( err ) { /* This happens for map statements */
+            try {
+                var e = getEntity( stmt[ DB.id.symb ] )
+            }
+            catch( err ) {
+                var e = 
+            }
+            if(  )
+                var e = getEntity( stmt[ 1 ] );
+                stmt[ 2 ].forEach( function( [ a, v ] ) {
+                    addDatom( e, a, v );
+                } );
+            }
         }
     }
 
@@ -282,7 +287,7 @@ DB.uploadOneTxn = async( '', function *( txn )
     var wire_txn = {
         prev : txn.prev;
     }
-}
+} );
 
 DB.save = function()
 {
@@ -343,6 +348,10 @@ var DB.readFromCloud = async( 'DB.readFromCloud', function *(
     } while( filename );
     return txns;
 } );
+
+DB.add         = keyword( ':db/add' );
+DB.retract     = keyword( ':db/retract' );
+DB.id          = keyword( ':db/id' );
 
 DB.ident       = keyword( ':db/ident' );
 DB.doc         = keyword( ':db/doc' );
