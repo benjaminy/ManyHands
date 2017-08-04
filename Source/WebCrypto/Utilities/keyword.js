@@ -1,12 +1,22 @@
-/* :name  -or-  :namespace/name  -or-  :namespace.namespace/name  ... */
-/* \w may not be the right choice here.  It's fine for now, though. */
-keyword_regex = /^:\w+(?:(?:\.\w+)*\/\w+)?$/;
-keyword_trie = {};
-keyword_intern = {};
-keyword_token = Symbol();
-
-/* TODO: Convert from a vanilla trie to a compressed version */
 /*
+ * Top Matter
+ */
+
+define( function() {
+
+/*
+ * Keywords are special strings that are interned in a global structure so that:
+ * 1: The same string can be used in different locations to refer to the same object
+ * 2: Copies can be stored as pointers (generally smaller than strings)
+ * 3: Comparison for (in)equality is very efficient integer comparison
+ *
+ * By convention, keywords must be of the following format:
+ *   :name  -or-  :namespace/name  -or-  :namespace.namespace/name  ...
+ * (This format is inherited from Datomic/Clojure)
+ *
+ * This module exports a single function that takes a single parameter (k),
+ * and either returns a keyword object or throws an Error.
+ *
  * k can be one of three things:
  * - A string in keyword format
  *     Look up k in the trie.
@@ -16,27 +26,46 @@ keyword_token = Symbol();
  *     Look up k in the intern table
  * - Already a keyword
  *     In this case, just return k (this is a convenience)
+ *
+ * The object returned has two public fields:
+ * - str: This is the keyword's original string
+ * - idx: This is a Symbol, which can be used as a key for tables
  */
-var keyword = function( k )
+
+try {
+    console.log( 'Loading keyword module' );
+}
+catch( err ) {}
+
+/* \w may not be the right choice here.  It's fine for now, though. */
+const regex = /^:\w+(?:(?:\.\w+)*\/\w+)?$/;
+const root = {};
+const intern = {};
+const token = Symbol();
+
+return function( k )
 {
     try {
-        if( k.token === keyword_token )
+        if( k.token === token )
             return k;
     }
     catch( err ) { }
 
     if( typeof( k ) === 'symbol' )
-        return keyword_intern[ k ];
+        return intern[ k ];
 
     if( typeof( k ) === 'string' )
     {
-        if( !keyword_regex.test( k ) )
-            throw new Error( 'Bad keyword format ' + k );
+        if( !regex.test( k ) )
+            throw new Error( 'Invalid keyword format ' + k );
     }
     else
-        throw new Error( 'Bad keyword type ' + typeof( k ) );
+        throw new Error( 'Invalid keyword type ' + typeof( k ) );
 
-    var trie = keyword_trie;
+    // assert( typeof( k === 'string' ) );
+
+    /* TODO: Convert from a plain trie to a compressed version */
+    var trie = root;
     for( var i = 0; i < k.length; i++ )
     {
         if( !trie.hasOwnProperty( k[ i ] ) )
@@ -46,33 +75,20 @@ var keyword = function( k )
         trie = trie[ k[ i ] ];
     }
 
-    if( trie.hasOwnProperty( 'key' ) )
-    {
+    try {
         return trie.key;
     }
+    catch( err ) {}
 
-    var key = {
+    const key = {
         idx   : Symbol();
         str   : k;
-        token : keyword_token;
+        token : token;
     }
 
-    keyword_intern[ key.idx ] = key;
+    intern[ key.idx ] = key;
     trie.key = key;
-
     return key;
 }
 
-var keywordByIdx
-
-var isKeyword = function( k )
-{
-    try
-    {
-        return k.token == keyword_token;
-    }
-    catch( err )
-    {
-        return false;
-    }
-}
+} );

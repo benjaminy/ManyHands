@@ -2,6 +2,9 @@
  * Top Matter
  */
 
+define( [ 'DB' ], function( DB ) ) {
+} ); // DELETEME
+
 /* Returns a Promise that resolves to the user object */
 var register = async( 'Register', function *( scp, log, uid, passwd )
 {
@@ -77,6 +80,23 @@ var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
         k, user.key_signing, encode( d ), scp ); }
 
 
+    var blob = encode( JSON.stringify( root_obj ) )
+    /*...*/ yield encrypt( user.key_login, blob )
+
+    /* private DB txns */
+    { ':user.key/verify'  : user.key_verify_exported,
+      ':user.key/sign'    : user.key_signing_exported,
+      ':user.key/id'      : 1 }
+    { ':user.key/dh_priv' : user.key_priv_dh_exported,
+      ':user.key/dh_pub'  : user.key_pub_dh_exported,
+      ':user.key/id'      : 2 }
+
+    /* public DB txns */
+    { ':user.key/verify'  : user.key_verify_exported,
+      ':user.key/id'      : 1 }
+    { ':user.key/dh_pub'  : user.key_pub_dh_exported,
+      ':user.key/id'      : 2 }
+    
     root_obj = {
         random_number  : bufToHex( getRandomBytes( 5 ) ),
         public_key     : user.key_verify_exported,
@@ -84,60 +104,11 @@ var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
         self_key       : user.key_self,
         self_key_idx   : 3,
         private_db_ptr : ???
+        public_db_ptr  : ???
     }
 
-    var blob = encode( JSON.stringify( root_obj ) )
-    /*...*/ yield encrypt( user.key_login, blob )
-
-    /* private DB */
-    DB.makeAttribute(
-        ':team/dir',
-        ':db.type/string',
-        ':db.cardinality/one',
-        "The name of the directory where this user stores this team's data",
-        ':db.unique/value' );
-    DB.makeAttribute(
-        ':team/name',
-        ':db.type/string',
-        ':db.cardinality/one',
-        "This team's name",
-        ':db.unique/value' );
-    DB.makeAttribute(
-        ':user.key/pub_dh',
-        ':db.type/string',
-        ':db.cardinality/one',
-        "The user's D-H key exchange public key" );
-    DB.makeAttribute(
-        ':user.key/priv_dh',
-        ':db.type/string',
-        ':db.cardinality/one',
-        "The user's D-H key exchange private key" );
-    DB.makeAttribute(
-        ':user.key/verify',
-        ':db.type/string',
-        ':db.cardinality/one',
-        "The user's (public) verification key" );
-    DB.makeAttribute(
-        ':user.key/sign',
-        ':db.type/string',
-        ':db.cardinality/one',
-        "The user's (private) signing key" );
-    DB.makeAttribute(
-        ':user.key/id',
-        ':db.type/long',
-        ':db.cardinality/one',
-        "This key's identifier; each key (or key-pair) has an arbitrary unique id" );
-
-    { ':user.key/verify'  : user.key_verify_exported,
-      ':user.key/sign'    : user.key_signing_exported,
-      ':user.key/id'      : 1 }
-    { ':user.key/priv_dh' : user.key_priv_dh_exported,
-      ':user.key/pub_dh'  : user.key_pub_dh_exported,
-      ':user.key/id'      : 2 }
-
+    // sign public keys
     
-    var teams_manifest   = yield encrypt( user.key_self, '[]' );
-    var invites_manifest = yield encrypt( user.key_self, '{}' );
     log( 'Encrypted a bunch of stuff.  Uploading ...' );
     function upload( [ p, c, t ] ) { return uploadFile( scp, user.cloud_text, p, c, t ) };
     var fs = [ [ 'key_pub_dh', user.key_pub_dh_exported, 'text/plain' ],

@@ -1,13 +1,15 @@
 /*
- *
+ * Top Matter
  */
 
-var DB = {}
+define( [ 'Utilities/keyword' ], function ( keyword ) {
+} ); // DELETEME
 
-DB.new = function( team )
+
+const make = function( storage )
 {
     return {
-        data_store     : '',
+        storage        : storage,
         datom_chain    : [],
         txn_chain      : null,
         next_entity_id : 0,
@@ -25,11 +27,11 @@ DB.new_entity = function( db )
 
 
 /*
- * Transaction statements are arrays of one of the following shapes:
- * [ TXN_STMT_ADD,     e, a, v ]
- * [ TXN_STMT_MAP,     e, avs ]
- * [ TXN_STMT_RETRACT, e, a, v ]
- * [ TXN_STMT_FN,      fn-name (keyword), p1, p2, p3, ... ]
+ * Transaction statements are arrays of objects one of the following shapes:
+ * [ ':db/add',     e, a, v ]
+ * { a:v, a:v, ... } ( optionally, ...)
+ * [ ':db/retract', e, a, v ]
+ * [ fn-name (keyword), p1, p2, p3, ... ]
  */
 
 
@@ -215,7 +217,7 @@ DB.processTxn = function*( db, txn )
 
     function processStmt( stmt, i ) {
         try { /* try block for all forms, except map */
-            var kind = stmt[ 0 ];
+            var kind = keyword( stmt[ 0 ] );
             if( stmt[ 0 ] === DB.add ) {
                 addDatom( getEntity( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
             }
@@ -241,10 +243,10 @@ DB.processTxn = function*( db, txn )
         }
         catch( err ) { /* This happens for map statements */
             try {
-                var e = getEntity( stmt[ DB.id.symb ] )
+                var e = getEntity( stmt[ DB.id.idx ] );
             }
             catch( err ) {
-                var e = 
+                var e = DB.new_entity( db );
             }
             if(  )
                 var e = getEntity( stmt[ 1 ] );
