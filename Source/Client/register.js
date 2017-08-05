@@ -2,7 +2,7 @@
  * Top Matter
  */
 
-define( [ 'DB' ], function( DB ) ) {
+define( [ 'DB', 'crypto-basics' ], function( DB, C ) ) {
 } ); // DELETEME
 
 /* Returns a Promise that resolves to the user object */
@@ -36,7 +36,7 @@ async function checkUidAvailability( uid, user )
     user.huid = bufToHex( await C.digest( 'SHA-512', encode( uid ) ) );
     log( 'HashedUID', user.huid, '.  Querying central server ...' );
     var path = '/Users/' + user.huid;
-    var resp = yield fetch( path );
+    var resp = await fetch( path );
     log( 'Response', resp.status, resp.statusText );
     if( resp.ok )
         throw new NameNotAvailableError( uid, scp );
@@ -46,23 +46,23 @@ async function checkUidAvailability( uid, user )
 } );
 
 /* Initializes the necessary components of a user object (mostly keys) */
-var initializeUserAccount = async( 'Init', function *( scp, log, uid, passwd, user )
+async function initializeUserAccount( uid, passwd, user )
 {
     user.login_salt = getRandomBytes( SALT_NUM_BYTES );
-    var keys_dh = yield C.generateKey(  pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] );
-    var keys_sg = yield C.generateKey( signing_kalgo, true, [ 'sign', 'verify' ] );
+    var keys_dh = await C.generateKey(  pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] );
+    var keys_sg = await C.generateKey( signing_kalgo, true, [ 'sign', 'verify' ] );
     user.key_pub_dh  = keys_dh.publicKey;
     user.key_priv_dh = keys_dh.privateKey;
     user.key_signing = keys_sg.privateKey;
     user.key_verify  = keys_sg.publicKey;
-    user.key_login   = yield makeLoginKey( uid, passwd, user.login_salt );
-    user.key_self    = yield generateRandomAesKey();
-    user.key_pub_dh_exported  = yield exportKeyJwk( user.key_pub_dh );
-    user.key_priv_dh_exported = yield exportKeyJwk( user.key_priv_dh );
-    user.key_signing_exported = yield exportKeyJwk( user.key_signing );
-    user.key_verify_exported  = yield exportKeyJwk( user.key_verify );
-    user.key_login_exported   = yield exportKeyJwk( user.key_login );
-    user.key_self_exported    = yield exportKeyJwk( user.key_self );
+    user.key_login   = await makeLoginKey( uid, passwd, user.login_salt );
+    user.key_self    = await generateRandomAesKey();
+    user.key_pub_dh_exported  = await exportKeyJwk( user.key_pub_dh );
+    user.key_priv_dh_exported = await exportKeyJwk( user.key_priv_dh );
+    user.key_signing_exported = await exportKeyJwk( user.key_signing );
+    user.key_verify_exported  = await exportKeyJwk( user.key_verify );
+    user.key_login_exported   = await exportKeyJwk( user.key_login );
+    user.key_self_exported    = await exportKeyJwk( user.key_self );
 } );
 
 /*
