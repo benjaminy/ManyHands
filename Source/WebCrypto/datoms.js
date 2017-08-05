@@ -28,8 +28,8 @@ DB.new_entity = function( db )
 
 /*
  * Transaction statements are arrays of objects one of the following shapes:
- * [ ':db/add',     e, a, v ]
- * { a:v, a:v, ... } ( optionally, ...)
+ * [ ':db/add', e, a, v ]
+ * { a:v, a:v, ... } ( optionally, one of the attributes can be :db/id)
  * [ ':db/retract', e, a, v ]
  * [ fn-name (keyword), p1, p2, p3, ... ]
  */

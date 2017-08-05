@@ -6,15 +6,15 @@ define( [ 'DB' ], function( DB ) ) {
 } ); // DELETEME
 
 /* Returns a Promise that resolves to the user object */
-var register = async( 'Register', function *( scp, log, uid, passwd )
+async function register( uid, passwd )
 {
     log( 'Enter', uid );
     // TODO uid sanity check
     // TODO password sanity check
     var user = { uid: uid };
-    yield checkUidAvailability( scp, uid, user );
-    yield initializeUserAccount( scp, uid, passwd, user );
-    yield initializeCloudStorage( scp, user );
+    await checkUidAvailability( uid, user );
+    await initializeUserAccount( uid, passwd, user );
+    await initializeCloudStorage( user );
     try {
         yield submitRegistrationInfo( scp, user );
     }
@@ -24,16 +24,16 @@ var register = async( 'Register', function *( scp, log, uid, passwd )
     }
     log( 'Exit', uid );
     return user;
-} );
+}
 
 /*
  * Checks if the desired user name is available at the central server.
  * There could still be a race on the user name, but might as well check
  * before doing all the account init work.
  */
-var checkUidAvailability = async( 'Check', function *( scp, log, uid, user )
+async function checkUidAvailability( uid, user )
 {
-    user.huid = bufToHex( yield C.digest( 'SHA-512', encode( uid ) ) );
+    user.huid = bufToHex( await C.digest( 'SHA-512', encode( uid ) ) );
     log( 'HashedUID', user.huid, '.  Querying central server ...' );
     var path = '/Users/' + user.huid;
     var resp = yield fetch( path );
