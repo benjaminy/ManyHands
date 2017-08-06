@@ -11,12 +11,6 @@ TEST_CERT=$(TEST_DIR)/Cert
 SRC_DIR=$(MH_DIR)/Source/WebCrypto
 NODE_CMD=nodejs
 
-start_file_server: $(TEST_CERT)/mh_test_server.key
-	$(NODE_CMD) $(SRC_DIR)/../simple_file_server.js --dir $(TEST_CLOUD) --port 8123 --cert $(TEST_CERT)/mh_test_cert.crt --key $(TEST_CERT)/mh_test_server.key
-
-start_mh_server: $(TEST_CERT)/mh_test_server.key copy_everything
-	$(NODE_CMD) $(TEST_ROOT)/many_hands_server.js --db $(TEST_DB) --front $(SRC_DIR) --cert $(TEST_CERT)/mh_test_cert.crt --key $(TEST_CERT)/mh_test_server.key
-
 copy_everything:
 	mkdir -p $(TEST_ROOT)
 	cp -r $(SRC_DIR)/* $(TEST_ROOT)
