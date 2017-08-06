@@ -40,4 +40,6 @@ install_node_modules:
 	sudo npm install -g node-pre-gyp
 	npm install --no-bin-links sqlite3
 #	export NODE_PATH=$PWD/node_modules
+#	npm install babel-preset-es2015
+#	npm install babel-plugin-transform-es2015-modules-systemjs
 	cd ..
