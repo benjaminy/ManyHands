@@ -8,7 +8,10 @@
  *
  */
 
-import WC from 'Crypto/webcrypto-wrapper';
+// WC.generateKey( signing_kalgo, true, [ 'sign', 'verify
+// WC.generateKey(  pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] );
+
+import * as WC from "Crypto/webcrypto-wrapper";
 
 const UNIQUE_ID_DEFAULT_LEN = 5;
 const SALT_NUM_BYTES = 128;
@@ -18,6 +21,7 @@ const PBKDF2_ITER = 1000;
 const signing_kalgo = { name: 'ECDSA', namedCurve: 'P-521' };
 const signing_salgo = { name: 'ECDSA', hash: { name:'SHA-256' } };
 const pub_enc_algo  = { name: 'ECDH', namedCurve: 'P-521' };
+const dh_algo       = { name: 'ECDH', namedCurve: 'P-521' };
 const sym_enc_algo  = { name: 'AES-CBC', length: 256  };
 
 const zeros = new Uint8Array( 16 );

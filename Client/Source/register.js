@@ -2,61 +2,44 @@
  * Top Matter
  */
 
-define( [ 'DB', 'crypto-basics' ], function( DB, C ) ) {
-} ); // DELETEME
-
-/* Returns a Promise that resolves to the user object */
-async function register( uid, passwd )
-{
-    log( 'Enter', uid );
-    // TODO uid sanity check
-    // TODO password sanity check
-    var user = { uid: uid };
-    await checkUidAvailability( uid, user );
-    await initializeUserAccount( uid, passwd, user );
-    await initializeCloudStorage( user );
-    try {
-        yield submitRegistrationInfo( scp, user );
-    }
-    catch( err ) {
-        log( 'Registration with central server failed', err );
-        // TODO clean up cloud account
-    }
-    log( 'Exit', uid );
-    return user;
-}
+import L  from 'Utilities/logging';
+import DB from 'Database/main';
+import WC from 'Crypto/webcrypto-wrapper';
+import CB from 'Crypto/crypto-basics';
 
 /*
  * Checks if the desired user name is available at the central server.
  * There could still be a race on the user name, but might as well check
  * before doing all the account init work.
  */
-async function checkUidAvailability( uid, user )
+const checkUidAvailability = actFn( function* checkUidAvailability( actx, uid, user )
 {
-    user.huid = bufToHex( await C.digest( 'SHA-512', encode( uid ) ) );
-    log( 'HashedUID', user.huid, '.  Querying central server ...' );
-    var path = '/Users/' + user.huid;
-    var resp = await fetch( path );
-    log( 'Response', resp.status, resp.statusText );
+    /* TODO: negotiate hash algo with server */
+    user.huid = bufToHex( yield CB.digest( uid ) );
+    actx.log( "Checking uid availability for", uid, "(", user.huid, ")" );
+    const path = '/Users/' + user.huid;
+    const resp = yield fetch( path );
+    actx.log( 'Response', resp.status, resp.statusText );
     if( resp.ok )
         throw new NameNotAvailableError( uid, scp );
-    else if( resp.status != 404 )
+    else if( resp.status === 404 )
+    { /* seems "user" is available ... */ }
+    else
         handleServerError( scp, path, resp );
-    /* seems "user" is available ... */
 } );
 
 /* Initializes the necessary components of a user object (mostly keys) */
-async function initializeUserAccount( uid, passwd, user )
+const initializeUserAccount = actFn( function* initializeUserAccount( actx, uid, passwd, user )
 {
-    user.login_salt = getRandomBytes( SALT_NUM_BYTES );
-    var keys_dh = await C.generateKey(  pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] );
-    var keys_sg = await C.generateKey( signing_kalgo, true, [ 'sign', 'verify' ] );
+    user.login_salt = CB.getRandomBytes( SALT_NUM_BYTES );
+    const keys_dh    = await CB.generateDHKeyPair();
+    const keys_sg    = await CB.generateSigningKeyPair();
+    user.key_self    = await CB.generateSymmmetricKey();
     user.key_pub_dh  = keys_dh.publicKey;
     user.key_priv_dh = keys_dh.privateKey;
     user.key_signing = keys_sg.privateKey;
     user.key_verify  = keys_sg.publicKey;
     user.key_login   = await makeLoginKey( uid, passwd, user.login_salt );
-    user.key_self    = await generateRandomAesKey();
     user.key_pub_dh_exported  = await exportKeyJwk( user.key_pub_dh );
     user.key_priv_dh_exported = await exportKeyJwk( user.key_priv_dh );
     user.key_signing_exported = await exportKeyJwk( user.key_signing );
@@ -140,3 +123,24 @@ var submitRegistrationInfo = async( 'Submit', function *( scp, log, user )
     if( !resp.ok )
         handleServerError( scp, '/Users/'+user.huid, resp );
 } );
+
+/* Returns a Promise that resolves to the user object */
+export default const register = async function register( uid, passwd )
+{
+    log( 'Enter', uid );
+    // TODO uid sanity check
+    // TODO password sanity check
+    var user = { uid: uid };
+    await checkUidAvailability( uid, user );
+    await initializeUserAccount( uid, passwd, user );
+    await initializeCloudStorage( user );
+    try {
+        yield submitRegistrationInfo( scp, user );
+    }
+    catch( err ) {
+        log( 'Registration with central server failed', err );
+        // TODO clean up cloud account
+    }
+    log( 'Exit', uid );
+    return user;
+}

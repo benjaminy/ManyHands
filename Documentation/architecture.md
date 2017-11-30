@@ -9,25 +9,30 @@ The main technical challenges of the system are making the data accessible to te
 
 Each user's cloud storage directory looks like this (user "M" in this case):
 
-<pre>
-MH/public_key_M
+in public DB:
+  /public_key_M
   /salt_M
+  /links to teams
+  /
+
+in private DB:
   /E( private_key_M, key_M )
   /E( access_token_M, key_M )
-  /team_links.db
-  /Team_Z/links.db
+
+<pre>
+MH/public\_root
+  /private\_root
+  /Public/ ... public DB ...
+  /Private/ ... private DB ...
+  /Team_X/public\root
+         /Public
+         /Private
+         /Txns
          /E( salt_M_Z, key_M )
          /E( database_M_Z, key_M_Z )
          /Keys/E( key_M_Z, public_key_N )
               /E( key_M_Z, public_key_L )
               /E( key_M_Z, public_key_J )
-              /...
-  /Team_Y/links.db
-         /E( salt_M_Y, key_M )
-         /E( database_M_Y, key_M_Y )
-         /Keys/E( key_M_Y, public_key_P )
-              /E( key_M_Y, public_key_Q )
-              /E( key_M_Y, public_key_L )
               /...
   /...
 

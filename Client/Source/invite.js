@@ -1,48 +1,29 @@
 /*
- * Invitation process:
- * 1) Alice makes an invitation
- *    - Saves the following for herself in step 3
- *        (encrypted with her secret key):
- *      - Team ID
- *      - Something about the identity of Bob
- *    - Sends to Bob (unencrypted):
- *      - A link to her cloud
- *      - The (random) ID of the invitation (for Bob to send back later)
- * 2) Bob accepts the invitation
- *    - Saves the following for Alice in step 3
- *       (encrypted with a shared key)
- *      - Alice's invitation ID
- *      - Bob's (randomly generated) team directory
- *    - Sends to Alice (unencrypted):
- *      - A link to his cloud
- *      - The (random) ID of the file where he saved the info above
- * 3) Alice adds Bob to the team
- *    A) Downloads Bob's keys and the file he encrypted
- *    B) Downloads the information she saved in step 1
- *    C) Adds Bob
- *      - Invents a new uid for Bob in that team
- *      - Updates the team database
- *    D) Saves the following for Bob in step 4
- *         (encrypted with a shared key)
- *      - The team directory in Alice's cloud
- *      - Bob's uid
- *      - The team signing and decryption keys
- *      - The ID of Bob's file from step 2
- * 4) Bob joins the team
- *    - Copy the state of the team from Alice
+ * Top Matter
+ */
+
+/*
+ * See Documentation/invitation.md
  */
 
 /* alice sets up an invite for bob to team_id */
-var inviteStep1 = async( 'InviteStep1', function *( scp, log, alice, bob, team_id )
+let inviteStep1 = actFn( function *InviteStep1( actx, alice, bob, team_id )
 {
     /* typeof( alice )   == UWS user object */
     /* typeof( bob )     == string (some identifying info about Bob) */
     /* typeof( team_id ) == UWS team ID */
-    var step1_id   = makeUniqueId( alice.invites );
+    var id_step1 = makeUniqueId( alice.invites );
+    var ek_a     = yield C.generateKey( dh_algo, true, [ 'deriveKey' ] );
+
+    save_to_private_db( { bob, id_step1, ek_a } )
+
+    alice.privateDB.add( { ":invite/invitee" : bob,
+                           ":invite/id_step1" : id_step1 } )
+
     var step1_priv = yield aes_cbc_ecdsa.encryptThenSignSalted(
         alice.key_self, alice.key_signing,
         encode( JSON.stringify( { bob: bob, team: team_id } ) ), scp )
-    log( 'Encrypted step1_priv' );
+    actx.log( 'Encrypted step1_priv' );
     function upload( [ data, name, type ] )
     { return uploadFile( scp, alice.cloud_text,
                          [ 'Invites', step1_id, name ],
@@ -51,7 +32,7 @@ var inviteStep1 = async( 'InviteStep1', function *( scp, log, alice, bob, team_i
     files = [ [ step1_priv, 'step1' ],
               [ '', 'step3', 'text/plain' ] ];
     yield P.all( files.map( upload ) );
-    log( 'Uploaded step1_priv and dummy step3' );
+    actx.log( 'Uploaded step1_priv and dummy step3' );
     var step1_pub = JSON.stringify( { cloud: alice.cloud_text, id: step1_id } );
     return step1_pub;
 } );
