@@ -1,45 +1,40 @@
-Many Hands Architecture
+United We Stand Architecture
 =======================
 
-This document is a snapshot of the underlying architecture of Many Hands circa late summer, 2015.
+This document is a snapshot of the architecture of United We Stand circa autumn, 2017.
 
-The core idea is that users of the system can belong to teams that share some database.
-Each team member has a copy of the team's database stored encrypted in the cloud.
-The main technical challenges of the system are making the data accessible to teammates without exposing it more broadly, and keeping the copies consistent with each other.
+The core entities in the system are users and teams.
+Users can belong to any number of teams.
+Each team has some shared document/database (or a collection, of docs/DBs, whatever).
+Each user has a personal cloud storage account to which they have full permissions and everyone else in the world has read permissions.
+Users upload their transactions that modify their team's DB to their cloud account encrypted such that only their team members can decrypt.
+Team members use a distributed protocol to maintain a consistent view of the whole database.
 
-Each user's cloud storage directory looks like this (user "M" in this case):
+There is a single file in each user's cloud directory called "root".
+It contains links to other dynamically generated files.
+Whenever a user want to change anything stored about themselves or any of their teams, that involves making new files and linking back up to the root, a la functional data structures.
+This allows for some degree of sanity in a distributed system with no smart server.
 
-in public DB:
-  /public_key_M
-  /salt_M
-  /links to teams
-  /
+root:
+  login salt
+  ptr to user public DB
+  ptr to user private DB
 
-in private DB:
-  /E( private_key_M, key_M )
-  /E( access_token_M, key_M )
+user public DB:
+  public keys
+  ptrs to team roots
+  signed certs???
 
-<pre>
-MH/public\_root
-  /private\_root
-  /Public/ ... public DB ...
-  /Private/ ... private DB ...
-  /Team_X/public\root
-         /Public
-         /Private
-         /Txns
-         /E( salt_M_Z, key_M )
-         /E( database_M_Z, key_M_Z )
-         /Keys/E( key_M_Z, public_key_N )
-              /E( key_M_Z, public_key_L )
-              /E( key_M_Z, public_key_J )
-              /...
-  /...
+user private DB:
+  private keys
+  access token???
 
-key_M   = PBKD( uid, password, salt_M )
-key_M_Z = PBKD( private_key_M, salt_M_Z )
-key_M_Y = PBKD( private_key_M, salt_M_Y )
-</pre>
+team root:
+  ptr to txns
+  ptr to private DB
+  salt???
+
+login key = PBKD( uid, password, login salt )
 
 Here's a translation of all of that into prose.
 When a user joins Many Hands they need the following:
