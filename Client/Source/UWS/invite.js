@@ -13,8 +13,8 @@ let inviteStep1 = actFn( function *InviteStep1( actx, alice, bob, team_id )
     /* typeof( bob )     == string (some identifying info about Bob) */
     /* typeof( team_id ) == UWS team ID */
     var id_step1 = makeUniqueId( alice.invites );
-    var ek_a     = yield C.generateKey( dh_algo, true, [ 'deriveKey' ] );
-
+    var { privateKey: ek_a_prv, publicKey: ek_a_pub } =
+        yield C.generateKey( dh_algo, true, [ 'deriveKey' ] );
     save_to_private_db( { bob, id_step1, ek_a } )
 
     alice.privateDB.add( { ":invite/invitee" : bob,

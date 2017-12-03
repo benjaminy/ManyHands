@@ -2,8 +2,6 @@
  * Top Matter
  */
 
-define( function() {
-
 /*
  * Keywords are special strings that are interned in a global structure so that:
  * 1: The same string can be used in different locations to refer to the same object
@@ -12,7 +10,7 @@ define( function() {
  *
  * By convention, keywords must be of the following format:
  *   :name  -or-  :namespace/name  -or-  :namespace.namespace/name  ...
- * (This format is inherited from Datomic/Clojure)
+ * (This format is inherited from Clojure/Datomic)
  *
  * This module exports a single function that takes a single parameter (k),
  * and either returns a keyword object or throws an Error.
@@ -32,27 +30,24 @@ define( function() {
  * - idx: This is a Symbol, which can be used as a key for tables
  */
 
-try {
-    console.log( 'Loading keyword module' );
-}
-catch( err ) {}
-
 /* \w may not be the right choice here.  It's fine for now, though. */
-const regex = /^:\w+(?:(?:\.\w+)*\/\w+)?$/;
-const root = {};
-const intern = {};
-const token = Symbol();
+const regex       = /^:\w+(?:(?:\.\w+)*\/\w+)?$/;
+const root        = {};
+const intern      = {};
+const keyword_tag = Symbol();
 
-return function( k )
+function keyword( k )
 {
     try {
-        if( k.token === token )
+        if( k.tag === keyword_tag )
             return k;
     }
-    catch( err ) { }
+    catch( err ) {}
 
-    if( typeof( k ) === 'symbol' )
+    try {
         return intern[ k ];
+    }
+    catch( err ) {}
 
     if( typeof( k ) === 'string' )
     {
@@ -81,9 +76,9 @@ return function( k )
     catch( err ) {}
 
     const key = {
-        idx   : Symbol();
-        str   : k;
-        token : token;
+        idx   : Symbol(),
+        str   : k,
+        token : token
     }
 
     intern[ key.idx ] = key;
@@ -91,4 +86,4 @@ return function( k )
     return key;
 }
 
-} );
+export { keyword };
