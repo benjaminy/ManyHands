@@ -18,22 +18,6 @@ const make = function( storage )
     };
 }
 
-DB.new_entity = function( db )
-{
-    var rv = db.next_entity_id;
-    db.next_entity_id++;
-    return rv;
-}
-
-
-/*
- * Transaction statements are arrays of objects one of the following shapes:
- * [ ':db/add', e, a, v ]
- * { a:v, a:v, ... } ( optionally, one of the attributes can be :db/id)
- * [ ':db/retract', e, a, v ]
- * [ fn-name (keyword), p1, p2, p3, ... ]
- */
-
 
 DB.addDbFunction( db, name, params, body )
 {
@@ -116,24 +100,6 @@ DB.save = function()
     // ffoooo
 }
 
-DB.query = function( db, q )
-{
-    var datoms = [];
-    function eatTxns( txn, i )
-    {
-        function eatDatoms( datom, j )
-        {
-            if( datom.a.startsWith( q ) )
-            {
-                datoms.push( datom );
-            }
-        }
-        txn.datoms.map( eatDatoms );
-    }
-    db.txns.map( eatTxns );
-    return datoms;
-}
-
 var DB.readFromCloud = async( 'DB.readFromCloud', function *(
     scp, log, download, decrypt ) {
     var txn_pointer_encrypted = yield download( [ 'Data', 'Txns' ] );
@@ -151,99 +117,9 @@ var DB.readFromCloud = async( 'DB.readFromCloud', function *(
     return txns;
 } );
 
-DB.add         = keyword( ':db/add' );
-DB.retract     = keyword( ':db/retract' );
 DB.id          = keyword( ':db/id' );
 
-DB.ident       = keyword( ':db/ident' );
-DB.doc         = keyword( ':db/doc' );
-DB.index       = keyword( ':db/index' );
-DB.fulltext    = keyword( ':db/fulltext' );
-DB.noHistory   = keyword( ':db/noHistory' );
-DB.isComponent = keyword( ':db/isComponent' );
 
-DB.cardinalityAttr = keyword( ':db/cardinalityAttr' );
-DB.cardinality = {};
-DB.cardinality.one  = keyword( ':db.cardinality/one' );
-DB.cardinality.many = keyword( ':db.cardinality/many' );
-DB.cardinalities = new Set( [ DB.cardinality.one, DB.cardinality.many ] );
-
-DB.valueType = keyword( ':db/valueType' );
-DB.type = {}
-DB.type.keyword = keyword( ':db.type/keyword' ); // interned
-DB.type.string  = keyword( ':db.type/string' );  // encoding???
-DB.type.boolean = keyword( ':db.type/boolean' );
-DB.type.long    = keyword( ':db.type/long' );    // stupid JS numbers
-DB.type.bigint  = keyword( ':db.type/bigint' );  // library???
-DB.type.float   = keyword( ':db.type/float' );   // stupid JS numbers
-DB.type.double  = keyword( ':db.type/double' );  // yay JS numbers!
-DB.type.bigdec  = keyword( ':db.type/bigdec' );  // library???
-DB.type.ref     = keyword( ':db.type/ref' );
-DB.type.instant = keyword( ':db.type/ref' );     // library???
-DB.type.uuid    = keyword( ':db.type/uuid' );    // library???
-DB.type.bytes   = keyword( ':db.type/uuid' );    // huh.
-DB.types = new Set( [
-    DB.type.keyword, DB.type.string, DB.type.boolean, DB.type.long, DB.type.bigint,
-    DB.type.float, DB.type.double, DB.type.bigdec, DB.type.ref, DB.type.instant,
-    DB.type.uuid, DB.type.bytes ] );
-
-DB.uniqueAttr = keyword( ':db/unique' );
-DB.unique = {}
-DB.unique.value    = keyword( ':db.unique/value' );
-DB.unique.identity = keyword( ':db.unique/identity' );
-DB.uniques = new Set( [ DB.unique.value, DB.unique.identity ] );
-
-DB.makeAttribute( ident, valueType, cardinality,
-                  doc, unique, index, fulltext, isComponent, noHistory )
-{
-    ident       = keyword( ident );
-    valueType   = keyword( valueType );
-    cardinality = keyword( cardinality );
-
-    attr             = {};
-    attr.ident       = ident;
-    attr.doc         = '';
-    attr.unique      = null;
-    attr.index       = false;
-    attr.fulltext    = false;
-    attr.isComponent = false;
-    attr.noHistory   = false;
-
-    /* TODO: check that ident doesn't break any naming rules */
-
-    if( !DB.types.has( valueType ) )
-        throw new Error( 'Invalid attribute valueType: ' + valueType.str );
-    attr.valueType = valueType;
-
-    if( !DB.cardinalities.has( cardinality ) )
-        throw new Error( 'Invalid attribute cardinality: ' + cardinality.str );
-    attr.cardinality = cardinality;
-
-    if( doc )
-        attr.doc = doc.toString();
-
-    if( unique )
-    {
-        unique = keyword( unique );
-        if( !DB.uniques.has( unique ) )
-            throw new Error( 'Invalid attribute uniqueness: ' + unique.str );
-        attr.uniqueAttr = unique;
-    }
-
-    if( index === true || index === false )
-        attr.index = index;
-
-    if( fulltext === true || fulltext === false )
-        attr.fulltext = fulltext;
-
-    if( noHistory === true || noHistory === false )
-        attr.noHistory = noHistory;
-
-    if( isComponent === true || isComponent === false )
-        attr.isComponent = isComponent;
-
-    return attr;
-}
 
 
 
