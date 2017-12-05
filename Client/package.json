@@ -1,22 +1,16 @@
 {
-    "name"        : "many-hands-client",
-    "version"     : "0.0.1",
-    "description" : "TODO",
-    "keywords"    : [ "TODO" ],
-    "homepage"    : "TODO",
-    "bugs"        : { "url" : "https://github.com/owner/project/issues"
-                    , "email" : "project@hostname.com"
-                    },
-    "license"     : "TODO",
-    "dependencies" :
-    {
-        
-    }
-    "devDependencies":
-    {
-        "babel-cli": "^6.24.1"
+    "name": "many-hands-client",
+    "version": "0.0.1",
+    "description": "TBD",
+    "keywords": [
+        "TBD"
+    ],
+    "homepage": "TBD",
+    "bugs": {},
+    "license": "TBD",
+    "dependencies": {
+        "node-webcrypto-ossl": "^1.0.32"
     },
-    "scripts": {
-        "prepare": "babel -o lib/ -c src/waza.coffee"
-    },
+    "devDependencies": {},
+    "scripts": {}
 }
