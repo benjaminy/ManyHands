@@ -4,14 +4,14 @@
  *
  */
 
-var webcrypto = new require( "node-webcrypto-ossl" )();
+import WebCrypto from "node-webcrypto-ossl";
+const C = new WebCrypto();
+const CS = C.subtle;
 
-console.log( webcrypto );
+const getRandomValues = C.getRandomValues.bind( C );
 
 // WC.generateKey( signing_kalgo, true, [ 'sign', 'verify
 // WC.generateKey(  pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] );
-
-// import * as WC from "Crypto/webcrypto-wrapper";
 
 // const UNIQUE_ID_DEFAULT_LEN = 5;
 // const SALT_NUM_BYTES = 128;
@@ -213,3 +213,5 @@ console.log( webcrypto );
 //     function( iv ) { return { name: 'AES-CBC', iv: iv }; },
 //     function()     { return { name: 'HMAC' }; }
 // );
+
+export { CS, getRandomValues }
