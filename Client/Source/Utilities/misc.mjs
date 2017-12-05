@@ -1,10 +1,8 @@
-/*
- *
- */
+/* Top Matter */
 
-var P = Promise;
+const P = Promise;
 
-var encoding = 'utf-8';
+export const encoding = 'utf-8';
 var [ encode, decode ] = encodeDecodeFunctions( encoding );
 
 function getRandomBytes( num_bytes )
