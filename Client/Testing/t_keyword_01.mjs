@@ -1,27 +1,30 @@
 /* Top Matter */
 
-import { keyword } from "../Source/Utilities/keyword.mjs";
 import { assert }  from "../Source/Utilities/assert.mjs";
+import * as K from "../Source/Utilities/keyword.mjs";
 
-const k01 = keyword( ":first" );
-const k02 = keyword( ":first" );
-const k03 = keyword( k01 );
-const k04 = keyword( k02 );
+const k01 = K.key( ":first" );
+const k02 = K.key( ":first" );
+const k03 = K.key( k01 );
+const k04 = K.key( k02 );
 
 assert( k01 === k02 );
 assert( k01 === k03 );
 assert( k01 === k04 );
 
-const k05 = keyword( ":f/first" );
-const k06 = keyword( ":f.s/first" );
-const k07 = keyword( ":f.s.t/first" );
+const k05 = K.key( ":f/first" );
+const k06 = K.key( ":f.s/first" );
+const k07 = K.key( ":f.s.t/first" );
 
 assert( !( k01 === k05 ) );
 
 try {
-    const k08 = keyword( ":first/f.s" );
+    const k08 = K.key( ":first/f.s" );
     console.log( "TEST FAILED" );
 }
 catch( err ) {}
+
+console.log( K.compare( k01, k02 ) );
+console.log( K.compare( k01, k05 ) );
 
 console.log( "t_keyword_01.mjs tests passed." );
