@@ -5,21 +5,22 @@
 import L  from 'Utilities/logging';
 import DB from 'Database/main';
 import WC from 'Crypto/webcrypto-wrapper';
-import CB from 'Crypto/crypto-basics';
+import * as CB from '../Crypto/basics';
+const CS = CB.CS;
 
 /*
  * Checks if the desired user name is available at the central server.
  * There could still be a race on the user name, but might as well check
  * before doing all the account init work.
  */
-const checkUidAvailability = actFn( function* checkUidAvailability( actx, uid, user )
+const checkUidAvailable = actFn( function* checkUidAvailable( actx, uid, user )
 {
     /* TODO: negotiate hash algo with server */
-    user.huid = bufToHex( yield CB.digest( uid ) );
-    actx.log( "Checking uid availability for", uid, "(", user.huid, ")" );
-    const path = '/Users/' + user.huid;
+    user.huid = bufToHex( yield CS.digest( "SHA-512", uid ) );
+    actx.log( "Checking", uid, "(", user.huid, ")" );
+    const path = "/Users/" + user.huid;
     const resp = yield fetch( path );
-    actx.log( 'Response', resp.status, resp.statusText );
+    actx.log( "Response", resp.status, resp.statusText );
     if( resp.ok )
         throw new NameNotAvailableError( uid, scp );
     else if( resp.status === 404 )
@@ -53,11 +54,11 @@ const initializeUserAccount = actFn( function* initializeUserAccount( actx, uid,
  * TODO: Currently this code assumes it is uploading a freshly minted user object.
  *   It would be nice to make a more general user info uploader that knew when things
  *   were dirty and needed to be uploaded. */
-var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
+var initializeCloudStorage = async( "Cloud", function *( scp, log, user )
 {
     user.cloud_bits = getRandomBytes( 5 );
     user.cloud_text = bufToHex( user.cloud_bits );
-    log( 'Link', user.cloud_text, user.cloud_bits, '.  Encrypting data ...' );
+    log( "Link", user.cloud_text, user.cloud_bits, ".  Encrypting data ..." );
     function encrypt( k, d )
     { return aes_cbc_ecdsa.encryptThenSignSalted(
         k, user.key_signing, encode( d ), scp ); }
@@ -67,18 +68,18 @@ var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
     /*...*/ yield encrypt( user.key_login, blob )
 
     /* private DB txns */
-    { ':user.key/verify'  : user.key_verify_exported,
-      ':user.key/sign'    : user.key_signing_exported,
-      ':user.key/id'      : 1 }
-    { ':user.key/dh_priv' : user.key_priv_dh_exported,
-      ':user.key/dh_pub'  : user.key_pub_dh_exported,
-      ':user.key/id'      : 2 }
+    { ":user.key/verify"  : user.key_verify_exported,
+      ":user.key/sign"    : user.key_signing_exported,
+      ":user.key/id"      : 1 }
+    { ":user.key/dh_priv" : user.key_priv_dh_exported,
+      ":user.key/dh_pub"  : user.key_pub_dh_exported,
+      ":user.key/id"      : 2 }
 
     /* public DB txns */
-    { ':user.key/verify'  : user.key_verify_exported,
-      ':user.key/id'      : 1 }
-    { ':user.key/dh_pub'  : user.key_pub_dh_exported,
-      ':user.key/id'      : 2 }
+    { ":user.key/verify"  : user.key_verify_exported,
+      ":user.key/id"      : 1 }
+    { ":user.key/dh_pub"  : user.key_pub_dh_exported,
+      ":user.key/id"      : 2 }
     
     root_obj = {
         random_number  : bufToHex( getRandomBytes( 5 ) ),
@@ -92,42 +93,42 @@ var initializeCloudStorage = async( 'Cloud', function *( scp, log, user )
 
     // sign public keys
     
-    log( 'Encrypted a bunch of stuff.  Uploading ...' );
+    log( "Encrypted a bunch of stuff.  Uploading ..." );
     function upload( [ p, c, t ] ) { return uploadFile( scp, user.cloud_text, p, c, t ) };
-    var fs = [ [ 'key_pub_dh', user.key_pub_dh_exported, 'text/plain' ],
-               [ 'key_verify',  user.key_verify_exported, 'text/plain' ],
-               [ 'key_priv_dh', key_priv_dh ],
-               [ 'key_sign', key_sign ],
-               [ [ 'Teams', 'manifest' ], teams_manifest ],
-               [ [ 'Invites', 'manifest' ], invites_manifest ] ]
+    var fs = [ [ "key_pub_dh", user.key_pub_dh_exported, "text/plain" ],
+               [ "key_verify",  user.key_verify_exported, "text/plain" ],
+               [ "key_priv_dh", key_priv_dh ],
+               [ "key_sign", key_sign ],
+               [ [ "Teams", "manifest" ], teams_manifest ],
+               [ [ "Invites", "manifest" ], invites_manifest ] ]
     yield P.all( fs.map( upload ) );
 } );
 
 /* Submit the necessary user information to the central server */
-var submitRegistrationInfo = async( 'Submit', function *( scp, log, user )
+var submitRegistrationInfo = async( "Submit", function *( scp, log, user )
 {
-    log( 'Encrypting cloud link ...' );
+    log( "Encrypting cloud link ..." );
     var reg_info = JSON.stringify( {
         link   : bufToHex( yield aes_cbc_ecdsa.encryptThenSignSalted(
             user.key_login, user.key_signing, user.cloud_bits ) ),
         pub_key: user.key_verify_exported,
         salt   : bufToHex( user.login_salt ),
     } );
-    var resp = yield fetch( '/Register/'+user.huid,
-                  { method  : 'POST',
+    var resp = yield fetch( "/Register/"+user.huid,
+                  { method  : "POST",
                     body    : reg_info,
                     headers : new Headers( {
-                        'Content-Type':   'text/plain',
-                        'Content-Length': '' + reg_info.length
+                        "Content-Type":   "text/plain",
+                        "Content-Length": "" + reg_info.length
                     } ) } );
     if( !resp.ok )
-        handleServerError( scp, '/Users/'+user.huid, resp );
+        handleServerError( scp, "/Users/"+user.huid, resp );
 } );
 
 /* Returns a Promise that resolves to the user object */
 export default const register = async function register( uid, passwd )
 {
-    log( 'Enter', uid );
+    log( "Enter", uid );
     // TODO uid sanity check
     // TODO password sanity check
     var user = { uid: uid };
@@ -138,9 +139,9 @@ export default const register = async function register( uid, passwd )
         yield submitRegistrationInfo( scp, user );
     }
     catch( err ) {
-        log( 'Registration with central server failed', err );
+        log( "Registration with central server failed", err );
         // TODO clean up cloud account
     }
-    log( 'Exit', uid );
+    log( "Exit", uid );
     return user;
 }

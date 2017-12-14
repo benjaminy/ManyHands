@@ -1,16 +1,14 @@
 /* Top Matter */
 
 const P = Promise;
+import { actFn, Scheduler } from "./act-thread";
+import BufferThing from "buffer/";
+const Buffer = BufferThing.Buffer;
+import TE from "text-encoding";
+const { TextEncoder, TextDecoder } = TE;
 
 export const encoding = 'utf-8';
 var [ encode, decode ] = encodeDecodeFunctions( encoding );
-
-function getRandomBytes( num_bytes )
-{
-    var x = new Uint8Array( num_bytes );
-    getRandomValues( x );
-    return x;
-}
 
 /* NOTE: No reason to iterate in this function, because of races.  There
  * will always need to be an "outer" loop. */
@@ -160,45 +158,6 @@ function domToCrypto( err, scp ) {
 }
 
 
-/* Encode a typed buffer as a string using only hex characters
- * (could be more efficient with base 64 or whatever) */
-function bufToHex( buf )
-{
-    /* assert( buf is a typed array ) */
-    var bytes = new Uint8Array( buf );
-    var hex = '';
-    for( var i = 0; i < bytes.length; i++ )
-    {
-        var n = bytes[i].toString( 16 );
-        if( n.length < 1 || n.length > 2 )
-        {
-            throw 'blah';
-        }
-        if( n.length == 1 )
-        {
-            n = '0'+n;
-        }
-        hex += n;
-    }
-    /* assert( hex.length == 2 * bytes.length ) */
-    return hex;
-}
-
-function hexToBuf( hex, scp )
-{
-    /* assert( hex is a string ) */
-    /* assert( hex.length % 2 == 0 ) */
-    var [ scp, log ] = Scope.enter( scp, 'hexToBuf' );
-    var num_bytes = hex.length / 2;
-    var buf = new Uint8Array( num_bytes );
-    for( var i = 0; i < num_bytes; i++ )
-    {
-        buf[i] = parseInt( hex.slice( 2 * i, 2 * i + 2 ), 16 );
-    }
-    log( 'blah', buf );
-    return buf;
-}
-
 function array_zip( a1, a2, flatten1, flatten2, strict1, strict2, scp )
 {
     var [ scp, log ] = Scope.enter( scp, 'array_zip' );
@@ -268,7 +227,7 @@ function p_all_resolve( promises, values, scp )
 }
 
 
-var handleServerError = async( null, function *( scp, log, msg, resp )
+var handleServerError = actFn( function *handleServerError( scp, log, msg, resp )
 {
     if( resp.status == 404 )
         throw new NotFoundError( msg, scp );

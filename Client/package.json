@@ -9,7 +9,9 @@
     "bugs": {},
     "license": "TBD",
     "dependencies": {
-        "node-webcrypto-ossl": "^1.0.32"
+        "buffer": "^5.0.8",
+        "node-webcrypto-ossl": "^1.0.32",
+        "text-encoding": "^0.6.4"
     },
     "devDependencies": {},
     "scripts": {}

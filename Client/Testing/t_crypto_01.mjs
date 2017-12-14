@@ -1,10 +1,11 @@
 /* Top Matter */
 
 import { assert }    from "../Source/Utilities/assert.mjs";
-import { CS, getRandomValues } from "../Source/Crypto/basics.mjs";
+import * as CB from "../Source/Crypto/basics.mjs";
 
-console.log( C );
+const CS = CB.CS;
+
 console.log( CS );
-console.log( getRandomValues );
+console.log( CB.getRandomValues );
 
 console.log( "t_crypto_01.mjs tests passed." );

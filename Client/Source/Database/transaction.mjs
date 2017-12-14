@@ -1,17 +1,11 @@
+/* Top Matter */
 
-DB.add         = keyword( ':db/add' );
-DB.retract     = keyword( ':db/retract' );
+import * as K from "../Utilities/keyword.mjs";
+import * as DA from "./attribute.mjs";
 
-
-
-/*
- * Transaction statements are arrays of objects one of the following shapes:
- * [ :db/add, e, a, v ]
- * { a:v, a:v, ... } ( optionally, one of the attributes can be :db/id)
- * [ :db/retract, e, a, v ]
- * [ fn-name (keyword), p1, p2, p3, ... ]
- */
-
+export const addK     = K.key( ":db/add" );
+export const retractK = K.key( ":db/retract" );
+export const idK      = K.key( ":db/id" );
 
 DB.new_entity = function( db )
 {
@@ -22,7 +16,7 @@ DB.new_entity = function( db )
 
 const getAttribute = actFn( function* getAttribute( db, attr ) {
     /* TODO: fetch if not cached */
-    const k = keyword( attr );
+    const k = K.key( attr );
     return db.attributes[ k.idx ];
 } );
 
@@ -65,77 +59,82 @@ const processTxn = actFn( function* processTxn( db, txn )
 
         if( attribute.unique )
         {
-            var unique = keyword( attribute.unique );
+            var unique = K.key( attribute.unique );
 
-            if( unique == DB.unique.value )
+            if( unique === DA.uniqueValue )
             {
-                throw new Error( 'Unimplemented' );
+                throw new Error( "Unimplemented" );
             }
 
-            else if( unique == DB.unique.identity )
+            else if( unique === DA.uniqueIdentity )
             {
-                throw new Error( 'Unimplemented' );
+                throw new Error( "Unimplemented" );
             }
 
             else
-                throw new Error( 'Invalid attribute uniqueness ' + unique.toString() );
+                throw new Error( "Invalid attribute uniqueness " + unique.toString() );
         }
 
-        var card = keyword( attribute.cardinality );
-        if( card === DB.cardinality.one )
+        var card = K.key( attribute.cardinality );
+        if( card === DA.cardinalityOne )
         {
             /* TODO: add retract if there is an existing value */
         }
-        else if( card === DB.cardinality.many )
+        else if( card === DA.cardinalityMany )
         {
             /* TODO: nothing??? */
         }
         else
         {
-            throw new Error( 'Invalid attribute cardinality ' + card.str );
+            throw new Error( "Invalid attribute cardinality " + card.str );
         }
 
         datoms.push( [ e, attribute, value ] );
     }
 
     function processStmt( stmt, i ) {
-        try { /* try block for all forms, except map */
-            var kind = keyword( stmt[ 0 ] );
-            if( stmt[ 0 ] === DB.add ) {
+        if( Array.isArray( stmt ) )
+        {
+            var kind = K.key( stmt[ 0 ] );
+            if( stmt[ 0 ] === addK ) {
                 addDatom( getEntity( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
             }
-            else if( stmt[ 0 ] === DB.retract ) {
+            else if( stmt[ 0 ] === retractK ) {
                 var e = getEntity( stmt[ 1 ] );
                 var attribute = db.getAttribute( stmt[ 2 ] );
-                var value     = db.normalizeValue( attribute, stmt[ 3 ] );
+                var value     = DA.normalizeValue( attribute, stmt[ 3 ] );
                 /* Check that v is e's value for attribute a? */
                 datoms.push( [ e, attribute, value, true ] );
             }
-            else if( stmt[ 0 ] === TXN_STMT_FORM_FN ) {
-                var f = db.functions[ keyword( stmt[ 1 ] ).idx ];
-                stmt.shift(); // remove statement kind
+            else {
+                var f = lookupFunction( db, K.key( stmt[ 0 ] ) );
                 stmt.shift(); // remove function name
                 var fn_datoms = f.fn.apply( db, stmt );
                 fn_datoms.forEach( function( [ e, a, v ] ) {
                     addDatom( getEntity( e ), a, v );
                 } );
             }
-            else {
-                throw new Error( 'malformed stmt' );
-            }
         }
-        catch( err ) { /* This happens for map statements */
+        else
+        {
+            const idS = K.str( idK );
             try {
-                var e = getEntity( stmt[ DB.id.idx ] );
+                var e = getEntity( stmt[ idK ] );
             }
             catch( err ) {
-                var e = DB.new_entity( db );
+                try {
+                    var e = getEntity( stmt[ idS ] );
+                }
+                catch( err ) {
+                    var e = DB.new_entity( db );
+                }
             }
-            if(  ) {
-                var e = getEntity( stmt[ 1 ] );
-                stmt[ 2 ].forEach( function( [ a, v ] ) {
-                    addDatom( e, a, v );
-                } );
+            for( const attr in stmt )
+            {
+                const a = K.key( attr );
+                if( a === idK || a === idS )
+                    continue;
+                addDatom( e, a, stmt[ attr ] );
             }
         }
     }
@@ -149,3 +148,23 @@ const processTxn = actFn( function* processTxn( db, txn )
 
 
 export {}
+
+// DB.query = function( db, q )
+// {
+//     var datoms = [];
+//     function eatTxns( txn, i )
+//     {
+//         function eatDatoms( datom, j )
+//         {
+//             if( datom.a.startsWith( q ) )
+//             {
+//                 datoms.push( datom );
+//             }
+//         }
+//         txn.datoms.map( eatDatoms );
+//     }
+//     db.txns.map( eatTxns );
+//     return datoms;
+// }
+
+

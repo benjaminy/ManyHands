@@ -117,7 +117,6 @@ var DB.readFromCloud = async( 'DB.readFromCloud', function *(
     return txns;
 } );
 
-DB.id          = keyword( ':db/id' );
 
 
 
@@ -147,52 +146,5 @@ Fulltext search is constrained by several defaults (which cannot be altered): se
 :db/noHistory specifies a boolean value indicating whether past values of an attribute should not be retained. Defaults to false.
 The purpose of :db/noHistory is to conserve storage, not to make semantic guarantees about removing information. The
 
-}
-
-
-DB.Query = {};
-
-DB.Query.find = function( find_spec, with_clause, inputs, where_clause )
-{
-}
-
-DB.Query.findRel = function( find_elems )
-{
-    var result = { find_spec: 'find-rel' };
-    return result;
-}
-
-/* collection */
-DB.Query.findColl = function( TODO )
-{
-    var result = { find_spec: 'find-coll' };
-    return result;
-}
-
-DB.Query.findScalar = function( find_elem )
-{
-    var result = { find_spec: 'find-scalar' };
-    return result;
-}
-
-DB.Query.findTuple = function( TODO )
-{
-    var result = { find_spec: 'find-tuple' };
-    return result;
-}
-
-DB.Query.variable = function( name )
-{
-    return { vname: name };
-}
-
-DB.Query.exprClause = function( param )
-{
-    
-}
-
-DB.Query.dataPattern = function( params )
-{
-    
 }
 
