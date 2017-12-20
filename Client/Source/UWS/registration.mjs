@@ -2,7 +2,10 @@
  * Top Matter
  */
 
+import * as B32 from "hi-base32";
+import * as SCC from "../Cloud/simple_cloud_client";
 import L  from 'Utilities/logging';
+import M  from 'Utilities/misc';
 import DB from 'Database/main';
 import WC from 'Crypto/webcrypto-wrapper';
 import * as CB from '../Crypto/basics';
@@ -16,17 +19,17 @@ const CS = CB.CS;
 const checkUidAvailable = actFn( function* checkUidAvailable( actx, uid, user )
 {
     /* TODO: negotiate hash algo with server */
-    user.huid = bufToHex( yield CS.digest( "SHA-512", uid ) );
-    actx.log( "Checking", uid, "(", user.huid, ")" );
-    const path = "/Users/" + user.huid;
+    const huid = yield CS.digest( { name: "SHA-512" }, M.encode( uid ) );
+    user.huid_text = B32.encode( huid );
+    actx.log( "Checking", uid, "(", user.huid_text, ")" );
+    const path = "/Users/CheckAvail/" + user.huid_text;
     const resp = yield fetch( path );
     actx.log( "Response", resp.status, resp.statusText );
     if( resp.ok )
         throw new NameNotAvailableError( uid, scp );
-    else if( resp.status === 404 )
-    { /* seems "user" is available ... */ }
-    else
+    else if( !( resp.status === 404 ) )
         handleServerError( scp, path, resp );
+    /* seems "uid" is available ... */
 } );
 
 /* Initializes the necessary components of a user object (mostly keys) */
@@ -67,9 +70,17 @@ var initializeCloudStorage = async( "Cloud", function *( scp, log, user )
     var blob = encode( JSON.stringify( root_obj ) )
     /*...*/ yield encrypt( user.key_login, blob )
 
+    const db_public = DB.new(
+        { storage: SCC,
+          encrypted: false,
+          signing_key: ?,
+          storage: ? } );
+    const db_private = DB.new(
+        { storage: SCC,
+          encrypted: true, storage: ? } );
+    
     /* private DB txns */
-    { ":user.key/verify"  : user.key_verify_exported,
-      ":user.key/sign"    : user.key_signing_exported,
+    { ":user.key/sign"    : user.key_signing_exported,
       ":user.key/id"      : 1 }
     { ":user.key/dh_priv" : user.key_priv_dh_exported,
       ":user.key/dh_pub"  : user.key_pub_dh_exported,

@@ -10,6 +10,8 @@
     "license": "TBD",
     "dependencies": {
         "buffer": "^5.0.8",
+        "hi-base32": "^0.3.0",
+        "isomorphic-fetch": "^2.2.1",
         "node-webcrypto-ossl": "^1.0.32",
         "text-encoding": "^0.6.4"
     },

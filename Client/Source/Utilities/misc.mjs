@@ -50,11 +50,10 @@ var randomName = function( num_chars, encoding, prefix, suffix )
 
 function encodeDecodeFunctions( encoding )
 {
-    var encoder = new TextEncoder( encoding );
-    var decoder = new TextDecoder( encoding );
-    var arr = [ encoder.encode.bind( encoder ),
-                decoder.decode.bind( decoder ) ];
-    return arr;
+    const encoder = new TextEncoder( encoding );
+    const decoder = new TextDecoder( encoding );
+    return [ encoder.encode.bind( encoder ),
+             decoder.decode.bind( decoder ) ];
 }
 
 /* stupid Firefox */
@@ -226,12 +225,11 @@ function p_all_resolve( promises, values, scp )
     return P.all( promises.concat( values.map( P.resolve.bind( P ) ) ) );
 }
 
-
-var handleServerError = actFn( function *handleServerError( scp, log, msg, resp )
+export const handleServerError = actFn( function *handleServerError( actx, msg, resp )
 {
     if( resp.status == 404 )
         throw new NotFoundError( msg, scp );
-    var t = yield resp.text();
+    const t = yield resp.text();
     if( resp.status >= 400 && resp.status < 500 )
         throw new RequestError( msg, resp.statusText + ' ' + t, scp );
     throw new ServerError( msg, resp.statusText + ' ' + t, scp );
