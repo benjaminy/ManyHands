@@ -228,11 +228,11 @@ function p_all_resolve( promises, values, scp )
 export const handleServerError = actFn( function *handleServerError( actx, msg, resp )
 {
     if( resp.status == 404 )
-        throw new NotFoundError( msg, scp );
+        throw new NotFoundError( msg );
     const t = yield resp.text();
     if( resp.status >= 400 && resp.status < 500 )
-        throw new RequestError( msg, resp.statusText + ' ' + t, scp );
-    throw new ServerError( msg, resp.statusText + ' ' + t, scp );
+        throw new RequestError( msg, resp.statusText + ' ' + t );
+    throw new ServerError( msg, resp.statusText + ' ' + t );
 } );
 
 

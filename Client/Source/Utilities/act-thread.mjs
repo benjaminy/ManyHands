@@ -2,7 +2,7 @@
 
 "use strict";
 
-import { assert }  from "./assert.mjs";
+import assert from "./assert.mjs";
 const P = Promise;
 
 let ACT_FN_TAG           = Symbol( "activity" );
@@ -104,6 +104,7 @@ function actFn( ...actFn_params )
         {
             assert( actx.generator_fns.length > 0 );
             let g = actx.generator_fns.pop();
+            console.log( "RETURN", g.name, generator_function.name );
             assert( g === generator_function );
             return P.resolve( v );
         }
@@ -200,14 +201,15 @@ class Scheduler
         child.state = RUNNABLE;
         child.finished_promise =
             fn( child, ...params ).then(
-                function( rv ) {
+                ( rv ) => {
                     child.state = FINISHED;
                     assert( child.id in this.activities );
+                    const id = child.id;
                     delete this.activities[ child.id ];
                     this.num_activities--;
                     assert( Object.keys( this.activities ).length ==
                             this.num_activities )
-                    console.log( "DONE", this.num_activities );
+                    console.log( "Activity Finished", id, this.num_activities );
                     return P.resolve( rv );
                 } );
         return child;
@@ -215,6 +217,7 @@ class Scheduler
 
     activate( ...params_plus_f )
     {
+        console.log( "N 2", this );
         return this.activateInternal( null, ...params_plus_f );
     }
 }
@@ -228,6 +231,7 @@ class Context
         this.scheduler     = scheduler;
         this.id            = Symbol( "activity_id" );
         this.parent        = parent;
+        console.log( "ACTIVITIES 2", scheduler );
         scheduler.activities[ this.id ] = this;
         scheduler.num_activities++;
     }
@@ -250,6 +254,7 @@ class Context
 
     activate( ...params_plus_f )
     {
+        console.log( "N 1", this.scheduler );
         return this.scheduler.activateInternal( this, ...params_plus_f );
     }
 
@@ -268,7 +273,7 @@ class Context
         let fn        = actFn( this, params_plus_fn[ params_plus_fn.length - 1 ] );
         let scheduler = this.scheduler;
 
-        function leaveAtomic()
+        const leaveAtomic = () =>
         {
             // console.log( "leaveAtomic", first_entry );
             let top = scheduler.atomic_stack;
