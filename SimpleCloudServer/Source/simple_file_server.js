@@ -238,6 +238,7 @@ function handleLongpoll( req, resp ) {
 
 function handleDynamic( req, resp, next )
 {
+    // throw new Error( req.url );
     log(req.headers);
     if(      req.method == 'POST' )    return handlePost( req, resp );
     else if( req.method == 'DELETE' )  return handleDelete( req, resp );
@@ -272,6 +273,8 @@ function runServer()
     var serveFiles = serveStatic( root_dir, { 'index': [ 'index.html', 'index.htm' ] } );
 
     function handleReq( req, resp ) {
+        log( "Request received", req.url );
+        // throw new Error( "Request received", req.url );
         for( i = 0; i < CORS_HEADERS.length; i++ )
         {
             resp.setHeader( CORS_HEADERS[i][0], CORS_HEADERS[i][1] );

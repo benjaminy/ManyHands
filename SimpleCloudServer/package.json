@@ -1,0 +1,17 @@
+{
+  "name": "simple-file-server",
+  "version": "0.0.1",
+  "description": "This is about the simplest HTTP(S) imaginable",
+  "main": "index.js",
+  "author": "Ben",
+  "license": "Wut?",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "finalhandler": "^1.1.0",
+    "mkdirp": "^0.5.1",
+    "node-getopt": "^0.2.3",
+    "serve-static": "^1.13.1"
+  }
+}
