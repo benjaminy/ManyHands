@@ -6,16 +6,20 @@ import assert from "./assert.mjs";
 const P = Promise;
 
 let ACT_FN_TAG           = Symbol( "activity" );
+let ATOMICABLE_TAG       = Symbol( "atomicable" );
 let ACT_STATE_TAG        = Symbol( "activity_state" );
 let EXPECTS_CTX_TAG      = Symbol( "expects_ctx" );
 let RTRN_FROM_ATOMIC_TAG = Symbol( "rtrn_from_atomic" );
 let DO_NOT_PASS_TAG      = Symbol( "do_not_pass" );
+let ACTX_FROM_SETUP      = Symbol( "actx_from_setup" );
 let RUNNABLE             = Object.freeze( { t: ACT_STATE_TAG } );
 let RUNNING              = Object.freeze( { t: ACT_STATE_TAG } );
 let WAITING              = Object.freeze( { t: ACT_STATE_TAG } );
 let RESOLVING            = Object.freeze( { t: ACT_STATE_TAG } );
 let GENERATOR_ERROR      = Object.freeze( { t: ACT_STATE_TAG } );
 let FINISHED             = Object.freeze( { t: ACT_STATE_TAG } );
+
+const activity_names = {};
 
 /* Function for defining "activity functions" (basically a special flavor of async function)
  * actFn can be called in two ways:
@@ -63,7 +67,7 @@ function actFn( ...actFn_params )
         /* generator     : generator type */
         /* is_err        : boolean */
         /* yielded_value : any */
-        // console.log( "runToNextYield", generator );
+        console.log( "runToNextYield", generator_function.name );
 
         assert( actx.continuation === null );
 
@@ -94,8 +98,11 @@ function actFn( ...actFn_params )
         }
         catch( err ) {
             // console.log( "!!! generator error", err, err.stack );
-            actx.state = GENERATOR_ERROR;
             // Error.captureStackTrace( err, runToNextYield );
+            actx.state = GENERATOR_ERROR;
+            const g = actx.generator_fns.pop();
+            console.log( "GENERATOR THREW", g.name, generator_function.name );
+            assert( g === generator_function );
             return P.reject( err );
         }
         /* next_yielded : { done : boolean, value : `b } */
@@ -110,11 +117,15 @@ function actFn( ...actFn_params )
         }
 
         if( next_yielded.done )
+        {
+            console.log( "NEXT.DONE", generator_function.name );
             return realReturn( next_yielded.value );
+        }
         /* "else": The generator yielded; it didn't return */
 
         return P.resolve( next_yielded.value ).then(
             function( next_yielded_value ) {
+                console.log( "RESOLVED", !!next_yielded_value );
                 try {
                     if( RTRN_FROM_ATOMIC_TAG in next_yielded_value
                         && !( next_yielded_value.value === undefined ) )
@@ -122,19 +133,22 @@ function actFn( ...actFn_params )
                         return realReturn( next_yielded_value.value );
                     }
                 }
-                catch( err ) {}
+                catch( err ) {
+                    console.log( "EXCEPTION IN RESOLVED" );
+                }
                 return runToNextYield( actx, generator, false, next_yielded_value );
             },
             function( err ) {
+                console.log( "PROMISE REJECTED", generator_function.name );
                 return runToNextYield( actx, generator, true, err );
             } );
     }
-
 
     /* Finally, the code that actually runs when actFn is called */
     function fnEitherMode( actx, ...params )
     {
         /* actx : activity context type */
+        console.log( "CALLING EI", generator_function.name );
         let pass_actx = !actx.hasOwnProperty( DO_NOT_PASS_TAG );
         try {
             if( pass_actx )
@@ -162,7 +176,7 @@ function actFn( ...actFn_params )
     {
         var f = function( ...params )
         {
-            actx_maybe[ DO_NOT_PASS_TAG ] = 0;
+            actx_maybe[ DO_NOT_PASS_TAG ] = undefined;
             return fnEitherMode( actx_maybe, ...params );
         }
     }
@@ -195,7 +209,7 @@ class Scheduler
         /* XXX atomic vs not? */
         // console.log( "activateInternal" );
         let params = params_plus_f.slice( 0, params_plus_f.length - 1 );
-        let fn     = actFn( params_plus_f[ params_plus_f.length - 1 ] );
+        let fn     = atomicable( params_plus_f[ params_plus_f.length - 1 ] );
         let child  = new Context( this, parent );
 
         child.state = RUNNABLE;
@@ -217,7 +231,7 @@ class Scheduler
 
     activate( ...params_plus_f )
     {
-        console.log( "N 2", this );
+        console.log( "SCHEDULER.ACTIVATE", this );
         return this.activateInternal( null, ...params_plus_f );
     }
 }
@@ -225,13 +239,14 @@ class Scheduler
 class Context
 {
     constructor( scheduler, parent ) {
-        this.continuation  = null;
-        this.waits         = 0;
-        this.generator_fns = [];
-        this.scheduler     = scheduler;
-        this.id            = Symbol( "activity_id" );
-        this.parent        = parent;
-        console.log( "ACTIVITIES 2", scheduler );
+        this.continue   = null;
+        this.abort      = null;
+        this.waits      = 0;
+        this.async_fns = [];
+        this.scheduler  = scheduler;
+        this.id         = Symbol( "activity_id" );
+        this.parent     = parent;
+        console.log( "CONTEXT CONSTRUCTOR", scheduler );
         scheduler.activities[ this.id ] = this;
         scheduler.num_activities++;
     }
@@ -335,13 +350,110 @@ class Context
 
     log( ...params )
     {
-        assert( this.generator_fns.length > 0 );
-        var gen_fn = this.generator_fns[ this.generator_fns.length - 1 ];
+        assert( this.async_fns.length > 0 );
+        var gen_fn = this.async_fns[ this.async_fns.length - 1 ];
         // XXX bracket??? console.log( this.id, names.bracket, ...params );
         console.log( this.id, gen_fn.name, ...params );
     }
 }
 
-console.log( "activities.js loaded" );
+function atomicable( ...atomicable_params )
+{
+    console.log( "atomicable", atomicable_params )
 
-export { actFn, Scheduler };
+    const np = atomicable_params.length;
+
+    assert( np > 0, "atomicable: no parameters; requires at least an async function" );
+    assert( np < 3, "atomicable: too many parameters: " + np );
+
+    const [ async_function, actx_setup ] = np === 1
+          ? [ atomicable_params[ 0 ], undefined ]
+          : [ atomicable_params[ 1 ], atomicable_params[ 0 ] ];
+
+    assert( actx_setup === undefined || actx_setup.constructor === Context );
+
+    if( ATOMICABLE_TAG in async_function )
+        return async_function;
+
+    const callFn = function callFn( ...params )
+    {
+        const actx_call = actx_setup ? actx_setup : params[ 0 ];
+        assert( actx_call.constructor === Context );
+
+        function blocked( onContinue, onAbort )
+        {
+            actx_call.addToWaiting();
+            return new Promise( function( resolve, reject ) {
+                actx_call.continue = resolve;
+                actx_call.abort = reject;
+            } ).then( onContinue, onAbort );
+        }
+
+        if( actx_call.blockedByAtomic() )
+        {
+            console.log( "CALLING, BUT BLOCKED", async_function.name );
+            return blocked( () => { return callFn( ...params ); },
+                            ( err ) => { return P.reject( "CALL ABORTED " + String( err ) ); } );
+        }
+
+        actx_call.async_fns.push( async_function );
+        console.log( "CALLING", async_function.name, actx_call.async_fns.length );
+
+        function leaveScope( rv )
+        {
+            const a = actx_call.async_fns.pop();
+            assert( a === async_function );
+            return rv;
+        }
+
+        function abort( err, msg )
+        {
+            return leaveScope( P.reject( msg + " ABORTED " + String( err ) ) );
+        }
+        try {
+            return async_function( ...params ).then(
+                ( result ) => {
+                    function tryReturn()
+                    {
+                        if( actx_call.blockedByAtomic() )
+                        {
+                            console.log( "RETURNING, BUT BLOCKED", async_function.name );
+                            return blocked(
+                                () => { return tryReturn(); },
+                                ( err ) => { return abort( err, "RET" ) } );
+                        }
+                        console.log( "RETURNING", async_function.name, typeof( result ) );
+                        return leaveScope( P.resolve( result ) );
+                    }
+                    return tryReturn();
+                },
+                ( err ) => {
+                    function tryThrow()
+                    {
+                        if( actx_call.blockedByAtomic() )
+                        {
+                            console.log( "THROWING, BUT BLOCKED", async_function.name );
+                            return blocked(
+                                () => { return tryThrow(); },
+                                ( err ) => { return abort( err, "THROW" ); } );
+                        }
+                        console.log( "THROWING", async_function.name, err );
+                        return leaveScope( P.reject( err ) );
+                    }
+                    return tryThrow();
+                } );
+        }
+        catch( err ) {
+            console.log( "ERROR in call to", async_function.name );
+            return P.reject( err );
+        }
+        throw new Error( "Unreachable" );
+    }
+    callFn[ EXPECTS_CTX_TAG ] = !actx_setup;
+    callFn[ ATOMICABLE_TAG ] = undefined;
+    return callFn;
+}
+
+atomicable.Scheduler = Scheduler;
+
+export default atomicable;

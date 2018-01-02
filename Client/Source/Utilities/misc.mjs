@@ -1,7 +1,7 @@
 /* Top Matter */
 
 const P = Promise;
-import { actFn, Scheduler } from "./act-thread";
+import A from "./act-thread";
 import BufferThing from "buffer/";
 const Buffer = BufferThing.Buffer;
 import TE from "text-encoding";
@@ -225,11 +225,11 @@ function p_all_resolve( promises, values, scp )
     return P.all( promises.concat( values.map( P.resolve.bind( P ) ) ) );
 }
 
-export const handleServerError = actFn( function *handleServerError( actx, msg, resp )
+export const handleServerError = A( async function handleServerError( actx, msg, resp )
 {
     if( resp.status == 404 )
         throw new NotFoundError( msg );
-    const t = yield resp.text();
+    const t = await resp.text();
     if( resp.status >= 400 && resp.status < 500 )
         throw new RequestError( msg, resp.statusText + ' ' + t );
     throw new ServerError( msg, resp.statusText + ' ' + t );

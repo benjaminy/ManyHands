@@ -5,10 +5,10 @@
  * This is a client for a very simple HTTP-based cloud storage server with no authentication.
  */
 
-import assert               from "../Utilities/assert";
-import { actFn, Scheduler } from "../Utilities/act-thread";
-import fetch from "isomorphic-fetch";
-import * as UM              from "../Utilities/misc";
+import assert  from "../Utilities/assert";
+import A       from "../Utilities/act-thread";
+import fetch   from "isomorphic-fetch";
+import * as UM from "../Utilities/misc";
 const P = Promise;
 
 const DEFAULT_SERVER_PORT = 8123;
@@ -47,7 +47,7 @@ export default function init( options )
         }
     }
 
-    const upload = actFn( function* upload( actx, user, path, content, content_type )
+    const upload = A( async function upload( actx, user, path, content, content_type )
     {
         /* assert( Array.isArray( path ) || typeof( path ) == "string" ) */
         /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == "string" ) */
@@ -63,7 +63,7 @@ export default function init( options )
 
         console.log( "U1" );
         const response =
-              yield fetch( FILE_SERVER_ADDR+pu.u+"/"+pu.p,
+              await fetch( FILE_SERVER_ADDR+pu.u+"/"+pu.p,
                            { method  : "POST",
                              body    : content,
                              headers : headers } );
@@ -75,7 +75,7 @@ export default function init( options )
             return UM.handleServerError( actx, pu.p, response );
     } );
 
-    const download = actFn( function* download( actx, user, path, isText )
+    const download = A( async function download( actx, user, path, isText )
     {
         if( Array.isArray( path ) )
             assert( path.every( ( x ) => typeof( x ) === "string" ) );
@@ -85,7 +85,7 @@ export default function init( options )
         assert( isText === undefined || isText === true || isText === false );
 
         const pu = encode_path( user, path );
-        const response = yield fetch( FILE_SERVER_ADDR+pu.u+"/"+pu.p );
+        const response = await fetch( FILE_SERVER_ADDR+pu.u+"/"+pu.p );
         actx.log( pu.p, response.status, response.statusText );
         if( response.ok )
         {
@@ -95,7 +95,7 @@ export default function init( options )
                 return response.arrayBuffer();
         }
         else
-            return UM.handleServerError( actx, pu.p, response );
+            UM.handleServerError( actx, pu.p, response );
     } );
 
     return { upload: upload, download: download };
