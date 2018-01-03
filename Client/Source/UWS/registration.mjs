@@ -20,8 +20,7 @@ const CS = CB.CS;
 const checkUidAvailable = A( async function checkUidAvailable( actx, uid, user )
 {
     /* TODO: negotiate hash algo with server */
-    user.huid_text = B32.encode( await CB.digest_sha_512( M.encode( uid ) ) );
-    user.huid_text = B32.encode( await CS.digest( { name: "SHA-512" }, M.encode( uid ) ) );
+    user.huid_text = B32.encode( await CB.digest_sha_512( uid ) );
     actx.log( "Checking", uid, "(", user.huid_text, ")" );
     const path = "/Users/CheckAvail/" + user.huid_text;
     const resp = await fetch( path );
@@ -44,7 +43,7 @@ const initializeUserAccount = A( async function initializeUserAccount( actx, uid
     user.key_priv_dh = keys_dh.privateKey;
     user.key_signing = keys_sg.privateKey;
     user.key_verify  = keys_sg.publicKey;
-    user.key_login   = await makeLoginKey( uid, passwd, user.login_salt );
+    user.key_login   = await CB.makeLoginKey( actx, uid, passwd, user.login_salt );
     user.key_pub_dh_exported  = await exportKeyJwk( user.key_pub_dh );
     user.key_priv_dh_exported = await exportKeyJwk( user.key_priv_dh );
     user.key_signing_exported = await exportKeyJwk( user.key_signing );
@@ -58,11 +57,11 @@ const initializeUserAccount = A( async function initializeUserAccount( actx, uid
  * TODO: Currently this code assumes it is uploading a freshly minted user object.
  *   It would be nice to make a more general user info uploader that knew when things
  *   were dirty and needed to be uploaded. */
-var initializeCloudStorage = A( async function initializeCloudStorage( actx, user )
+const initializeCloudStorage = A( async function initializeCloudStorage( actx, user )
 {
     user.cloud_bits = getRandomBytes( 5 );
     user.cloud_text = bufToHex( user.cloud_bits );
-    log( "Link", user.cloud_text, user.cloud_bits, ".  Encrypting data ..." );
+    actx.log( "Link", user.cloud_text, user.cloud_bits, ".  Encrypting data ..." );
     function encrypt( k, d )
     { return aes_cbc_ecdsa.encryptThenSignSalted(
         k, user.key_signing, encode( d ), scp ); }
@@ -117,7 +116,7 @@ var initializeCloudStorage = A( async function initializeCloudStorage( actx, use
 } );
 
 /* Submit the necessary user information to the central server */
-var submitRegistrationInfo = A( async function submitRegistrationInfo( actx, user )
+const submitRegistrationInfo = A( async function submitRegistrationInfo( actx, user )
 {
     log( "Encrypting cloud link ..." );
     var reg_info = JSON.stringify( {

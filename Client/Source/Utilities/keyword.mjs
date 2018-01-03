@@ -1,6 +1,6 @@
 /* Top Matter */
 
-import { assert } from "./assert.mjs";
+import assert from "./assert";
 
 /* \w may not be the right choice here.  It's fine for now, though. */
 const regex = /^:\w+(?:(?:\.\w+)*\/\w+)?$/;

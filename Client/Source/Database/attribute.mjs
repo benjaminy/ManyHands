@@ -161,11 +161,10 @@ export function normalizeValue( attribute, value )
 
 function transactionAdd( attr )
 {
-    const txn = {
-        identK.key: attr.ident,
-        valueK.key: attr.valueType,
-        cardinality.key: attr.valueType
-    };
+    const txn = {};
+    txn[ identK.key ]      = attr.ident;
+    txn[ valueK.key ]      = attr.valueType;
+    txn[ cardinality.key ] = attr.cardinality;
     if( attr.doc !== "" )
         txn[ docK.key ] = attr.doc;
     if( attr.unique !== null )
