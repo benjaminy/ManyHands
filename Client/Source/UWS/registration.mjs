@@ -2,13 +2,14 @@
  * Top Matter
  */
 
+import A        from "../Utilities/act-thread";
 import * as B32 from "hi-base32";
 import * as SCC from "../Cloud/simple_cloud_client";
-import L  from 'Utilities/logging';
-import M  from 'Utilities/misc';
-import DB from 'Database/main';
-import WC from 'Crypto/webcrypto-wrapper';
-import * as CB from '../Crypto/basics';
+import L        from '../Utilities/logging';
+import M        from '../Utilities/misc';
+import DB       from '../Database/main';
+import WC       from '../Crypto/webcrypto-wrapper';
+import * as CB  from '../Crypto/basics';
 const CS = CB.CS;
 
 /*
@@ -16,14 +17,14 @@ const CS = CB.CS;
  * There could still be a race on the user name, but might as well check
  * before doing all the account init work.
  */
-const checkUidAvailable = actFn( function* checkUidAvailable( actx, uid, user )
+const checkUidAvailable = A( async function checkUidAvailable( actx, uid, user )
 {
     /* TODO: negotiate hash algo with server */
-    const huid = yield CS.digest( { name: "SHA-512" }, M.encode( uid ) );
-    user.huid_text = B32.encode( huid );
+    user.huid_text = B32.encode( await CB.digest_sha_512( M.encode( uid ) ) );
+    user.huid_text = B32.encode( await CS.digest( { name: "SHA-512" }, M.encode( uid ) ) );
     actx.log( "Checking", uid, "(", user.huid_text, ")" );
     const path = "/Users/CheckAvail/" + user.huid_text;
-    const resp = yield fetch( path );
+    const resp = await fetch( path );
     actx.log( "Response", resp.status, resp.statusText );
     if( resp.ok )
         throw new NameNotAvailableError( uid, scp );
@@ -33,7 +34,7 @@ const checkUidAvailable = actFn( function* checkUidAvailable( actx, uid, user )
 } );
 
 /* Initializes the necessary components of a user object (mostly keys) */
-const initializeUserAccount = actFn( function* initializeUserAccount( actx, uid, passwd, user )
+const initializeUserAccount = A( async function initializeUserAccount( actx, uid, passwd, user )
 {
     user.login_salt = CB.getRandomBytes( SALT_NUM_BYTES );
     const keys_dh    = await CB.generateDHKeyPair();
@@ -57,7 +58,7 @@ const initializeUserAccount = actFn( function* initializeUserAccount( actx, uid,
  * TODO: Currently this code assumes it is uploading a freshly minted user object.
  *   It would be nice to make a more general user info uploader that knew when things
  *   were dirty and needed to be uploaded. */
-var initializeCloudStorage = async( "Cloud", function *( scp, log, user )
+var initializeCloudStorage = A( async function initializeCloudStorage( actx, user )
 {
     user.cloud_bits = getRandomBytes( 5 );
     user.cloud_text = bufToHex( user.cloud_bits );
@@ -68,7 +69,7 @@ var initializeCloudStorage = async( "Cloud", function *( scp, log, user )
 
 
     var blob = encode( JSON.stringify( root_obj ) )
-    /*...*/ yield encrypt( user.key_login, blob )
+    /*...*/ await encrypt( user.key_login, blob )
 
     const db_public = DB.new(
         { storage: SCC,
@@ -112,20 +113,20 @@ var initializeCloudStorage = async( "Cloud", function *( scp, log, user )
                [ "key_sign", key_sign ],
                [ [ "Teams", "manifest" ], teams_manifest ],
                [ [ "Invites", "manifest" ], invites_manifest ] ]
-    yield P.all( fs.map( upload ) );
+    await P.all( fs.map( upload ) );
 } );
 
 /* Submit the necessary user information to the central server */
-var submitRegistrationInfo = async( "Submit", function *( scp, log, user )
+var submitRegistrationInfo = A( async function submitRegistrationInfo( actx, user )
 {
     log( "Encrypting cloud link ..." );
     var reg_info = JSON.stringify( {
-        link   : bufToHex( yield aes_cbc_ecdsa.encryptThenSignSalted(
+        link   : bufToHex( await aes_cbc_ecdsa.encryptThenSignSalted(
             user.key_login, user.key_signing, user.cloud_bits ) ),
         pub_key: user.key_verify_exported,
         salt   : bufToHex( user.login_salt ),
     } );
-    var resp = yield fetch( "/Register/"+user.huid,
+    var resp = await fetch( "/Register/"+user.huid,
                   { method  : "POST",
                     body    : reg_info,
                     headers : new Headers( {
@@ -137,7 +138,7 @@ var submitRegistrationInfo = async( "Submit", function *( scp, log, user )
 } );
 
 /* Returns a Promise that resolves to the user object */
-export default const register = async function register( uid, passwd )
+export default const register = A( async function register( actx, uid, passwd )
 {
     log( "Enter", uid );
     // TODO uid sanity check
@@ -147,7 +148,7 @@ export default const register = async function register( uid, passwd )
     await initializeUserAccount( uid, passwd, user );
     await initializeCloudStorage( user );
     try {
-        yield submitRegistrationInfo( scp, user );
+        await submitRegistrationInfo( scp, user );
     }
     catch( err ) {
         log( "Registration with central server failed", err );
@@ -155,4 +156,4 @@ export default const register = async function register( uid, passwd )
     }
     log( "Exit", uid );
     return user;
-}
+} );

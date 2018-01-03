@@ -38,7 +38,7 @@ function actFn( ...actFn_params )
 
     let np = actFn_params.length;
 
-    assert( np > 0, 'actFn called with no parameters.  Requires at least a function*' );
+    assert( np > 0, 'actFn called with no parameters.  Requires at least an async function' );
     assert( np < 3, 'actFn called with too many parameters ('+np+').' );
 
     if( np === 1 )
@@ -410,6 +410,7 @@ function atomicable( ...atomicable_params )
         {
             return leaveScope( P.reject( msg + " ABORTED " + String( err ) ) );
         }
+
         try {
             return async_function( ...params ).then(
                 ( result ) => {
@@ -445,7 +446,7 @@ function atomicable( ...atomicable_params )
         }
         catch( err ) {
             console.log( "ERROR in call to", async_function.name );
-            return P.reject( err );
+            return leaveScope( P.reject( err ) );
         }
         throw new Error( "Unreachable" );
     }

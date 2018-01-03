@@ -4,8 +4,8 @@
  *
  */
 
-import { actFn, Scheduler } from "../Utilities/act-thread";
-import * as M from "../Utilities/misc";
+import A         from "../Utilities/act-thread";
+import * as M    from "../Utilities/misc";
 import WebCrypto from "node-webcrypto-ossl";
 const C = new WebCrypto();
 export const CS = C.subtle;
@@ -52,19 +52,19 @@ const makeUniqueId = function makeUniqueId( ids, len = UNIQUE_ID_DEFAULT_LEN )
     return id;
 };
 
-const exportKeyJwk = actFn( function* exportKeyJwk( actx, k )
+const exportKeyJwk = A( async function exportKeyJwk( actx, k )
 {
-    return JSON.stringify( yield C.exportKey( 'jwk', k ) );
+    return JSON.stringify( await C.exportKey( 'jwk', k ) );
 } );
 
-const importKeyJwk = actFn( function* importKeyJwk( actx, s, algo, ops )
+const importKeyJwk = A( async function importKeyJwk( actx, s, algo, ops )
 {
     // assert( typeof( s )    == raw key buffer )
     // assert( typeof( algo ) == crypto algorithm )
     // assert( typeof( ops )  == sequence of supported operations )
 
     const j = JSON.parse( s );
-    return yield C.importKey( 'jwk', j, algo, true, ops );
+    return await C.importKey( 'jwk', j, algo, true, ops );
 } );
 
 const importKeyPubDH = function importKeyPubDH( k, scp )
@@ -99,7 +99,7 @@ const stringsToBuf = function stringsToBuf( strings )
     return b;
 };
 
-const makeLoginKey = actFn( function* makeLoginKey( actx, username, password, salt )
+const makeLoginKey = A( async function makeLoginKey( actx, username, password, salt )
 {
     // assert( typeof( username ) == 'string' )
     // assert( typeof( password ) == 'string' )
@@ -107,7 +107,7 @@ const makeLoginKey = actFn( function* makeLoginKey( actx, username, password, sa
     var up = stringsToBuf( [ username, password ] );
     return C.deriveKey(
         pbkdf_algo( salt ),
-        yield C.importKey( 'raw', up, { name: 'PBKDF2' }, false, [ 'deriveKey' ] ),
+        await C.importKey( 'raw', up, { name: 'PBKDF2' }, false, [ 'deriveKey' ] ),
         sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
 } );
 
@@ -147,14 +147,14 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
         }
     };
 
-    const verifyThenDecrypt = actFn( function* verifyThenDecrypt(
+    const verifyThenDecrypt = A( async function verifyThenDecrypt(
         actx, key_dec, key_ver, sig_plus_data, enc_param )
     {
         try {
             var d_as_bytes = new Uint8Array( sig_plus_data );
             var sig = d_as_bytes.subarray( 0, this.sig_length );
             var data_enc = d_as_bytes.subarray( this.sig_length );
-            if( !( yield C.verify( this.sign_algo(), key_ver, sig, data_enc ) ) )
+            if( !( await C.verify( this.sign_algo(), key_ver, sig, data_enc ) ) )
                 throw new VerificationError( '', scp );
             // 'else'
             return C.decrypt( this.enc_algo( enc_param ), key_dec, data_enc );
@@ -164,12 +164,12 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
         }
     } );
 
-    const decryptSkipVerify = actFn( function* decryptSkipVerify(
+    const decryptSkipVerify = A( async function decryptSkipVerify(
         actx, key_dec, sig_plus_data, enc_param )
     {
         try {
             var data_enc = ( new Uint8Array( sig_plus_data ) ).subarray( this.sig_length );
-            return yield C.decrypt( this.enc_algo( enc_param ), key_dec, data_enc )
+            return await C.decrypt( this.enc_algo( enc_param ), key_dec, data_enc )
         }
         catch( err ) {
             domToCrypto( err );
@@ -184,17 +184,17 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
             zeros );
     };
 
-    const verifyThenDecryptSalted = actFn( function* verifyThenDecryptSalted(
+    const verifyThenDecryptSalted = A( async function verifyThenDecryptSalted(
         actx, key_dec, key_ver, data )
     {
-        const bytes = yield this.verifyThenDecrypt( null, key_dec, key_ver, data, zeros )
+        const bytes = await this.verifyThenDecrypt( null, key_dec, key_ver, data, zeros )
         return new Uint8Array( bytes ).subarray( this.iv_length );
     } );
 
-    const decryptSkipVerifySalted = actFn( function* decryptSkipVerifySalted(
+    const decryptSkipVerifySalted = A( async function decryptSkipVerifySalted(
         actx, key_dec, data )
     {
-        const salt_plus_data = yield this.decryptSkipVerify( key_dec, data, zeros );
+        const salt_plus_data = await this.decryptSkipVerify( key_dec, data, zeros );
         // log( new Uint8Array( salt_plus_data ), this.iv_length );
         return ( new Uint8Array( salt_plus_data ) ).subarray( this.iv_length );
     } );
@@ -212,3 +212,13 @@ export const aes_cbc_hmac = cryptoSpecificAlgos(
     function( iv ) { return { name: 'AES-CBC', iv: iv }; },
     function()     { return { name: 'HMAC' }; }
 );
+
+export function digest_sha_512( data )
+{
+    if( typeof( data ) === "string" )
+    {
+        data = M.encode( data );
+    }
+    /* assert( typeof( data ) is { ArrayBuffer or ArrayBufferView } ) */
+    return CS.digest( { name: "SHA-512" }, data );
+}
