@@ -2,7 +2,7 @@
 
 "use strict";
 
-import { assert } from "../Utilities/assert.mjs";
+import assert from "../Utilities/assert.mjs";
 import * as K from "../Utilities/keyword";
 import * as S from "../Utilities/set";
 
@@ -167,6 +167,7 @@ export function parseQuery( q )
 
     if( in_section.length > 0 )
     {
+        // ':in' (src-var | variable | pattern-var | rules-var)+
         throw new Error( "Unimplemented" );
     }
 

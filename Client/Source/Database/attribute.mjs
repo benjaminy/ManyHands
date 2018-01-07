@@ -32,11 +32,10 @@ const types = new Set( [
     vtypeFloat, vtypeDouble, vtypeBigdec, vtypeRef, vtypeInstant,
     vtypeUuid, vtypeBytes ] );
 
-const uniqueK        = K.key( ":db/unique" );
-const uniqueValue    = K.key( ":db.unique/value" );
-const uniqueIdentity = K.key( ":db.unique/identity" );
-const uniques = new Set( [ uniqueValue, uniqueIdentity ] );
-
+export const uniqueK        = K.key( ":db/unique" );
+export const uniqueValue    = K.key( ":db.unique/value" );
+export const uniqueIdentity = K.key( ":db.unique/identity" );
+export const uniques = new Set( [ uniqueValue, uniqueIdentity ] );
 
 export function makeAttribute(
     ident_, valueType_, cardinality_,

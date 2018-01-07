@@ -7,3 +7,10 @@ Transaction statements are arrays of objects with one of the following shapes:
 - [ :db/retract, e, a, v ]
 - [ fn-name (keyword), p1, p2, p3, ... ]
 
+
+
+
+
+var example = [ DB.find, '?e', '?x',
+                DB.where, [ '?e', ':age', '42' ], [ '?e', ':likes', '?x' ] ]
+

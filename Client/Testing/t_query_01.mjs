@@ -31,7 +31,7 @@ const q1 = Q.parseQuery(
 
 console.log( JSON.stringify( q1, tagger, 2 ) );
 
-const age  = K.key( ":age" );
+const age   = K.key( ":age" );
 const likes = K.key( ":likes" );
 const sally = 12345;
 const fred  = 12346;
