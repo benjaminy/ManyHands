@@ -1,6 +1,6 @@
 /* Top Matter */
 
-import { assert }  from "../Source/Utilities/assert";
+import assert from "../Source/Utilities/assert";
 import * as K from "../Source/Utilities/keyword";
 import * as Q from "../Source/Database/query";
 

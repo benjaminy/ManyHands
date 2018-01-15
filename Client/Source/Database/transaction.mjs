@@ -42,19 +42,19 @@ const attrQuery = Q.parseQuery( [
            [ ?attr :db/noHistory   ?noHist ] ] "
 */
 
-const getAttribute = A( async function getAttribute( db, identName ) {
+const getAttribute = A( async function getAttribute( actx, db, identName ) {
     const ident = K.key( identName );
 
     if( !( ak in db.attributes ) )
     {
         try {
-            [ v, c, d, u, i, f, ic, n ] = await Q.runQuery( db, attrQuery, ak, );
+            [ v, c, d, u, i, f, ic, n ] = await Q.runQuery( actx, db, attrQuery, ak );
             db.attributes[ ak ] = DA.makeAttribute( ident, v, c, d, u, i, f, ic, n );
         }
         catch( err ) {
             if( err === queryFailure )
             {
-                throw new Error( "DB does not have attribute" );
+                throw new Error( "DB does not have attribute "+identName );
             }
             else
             {
@@ -76,7 +76,7 @@ const processTxn = A( async function processTxn( actx, db, txn )
     var datoms = [];
     var temp_ids = {};
 
-    function getEntity( e ) {
+    function getEntityId( e ) {
         if( !e )
             return new_entity( db );
         /* "else" */
@@ -143,10 +143,10 @@ const processTxn = A( async function processTxn( actx, db, txn )
         {
             var kind = K.key( stmt[ 0 ] );
             if( stmt[ 0 ] === addK ) {
-                addDatom( getEntity( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
+                addDatom( getEntityId( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
             }
             else if( stmt[ 0 ] === retractK ) {
-                var e = getEntity( stmt[ 1 ] );
+                var e = getEntityId( stmt[ 1 ] );
                 var attribute = db.getAttribute( stmt[ 2 ] );
                 var value     = DA.normalizeValue( attribute, stmt[ 3 ] );
                 /* Check that v is e's value for attribute a? */
@@ -157,7 +157,7 @@ const processTxn = A( async function processTxn( actx, db, txn )
                 stmt.shift(); // remove function name
                 var fn_datoms = f.fn.apply( db, stmt );
                 fn_datoms.forEach( function( [ e, a, v ] ) {
-                    addDatom( getEntity( e ), a, v );
+                    addDatom( getEntityId( e ), a, v );
                 } );
             }
         }
@@ -165,11 +165,11 @@ const processTxn = A( async function processTxn( actx, db, txn )
         {
             const idS = K.str( idK );
             try {
-                var e = getEntity( stmt[ idK ] );
+                var e = getEntityId( stmt[ idK ] );
             }
             catch( err ) {
                 try {
-                    var e = getEntity( stmt[ idS ] );
+                    var e = getEntityId( stmt[ idS ] );
                 }
                 catch( err ) {
                     var e = DB.new_entity( db );

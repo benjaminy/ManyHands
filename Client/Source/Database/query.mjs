@@ -44,6 +44,10 @@ export function parseQuery( q )
                 catch( err ) {}
                 section.push( q[ i ] );
             }
+            if( section.length < 1 )
+            {
+                throw new Error( "Empty section " + section );
+            }
         }
     }
 
@@ -60,6 +64,19 @@ export function parseQuery( q )
     console.log( "WI " + with_section );
     console.log( "IN " + in_section );
     console.log( "WH " + where_section );
+
+    function parseSrcVar( thing )
+    {
+        try {
+            if( thing.startsWith( "$" ) )
+            {
+                return { tag: src_var_tag,
+                         name: thing.substring( 1 ) };
+            }
+        }
+        catch( err ) {}
+        throw new Error( "Query: Expecting variable.  Found: " + thing );
+    }
 
     function parseVariable( thing )
     {
@@ -149,9 +166,14 @@ export function parseQuery( q )
         }
         else if( find_section.length === 1 && Array.isArray( find_section[ 0 ] ) )
         {
-            // find-coll = [find-elem '...']
-            // find-tuple = [find-elem+]
-            throw new Error( "Unimplemented" );
+            const elems = find_section[ 0 ];
+            if( elems.length === 2 && elems[ 1 ] === "..." )
+            {
+                return { tag: find_coll_tag,
+                         elem: parseFindElem( elems[ 0 ] ) };
+            }
+            return { tag: find_tuple_tag,
+                     elems: elems.map( parseFindElem ) };
         }
         else
         {
@@ -160,15 +182,22 @@ export function parseQuery( q )
         }
     }
 
-    if( with_section.length > 0 )
+    function parseInputElem( thing )
     {
-        throw new Error( "Unimplemented" );
-    }
-
-    if( in_section.length > 0 )
-    {
-        // ':in' (src-var | variable | pattern-var | rules-var)+
-        throw new Error( "Unimplemented" );
+        if( thing === "%" )
+            return { tag: rules_var_tag }
+        try {
+            return parseSrcVar( thing );
+        }
+        catch( err ) {}
+        try {
+            return parseVariable( thing );
+        }
+        catch( err ) {}
+        if( isPlainSymbol( thing ) )
+            return { tag: pattern_var_tag,
+                     name: thing };
+        throw new Error( "Query: Expecting input element.  Found: " + thing );
     }
 
     function isPlainSymbol( thing )
@@ -254,7 +283,7 @@ export function parseQuery( q )
     return {
         find:  parseFindSpec(),
         with:  {},
-        in:    {},
+        in:    in_section.map( parseInputElem ),
         where: parseWhereClauses()
     };
 }
@@ -265,7 +294,7 @@ function is_compatible( query_const, datom_value )
     return query_const.val === datom_value;
 }
 
-export function runQuery( db, q )
+export const runQuery = A( async function runQuery( actx, db, q )
 {
     const vars = [];
     const results = [];
@@ -343,4 +372,4 @@ export function runQuery( db, q )
     {
         throw new Error( "Unimplemented" );
     }
-}
+} );

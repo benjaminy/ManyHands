@@ -16,9 +16,10 @@ const in_browser = this && ( this.window === this );
 
 function encode_path( user, path )
 {
-    /* assert( Array.isArray( path ) || typeof( path ) == "string" ) */
-    /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == "string" ) */
-    /* assert( typeof( user ) == "string" ) */
+    assert( typeof( user ) === "string" );
+    assert( ( typeof( path ) === "string" ) ||
+            ( path.every( ( p ) => typeof( p ) === "string" ) ) );
+
     if( !Array.isArray( path ) )
     {
         path = [ path ];
@@ -27,31 +28,35 @@ function encode_path( user, path )
              u: encodeURIComponent( user ) };
 }
 
-export default function init( options )
+/* Note: Not using class syntax, because it seems to fit awkwardly with async/A */
+
+export default function init( user, options )
 {
+    assert( typeof( user ) === "string" );
+
     if( options )
     {
         throw new Error( "Unimplemented" );
     }
     else
     {
-        let port = DEFAULT_SERVER_PORT;
         if( in_browser )
         {
-            let loc = window.location;
-            var FILE_SERVER_ADDR = loc.protocol + "//" + loc.hostname + ":" + port + "/";
+            const loc = window.location;
+            var protocol_hostname = loc.protocol + "//" + loc.hostname;
         }
         else
         {
-            var FILE_SERVER_ADDR = "http://localhost:" + port + "/";
+            var protocol_hostname = "http://localhost";
         }
     }
 
-    const upload = A( async function upload( actx, user, path, content, content_type )
+    const host = protocol_hostname + ":" + DEFAULT_SERVER_PORT + "/";
+
+    const upload = A( async function upload( actx, path, content, content_type )
     {
-        /* assert( Array.isArray( path ) || typeof( path ) == "string" ) */
-        /* assert( Array.isArray( path ) => forall i. typeof( path[i] ) == "string" ) */
-        /* assert( typeof( user ) == "string" ) */
+        assert( ( typeof( path ) === "string" ) ||
+                ( path.every( ( p ) => typeof( p ) === "string" ) ) );
         /* assert( typeof( content ) is whatever fetch accepts ) */
 
         const pu = encode_path( user, path );
@@ -61,13 +66,11 @@ export default function init( options )
             headers[ "Content-Type" ] = content_type;
         }
 
-        console.log( "U1" );
         const response =
-              await fetch( FILE_SERVER_ADDR+pu.u+"/"+pu.p,
+              await fetch( host+pu.u+"/"+pu.p,
                            { method  : "POST",
                              body    : content,
                              headers : headers } );
-        console.log( "U2" );
         actx.log( "Response", response.status, response.statusText );
         if( response.ok )
             return P.resolve( response );
@@ -75,18 +78,15 @@ export default function init( options )
             return UM.handleServerError( actx, pu.p, response );
     } );
 
-    const download = A( async function download( actx, user, path, isText )
+    const download = A( async function download( actx, path, isText )
     {
-        if( Array.isArray( path ) )
-            assert( path.every( ( x ) => typeof( x ) === "string" ) );
-        else
-            assert( typeof( path ) === "string" );
-        assert( typeof( user ) === "string" );
+        assert( ( typeof( path ) === "string" ) ||
+                ( path.every( ( p ) => typeof( p ) === "string" ) ) );
         assert( isText === undefined || isText === true || isText === false );
 
         const pu = encode_path( user, path );
-        const response = await fetch( FILE_SERVER_ADDR+pu.u+"/"+pu.p );
-        actx.log( pu.p, response.status, response.statusText );
+        const response = await fetch( host+pu.u+"/"+pu.p );
+        actx.log( "Response", pu.p, response.status, response.statusText );
         if( response.ok )
         {
             if( isText )

@@ -228,10 +228,17 @@ function p_all_resolve( promises, values, scp )
 export const handleServerError = A( async function handleServerError( actx, msg, resp )
 {
     if( resp.status == 404 )
+    {
+        actx.log( "NOT FOUND ERROR" );
         throw new NotFoundError( msg );
+    }
     const t = await resp.text();
     if( resp.status >= 400 && resp.status < 500 )
+    {
+        actx.log( "REQUEST ERROR" );
         throw new RequestError( msg, resp.statusText + ' ' + t );
+    }
+    actx.log( "SERVER ERROR" );
     throw new ServerError( msg, resp.statusText + ' ' + t );
 } );
 

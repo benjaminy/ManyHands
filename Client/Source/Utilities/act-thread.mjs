@@ -148,7 +148,7 @@ function actFn( ...actFn_params )
     function fnEitherMode( actx, ...params )
     {
         /* actx : activity context type */
-        console.log( "CALLING EI", generator_function.name );
+        // console.log( "CALLING EI", generator_function.name );
         let pass_actx = !actx.hasOwnProperty( DO_NOT_PASS_TAG );
         try {
             if( pass_actx )
@@ -359,10 +359,7 @@ class Context
 
 function atomicable( ...atomicable_params )
 {
-    console.log( "atomicable", atomicable_params )
-
     const np = atomicable_params.length;
-
     assert( np > 0, "atomicable: no parameters; requires at least an async function" );
     assert( np < 3, "atomicable: too many parameters: " + np );
 
@@ -372,83 +369,58 @@ function atomicable( ...atomicable_params )
 
     assert( actx_setup === undefined || actx_setup.constructor === Context );
 
+    console.log( "atomicable", async_function, actx_setup );
+
     if( ATOMICABLE_TAG in async_function )
         return async_function;
 
-    const callFn = function callFn( ...params )
+    const callFn = async function callFn( ...params )
     {
         const actx_call = actx_setup ? actx_setup : params[ 0 ];
         assert( actx_call.constructor === Context );
 
-        function blocked( onContinue, onAbort )
+        async function notBlocked()
         {
-            actx_call.addToWaiting();
-            return new Promise( function( resolve, reject ) {
-                actx_call.continue = resolve;
-                actx_call.abort = reject;
-            } ).then( onContinue, onAbort );
+            while( actx_call.blockedByAtomic() )
+            {
+                console.log( "BLOCKED", async_function.name );
+                try {
+                    actx_call.addToWaiting();
+                    await new Promise( function( resolve, reject ) {
+                        actx_call.continue = resolve;
+                        actx_call.abort    = reject;
+                    } );
+                }
+                catch( err ) {
+                    console.log( "ABORTED " + err );
+                    throw err;
+                }
+            }
         }
 
-        if( actx_call.blockedByAtomic() )
-        {
-            console.log( "CALLING, BUT BLOCKED", async_function.name );
-            return blocked( () => { return callFn( ...params ); },
-                            ( err ) => { return P.reject( "CALL ABORTED " + String( err ) ); } );
-        }
-
-        actx_call.async_fns.push( async_function );
         console.log( "CALLING", async_function.name, actx_call.async_fns.length );
+        await notBlocked();
+        actx_call.async_fns.push( async_function );
 
-        function leaveScope( rv )
+        function leaveScope()
         {
             const a = actx_call.async_fns.pop();
             assert( a === async_function );
-            return rv;
-        }
-
-        function abort( err, msg )
-        {
-            return leaveScope( P.reject( msg + " ABORTED " + String( err ) ) );
         }
 
         try {
-            return async_function( ...params ).then(
-                ( result ) => {
-                    function tryReturn()
-                    {
-                        if( actx_call.blockedByAtomic() )
-                        {
-                            console.log( "RETURNING, BUT BLOCKED", async_function.name );
-                            return blocked(
-                                () => { return tryReturn(); },
-                                ( err ) => { return abort( err, "RET" ) } );
-                        }
-                        console.log( "RETURNING", async_function.name, typeof( result ) );
-                        return leaveScope( P.resolve( result ) );
-                    }
-                    return tryReturn();
-                },
-                ( err ) => {
-                    function tryThrow()
-                    {
-                        if( actx_call.blockedByAtomic() )
-                        {
-                            console.log( "THROWING, BUT BLOCKED", async_function.name );
-                            return blocked(
-                                () => { return tryThrow(); },
-                                ( err ) => { return abort( err, "THROW" ); } );
-                        }
-                        console.log( "THROWING", async_function.name, err );
-                        return leaveScope( P.reject( err ) );
-                    }
-                    return tryThrow();
-                } );
+            var rv = await async_function( ...params );
         }
         catch( err ) {
-            console.log( "ERROR in call to", async_function.name );
-            return leaveScope( P.reject( err ) );
+            console.log( "THROWING", async_function.name );
+            await notBlocked();
+            leaveScope();
+            throw err;
         }
-        throw new Error( "Unreachable" );
+        console.log( "RETURNING", async_function.name );
+        await notBlocked();
+        leaveScope();
+        return rv;
     }
     callFn[ EXPECTS_CTX_TAG ] = !actx_setup;
     callFn[ ATOMICABLE_TAG ] = undefined;
