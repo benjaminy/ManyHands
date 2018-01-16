@@ -22,9 +22,9 @@ let FINISHED             = Object.freeze( { t: ACT_STATE_TAG } );
 const activity_names = {};
 
 /* Function for defining "activity functions" (basically a special flavor of async function)
- * actFn can be called in two ways:
- *  - with just a generator function
- *  - an activity context, then a generator function
+ * atomicable can be called in two ways:
+ *  - with just an async function
+ *  - an activity context, then an async function
  * The former creates a function that can be invoked in different contexts and passes
  * an activity context reference to the generator function.
  * The latter creates a function that can only be invoked in the given context, and
@@ -32,165 +32,67 @@ const activity_names = {};
  * The latter is primarily for internal use (with "atomic"), but can be used by client
  * code.
  */
-function actFn( ...actFn_params )
+
+function atomicable( ...atomicable_params )
 {
-    // console.log( "actFn", actFn_params )
+    const np = atomicable_params.length;
+    assert( np > 0, "atomicable: no parameters" );
+    assert( np < 3, "atomicable: too many parameters: " + np );
 
-    let np = actFn_params.length;
+    const [ async_function, actx_setup ] = np === 1
+          ? [ atomicable_params[ 0 ], undefined ]
+          : [ atomicable_params[ 1 ], atomicable_params[ 0 ] ];
 
-    assert( np > 0, 'actFn called with no parameters.  Requires at least an async function' );
-    assert( np < 3, 'actFn called with too many parameters ('+np+').' );
+    assert( actx_setup === undefined || isContext( actx_setup ) );
 
-    if( np === 1 )
+    console.log( "atomicable", async_function, actx_setup );
+
+    if( ATOMICABLE_TAG in async_function )
+        return async_function;
+
+    const callFn = async function callFn( ...params )
     {
-        var generator_function = actFn_params[ 0 ];
-        var actx_maybe         = null;
-    }
-    else
-    {
-        var generator_function = actFn_params[ 1 ];
-        var actx_maybe         = actFn_params[ 0 ];
-        assert( actx_maybe.constructor === Context );
-    }
-    if( generator_function.hasOwnProperty( ACT_FN_TAG ) )
-        return generator_function;
+        const actx_call = actx_setup ? actx_setup : params[ 0 ];
+        assert( isContext( actx_call ) );
 
-
-    /* runToNextYield is the heart of the activity function
-     * implementation.  It gets called after every yield performed by
-     * 'generator_function'.
-     */
-    function runToNextYield( actx, generator, is_err, yielded_value )
-    {
-        /* Parameter Types: */
-        /* actx          : activity context type */
-        /* generator     : generator type */
-        /* is_err        : boolean */
-        /* yielded_value : any */
-        console.log( "runToNextYield", generator_function.name );
-
-        assert( actx.continuation === null );
-
-        if( actx.blockedByAtomic() )
+        async function notBlocked()
         {
-            actx.addToWaiting();
-            return new Promise( function( resolve, reject ) {
-                actx.continuation = resolve;
-            } ).then(
-                function() {
-                    return runToNextYield( actx, generator, is_err, yielded_value );
-                } );
+            const blocks = [];
+            while( actx_call.blockedByAtomic() )
+            {
+                actx_call.addToWaiting();
+                blocks.push( await new Promise( function( resolve, reject ) {
+                    actx_call.continue = resolve;
+                    actx_call.abort    = reject;
+                } ) );
+            }
+            return blocks;
         }
 
-        /* Either the system is not in atomic mode, or actx can run in the current atomic */
-        actx.state = RUNNING;
-        actx.waits = 0;
+        await notBlocked();
+        actx_call.async_fns.push( async_function );
+
+        function leaveScope()
+        {
+            const a = actx_call.async_fns.pop();
+            assert( a === async_function );
+        }
+
         try {
-            if( is_err )
-            {
-                var next_yielded = generator.throw( yielded_value );
-            }
-            else
-            {
-                var next_yielded = generator.next( yielded_value );
-            }
-            actx.state = RESOLVING;
+            var rv = await async_function( ...params );
         }
         catch( err ) {
-            // console.log( "!!! generator error", err, err.stack );
-            // Error.captureStackTrace( err, runToNextYield );
-            actx.state = GENERATOR_ERROR;
-            const g = actx.generator_fns.pop();
-            console.log( "GENERATOR THREW", g.name, generator_function.name );
-            assert( g === generator_function );
-            return P.reject( err );
+            await notBlocked();
+            leaveScope();
+            throw err;
         }
-        /* next_yielded : { done : boolean, value : `b } */
-
-        function realReturn( v )
-        {
-            assert( actx.generator_fns.length > 0 );
-            let g = actx.generator_fns.pop();
-            console.log( "RETURN", g.name, generator_function.name );
-            assert( g === generator_function );
-            return P.resolve( v );
-        }
-
-        if( next_yielded.done )
-        {
-            console.log( "NEXT.DONE", generator_function.name );
-            return realReturn( next_yielded.value );
-        }
-        /* "else": The generator yielded; it didn't return */
-
-        return P.resolve( next_yielded.value ).then(
-            function( next_yielded_value ) {
-                console.log( "RESOLVED", !!next_yielded_value );
-                try {
-                    if( RTRN_FROM_ATOMIC_TAG in next_yielded_value
-                        && !( next_yielded_value.value === undefined ) )
-                    {
-                        return realReturn( next_yielded_value.value );
-                    }
-                }
-                catch( err ) {
-                    console.log( "EXCEPTION IN RESOLVED" );
-                }
-                return runToNextYield( actx, generator, false, next_yielded_value );
-            },
-            function( err ) {
-                console.log( "PROMISE REJECTED", generator_function.name );
-                return runToNextYield( actx, generator, true, err );
-            } );
+        await notBlocked();
+        leaveScope();
+        return rv;
     }
-
-    /* Finally, the code that actually runs when actFn is called */
-    function fnEitherMode( actx, ...params )
-    {
-        /* actx : activity context type */
-        // console.log( "CALLING EI", generator_function.name );
-        let pass_actx = !actx.hasOwnProperty( DO_NOT_PASS_TAG );
-        try {
-            if( pass_actx )
-            {
-                var generator = generator_function( actx, ...params );
-            }
-            else
-            {
-                var generator = generator_function( ...params );
-            }
-            /* generator : iterator type */
-        }
-        catch( err ) {
-            console.log( "Error starting generator" );
-            return P.reject( err );
-        }
-        actx.generator_fns.push( generator_function );
-        /* NOTE: leaving the value parameter out of the following call,
-         * because the first call to 'next' on a generator doesn't expect
-         * a real value. */
-        return runToNextYield( actx, generator, false );
-    }
-
-    if( actx_maybe )
-    {
-        var f = function( ...params )
-        {
-            actx_maybe[ DO_NOT_PASS_TAG ] = undefined;
-            return fnEitherMode( actx_maybe, ...params );
-        }
-    }
-    else
-    {
-        var f = function( ...params )
-        {
-            assert( params[ 0 ].constructor === Context );
-            return fnEitherMode( ...params );
-        }
-    }
-    f[ EXPECTS_CTX_TAG ] = !actx_maybe;
-    f[ ACT_FN_TAG ] = 0;
-    return f;
+    callFn[ EXPECTS_CTX_TAG ] = !actx_setup;
+    callFn[ ATOMICABLE_TAG ] = undefined;
+    return callFn;
 }
 
 class Scheduler
@@ -285,7 +187,7 @@ class Context
     atomic( ...params_plus_fn )
     {
         var params    = params_plus_fn.slice( 0, params_plus_fn.length - 1 );
-        let fn        = actFn( this, params_plus_fn[ params_plus_fn.length - 1 ] );
+        let fn        = atomicable( this, params_plus_fn[ params_plus_fn.length - 1 ] );
         let scheduler = this.scheduler;
 
         const leaveAtomic = () =>
@@ -357,76 +259,12 @@ class Context
     }
 }
 
-function atomicable( ...atomicable_params )
+function isContext( thing )
 {
-    const np = atomicable_params.length;
-    assert( np > 0, "atomicable: no parameters; requires at least an async function" );
-    assert( np < 3, "atomicable: too many parameters: " + np );
-
-    const [ async_function, actx_setup ] = np === 1
-          ? [ atomicable_params[ 0 ], undefined ]
-          : [ atomicable_params[ 1 ], atomicable_params[ 0 ] ];
-
-    assert( actx_setup === undefined || actx_setup.constructor === Context );
-
-    console.log( "atomicable", async_function, actx_setup );
-
-    if( ATOMICABLE_TAG in async_function )
-        return async_function;
-
-    const callFn = async function callFn( ...params )
-    {
-        const actx_call = actx_setup ? actx_setup : params[ 0 ];
-        assert( actx_call.constructor === Context );
-
-        async function notBlocked()
-        {
-            while( actx_call.blockedByAtomic() )
-            {
-                console.log( "BLOCKED", async_function.name );
-                try {
-                    actx_call.addToWaiting();
-                    await new Promise( function( resolve, reject ) {
-                        actx_call.continue = resolve;
-                        actx_call.abort    = reject;
-                    } );
-                }
-                catch( err ) {
-                    console.log( "ABORTED " + err );
-                    throw err;
-                }
-            }
-        }
-
-        console.log( "CALLING", async_function.name, actx_call.async_fns.length );
-        await notBlocked();
-        actx_call.async_fns.push( async_function );
-
-        function leaveScope()
-        {
-            const a = actx_call.async_fns.pop();
-            assert( a === async_function );
-        }
-
-        try {
-            var rv = await async_function( ...params );
-        }
-        catch( err ) {
-            console.log( "THROWING", async_function.name );
-            await notBlocked();
-            leaveScope();
-            throw err;
-        }
-        console.log( "RETURNING", async_function.name );
-        await notBlocked();
-        leaveScope();
-        return rv;
-    }
-    callFn[ EXPECTS_CTX_TAG ] = !actx_setup;
-    callFn[ ATOMICABLE_TAG ] = undefined;
-    return callFn;
+    return thing && thing.constructor === Context;
 }
 
 atomicable.Scheduler = Scheduler;
+atomicable.isContext = isContext;
 
 export default atomicable;

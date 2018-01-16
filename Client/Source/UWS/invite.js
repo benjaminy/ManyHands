@@ -2,12 +2,10 @@
  * Top Matter
  */
 
-/*
- * See Documentation/invitation.md
- */
+import A        from "../Utilities/act-thread";
 
 /* alice sets up an invite for bob to team_id */
-let inviteStep1 = actFn( function *InviteStep1( actx, alice, bob, team_id )
+let inviteStep1 = A( async function InviteStep1( actx, alice, bob, team_id )
 {
     /* typeof( alice )   == UWS user object */
     /* typeof( bob )     == string (some identifying info about Bob) */

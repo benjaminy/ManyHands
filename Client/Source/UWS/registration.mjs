@@ -19,6 +19,8 @@ const CS = CB.CS;
  */
 const checkUidAvailable = A( async function checkUidAvailable( actx, uid, user )
 {
+    assert( A.isContext( actx ) );
+    assert( typeof( uid ) === "string" );
     /* TODO: negotiate hash algo with server */
     user.huid_text = B32.encode( await CB.digest_sha_512( uid ) );
     actx.log( "Checking", uid, "(", user.huid_text, ")" );
@@ -30,6 +32,16 @@ const checkUidAvailable = A( async function checkUidAvailable( actx, uid, user )
     else if( !( resp.status === 404 ) )
         handleServerError( scp, path, resp );
     /* seems "uid" is available ... */
+} );
+
+/* */
+const linkCloudAccount = A( async function linkCloudAccount( actx, user )
+{
+    const cloud_bits = getRandomBytes( 5 );
+    const cloud_text = B32.encode( cloud_bits );
+    actx.log( "Link", cloud_text, cloud_bits );
+    /* TODO: A real version would get credentials for a cloud storage account */
+    user.storage = SCC.init( user.uid + cloud_text )
 } );
 
 /* Initializes the necessary components of a user object (mostly keys) */
@@ -53,15 +65,13 @@ const initializeUserAccount = A( async function initializeUserAccount( actx, uid
 } );
 
 /*
- * Uploads a user's information to the cloud.
+ * Create a skeleton UWS account with private and public DBs.
  * TODO: Currently this code assumes it is uploading a freshly minted user object.
  *   It would be nice to make a more general user info uploader that knew when things
  *   were dirty and needed to be uploaded. */
 const initializeCloudStorage = A( async function initializeCloudStorage( actx, user )
 {
-    user.cloud_bits = getRandomBytes( 5 );
-    user.cloud_text = bufToHex( user.cloud_bits );
-    actx.log( "Link", user.cloud_text, user.cloud_bits, ".  Encrypting data ..." );
+    actx.log( "Encrypting data ..." );
     function encrypt( k, d )
     { return aes_cbc_ecdsa.encryptThenSignSalted(
         k, user.key_signing, encode( d ), scp ); }

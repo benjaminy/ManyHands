@@ -1,6 +1,6 @@
 /* Top Matter */
 
-import { assert }  from "../Source/Utilities/assert.mjs";
+import assert from "../Source/Utilities/assert.mjs";
 import * as K from "../Source/Utilities/keyword.mjs";
 
 const k01 = K.key( ":first" );
