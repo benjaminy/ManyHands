@@ -46,7 +46,7 @@ var getRegistrationInfo = async( 'GetReg', function *( scp, log, uid, passwd, us
     var resp = yield fetch( '/Users/'+bufToHex( hashedUID ) );
     log( 'Fetched reg info', resp.status, resp.statusText );
     if( !resp.ok )
-        handleServerError( scp, '/Users/'+bufToHex( hashedUID ), resp );
+        await handleServerError( scp, '/Users/'+bufToHex( hashedUID ), resp );
     var registration_info = yield resp.json();
     log( 'Decoded reg info', registration_info );
     user.login_salt = hexToBuf( registration_info.salt, scp );

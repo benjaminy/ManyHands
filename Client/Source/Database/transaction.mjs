@@ -289,23 +289,45 @@ function isTxnStmt( thing )
 {
     if( Array.isArray( thing ) )
     {
-        if( thing.length < 1 )
-            return false;
         try {
-            const first = K.key( thing[ 0 ] );
-            if( first === addK || first === retractK )
-            {
-            }
-            else
-            {
-            }
+            var first = K.key( thing[ 0 ] );
         }
         catch( err ) {
             return false
         }
+        if( first === addK || first === retractK )
+        {
+            try {
+                var e = thing[ 1 ];
+                var a = thing[ 2 ];
+                var v = thing[ 3 ];
+            }
+            catch( err ) {
+                return false;
+            }
+            /* TODO: examine e, a, v */
+            return true;
+        }
+        else
+        {
+            /* TODO: examine f, ps */
+            return true;
+        }
     }
     else if( thing === Object( thing ) )
     {
+        for( const attr_name in thing )
+        {
+            try {
+                var attr = K.key( attr_name );
+            }
+            catch( err ) {
+                return false;
+            }
+            const val = thing[ attr_name ];
+            /* TODO: examine attr, val */
+        }
+        return true;
     }
     return false;
 }

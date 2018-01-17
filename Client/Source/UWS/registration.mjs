@@ -30,7 +30,7 @@ const checkUidAvailable = A( async function checkUidAvailable( actx, uid, user )
     if( resp.ok )
         throw new NameNotAvailableError( uid, scp );
     else if( !( resp.status === 404 ) )
-        handleServerError( scp, path, resp );
+        await handleServerError( scp, path, resp );
     /* seems "uid" is available ... */
 } );
 
@@ -143,7 +143,7 @@ const submitRegistrationInfo = A( async function submitRegistrationInfo( actx, u
                         "Content-Length": "" + reg_info.length
                     } ) } );
     if( !resp.ok )
-        handleServerError( scp, "/Users/"+user.huid, resp );
+        await handleServerError( scp, "/Users/"+user.huid, resp );
 } );
 
 /* Returns a Promise that resolves to the user object */

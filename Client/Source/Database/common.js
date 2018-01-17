@@ -20,7 +20,9 @@ export default function MonolithicUnordered( storage, root, is_public, is_shared
         db.recent_txns.push( txn );
     } );
 
-    const syncToStorage = A( async function syncToStorage( actx, 
+    const syncToStorage = A( async function syncWithStorage( actx ) {
+        ...
+    } )
 }
 
 class MonolithicUnorderedxxx

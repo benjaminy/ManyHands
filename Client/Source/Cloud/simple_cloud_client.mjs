@@ -75,7 +75,7 @@ export default function init( user, options )
         if( response.ok )
             return P.resolve( response );
         else
-            return UM.handleServerError( actx, pu.p, response );
+            await UM.handleServerError( actx, pu.p, response );
     } );
 
     const download = A( async function download( actx, path, isText )
@@ -95,7 +95,7 @@ export default function init( user, options )
                 return response.arrayBuffer();
         }
         else
-            UM.handleServerError( actx, pu.p, response );
+            await UM.handleServerError( actx, pu.p, response );
     } );
 
     return { upload: upload, download: download };

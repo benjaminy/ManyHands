@@ -45,7 +45,7 @@ function atomicable( ...atomicable_params )
 
     assert( actx_setup === undefined || isContext( actx_setup ) );
 
-    console.log( "atomicable", async_function, actx_setup );
+    console.log( "atomicable", async_function.name, actx_setup );
 
     if( ATOMICABLE_TAG in async_function )
         return async_function;
@@ -70,12 +70,14 @@ function atomicable( ...atomicable_params )
         }
 
         await notBlocked();
+        // console.log( "CALLING", async_function.name );
         actx_call.async_fns.push( async_function );
 
         function leaveScope()
         {
             const a = actx_call.async_fns.pop();
-            assert( a === async_function );
+            assert( a === async_function, "Wrong pop: " + a.name
+                    + " " + async_function.name );
         }
 
         try {
@@ -83,10 +85,12 @@ function atomicable( ...atomicable_params )
         }
         catch( err ) {
             await notBlocked();
+            // console.log( "THROWING", async_function.name, String( err ) );
             leaveScope();
             throw err;
         }
         await notBlocked();
+        // console.log( "RETURNING", async_function.name, String( rv ) );
         leaveScope();
         return rv;
     }
