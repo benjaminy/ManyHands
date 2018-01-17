@@ -190,7 +190,7 @@ const processTxn = A( async function processTxn( actx, db, txn )
     }
     catch( err ) {
     }
-}
+} );
 
 
 export {}
@@ -285,6 +285,34 @@ var DB.readFromCloud = async( 'DB.readFromCloud', function *(
     return txns;
 } );
 
+function isTxnStmt( thing )
+{
+    if( Array.isArray( thing ) )
+    {
+        if( thing.length < 1 )
+            return false;
+        try {
+            const first = K.key( thing[ 0 ] );
+            if( first === addK || first === retractK )
+            {
+            }
+            else
+            {
+            }
+        }
+        catch( err ) {
+            return false
+        }
+    }
+    else if( thing === Object( thing ) )
+    {
+    }
+    return false;
+}
 
-
-
+function isTxn( thing )
+{
+    if( !Array.isArray( thing ) )
+        return false;
+    return thing.every( isTxnStmt )
+}
