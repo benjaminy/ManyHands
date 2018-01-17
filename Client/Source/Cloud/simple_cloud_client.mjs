@@ -9,7 +9,6 @@ import assert  from "../Utilities/assert";
 import A       from "../Utilities/act-thread";
 import fetch   from "isomorphic-fetch";
 import * as UM from "../Utilities/misc";
-const P = Promise;
 
 const DEFAULT_SERVER_PORT = 8123;
 const in_browser = this && ( this.window === this );
@@ -73,7 +72,7 @@ export default function init( user, options )
                              headers : headers } );
         actx.log( "Response", response.status, response.statusText );
         if( response.ok )
-            return P.resolve( response );
+            return response;
         else
             await UM.handleServerError( actx, pu.p, response );
     } );
@@ -87,12 +86,21 @@ export default function init( user, options )
         const pu = encode_path( user, path );
         const response = await fetch( host+pu.u+"/"+pu.p );
         actx.log( "Response", pu.p, response.status, response.statusText );
+        // actx.log( "Response", pu.p, typeof( response.headers ), response.headers );
         if( response.ok )
         {
+            try {
+                var etag = response.headers.get( "etag" );
+            }
+            catch( err ) {
+                throw new Error( "NO ETAG" );
+            }
+            const result = { meta: etag };
             if( isText )
-                return response.text();
+                result.data = await response.text();
             else
-                return response.arrayBuffer();
+                result.data = await response.arrayBuffer();
+            return result;
         }
         else
             await UM.handleServerError( actx, pu.p, response );
