@@ -20,7 +20,7 @@ copy_everything:
 	cp -r $(SRC_DIR)/* $(TEST_ROOT)
 
 clean_slate:
-	cp $(TEST_DIR)/Users/login_links_empty.sqlite $(TEST_DIR)/Users/login_links.sqlite && rm -rf ./Testing/Cloud/*
+	rm -rf ./Testing/*
 
 clean_cert:
 	rm $(TEST_CERT)/*
