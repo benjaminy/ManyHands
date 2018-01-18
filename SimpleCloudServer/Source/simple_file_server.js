@@ -2,8 +2,7 @@
  * This is an extremely simple HTTP file server
  */
 
-const DEFAULT_PORT = 8080;
-const DEFAULT_DIR  = ".";
+/* Imports */
 
 const U            = require( "util" );
 const serveStatic  = require( "serve-static" );
@@ -14,6 +13,7 @@ const url          = require( "url" );
 const fs           = require( "fs" );
 const path         = require( "path" );
 const mkdirp       = require( "async-mkdirp" );
+const nodeCleanup  = require( "node-cleanup" );
 const opt          = require( "node-getopt" ).create( [
     [ "P", "port=PORT",      "Port to server on; default is "+DEFAULT_PORT ],
     [ "D", "dir=DIR",        "Root directory to serve from; default is "+DEFAULT_DIR ],
@@ -21,19 +21,29 @@ const opt          = require( "node-getopt" ).create( [
     [ "K", "key=KEY_FILE",   "key file; will serve over HTTP if not given" ] ] )
   .bindHelp().parseSystem();
 
+const fs_writeFile = U.promisify( fs.writeFile );
+const fs_unlink    = U.promisify( fs.unlink );
+
+/* Constants and Globals */
+
+const DEFAULT_PORT = 8080;
+const DEFAULT_DIR  = ".";
+
 const LONGPOLL_DATA_FILE = "pastRequestedFiles.json";
 const LONGPOLL_TIMEOUT = 4000;
 const LONGPOLL_MEMORY_TIMEOUT = 8000;
 
 var root_dir = DEFAULT_DIR;
+var cloud_dir = DEFAULT_DIR;
 
-var CORS_HEADERS = [ ["Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS,DELETE"],
+var file_versions = {};
+
+const CORS_HEADERS = [ [ "Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS,DELETE" ],
                      [ "Access-Control-Allow-Origin", "*" ],
                      [ "Access-Control-Allow-Headers",
                        "Origin, X-Requested-With, Content-Type, Accept, Longpoll, Stamp" ] ];
 
-const fs_writeFile = U.promisify( fs.writeFile );
-const fs_unlink    = U.promisify( fs.unlink );
+/* Utilities */
 
 function log( ...ps )
 {
@@ -55,10 +65,58 @@ function pathSanity( path, resp )
     assert( path[0] === "", "Text before first slash", resp )
 }
 
+function incrFileVersion( path )
+{
+    var version = 0;
+    try {
+        version = file_versions[ path ];
+    }
+    catch( err ) {}
+    file_versions[ path ] = version + 1;
+}
+
+/* Server */
+
+nodeCleanup( ( exitCode, signal ) =>
+    {
+        fs.writeFileSync( path.join( root_dir, "file_versions.json" ),
+                          JSON.stringify( file_versions ) );
+    } );
+
+function checkMatch( pathname, req )
+{
+    try {
+        var req_tag_str = req.getHeader( "If-Match" );
+    }
+    catch( err ) {
+        log( "Request doesn't contain If-Match header???", err );
+        return;
+    }
+    try {
+        var req_tag = parseInt( req_tag_str );
+    }
+    catch( err ) {
+        log( "Failed to parse If-Match tag???", err );
+        return;
+    }
+    var matched = true;
+    try {
+        var file_tag = file_versions[ pathname ];
+        matched = file_tag === req_tag;
+    }
+    catch( err ) {
+        log( "No version for", pathname, err );
+        file_versions[ pathname ] = req_tag + 1;
+        matched = false;
+    }
+    if( !matched )
+        throw new Error( 412 );
+}
+
 async function putFile( pathname, contents ) {
     const dirs = pathname.split( "/" );
     const filename = dirs[ dirs.length - 1 ];
-    const fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
+    const fdir = path.join( cloud_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
     try {
         await mkdirp( fdir );
     }
@@ -67,6 +125,7 @@ async function putFile( pathname, contents ) {
         throw new Error( 500 );
     }
     try {
+        incrFileVersion( pathname );
         await fs_writeFile( path.join( fdir, filename ), contents );
     }
     catch( err ) {
@@ -81,7 +140,7 @@ async function writeFile( pathname, contents, resp )
     const dirs = pathname.split( "/" );
     pathSanity( dirs, resp );
     const filename = dirs[ dirs.length - 1 ];
-    const fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
+    const fdir = path.join( cloud_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
     try {
         await mkdirp( fdir );
     }
@@ -92,6 +151,7 @@ async function writeFile( pathname, contents, resp )
         return;
     }
     try {
+        incrFileVersion( pathname );
         await fs_writeFile( path.join( fdir, filename ), contents );
     }
     catch( err ) {
@@ -104,63 +164,6 @@ async function writeFile( pathname, contents, resp )
     LongPollReq.updateReqsWithFileChange( path.join( fdir, filename ) );
     resp.writeHead( 200 );
     resp.end();
-}
-
-function handlePost( req, resp )
-{
-    log( "Post", req.url );
-    const body = [];
-    req.addListener( "data", function( chunk ) { body.push( chunk ); } );
-    req.addListener( "end", function()
-    {
-        writeFile( url.parse( req.url ).pathname, Buffer.concat( body ), resp );
-    } );
-}
-
-async function handleDelete( req, resp )
-{
-    log( "Delete", req.url );
-    const parsedUrl = url.parse( req.url );
-    const file_path = parsedUrl.pathname;
-    const dirs = file_path.split( "/" );
-    pathSanity( dirs, resp );
-    const filename = dirs[ dirs.length - 1 ];
-    const fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
-    try {
-        await fs_unlink( path.join( fdir, filename ) );
-    }
-    catch( err ) {
-        log( "Error during delete", err );
-        resp.writeHead( 404 );
-        resp.end();
-        return;
-    }
-    log( "Deleted", path.join( fdir, filename ) );
-    resp.writeHead( 200 );
-    resp.end();
-}
-
-function handleOptions( req, resp ) {
-    if( req.headers[ "access-control-request-method" ] == "DELETE" )
-    {
-        log( "Accepted a preflight DELETE request" );
-        resp.writeHead( 200 );
-        resp.end();
-    }
-    else
-    {
-        if( req.headers[ "access-control-request-method" ] == "GET" && req.headers[ "access-control-request-headers" ]
-                .toLowerCase().split( ", ").indexOf( "longpoll" ) != -1 )
-        {
-            log( "Accepted a preflight Longpoll request" );
-            resp.writeHead( 200 );
-            resp.end();
-        }
-        else
-        {
-            return finalhandler( req, resp )();
-        }
-    }
 }
 
 function LongPollReq( resp, path, stamp )
@@ -223,6 +226,69 @@ function longPollTimeout( longPollReq )
     }
 }
 
+function handlePost( req, resp )
+{
+    log( "Post", req.url );
+    checkMatch( pathname );
+    const pathname = url.parse( req.url ).pathname;
+    const body = [];
+    req.addListener( "data", function( chunk ) { body.push( chunk ); } );
+    req.addListener( "end", function()
+    {
+        writeFile( pathname, Buffer.concat( body ), resp );
+    } );
+}
+
+async function handleDelete( req, resp )
+{
+    log( "Delete", req.url );
+    const parsedUrl = url.parse( req.url );
+    const file_path = parsedUrl.pathname;
+    const dirs = file_path.split( "/" );
+    pathSanity( dirs, resp );
+    const filename = dirs[ dirs.length - 1 ];
+    const fdir = path.join( cloud_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
+    try {
+        await fs_unlink( path.join( fdir, filename ) );
+        if( !fs.existsSync( path.join( fdir, filename ) ) )
+        {
+            delete file_versions[ file_path ];
+        }
+    }
+    catch( err ) {
+        log( "Error during delete", err );
+        resp.writeHead( 404 );
+        resp.end();
+        return;
+    }
+    log( "Deleted", path.join( fdir, filename ) );
+    resp.writeHead( 200 );
+    resp.end();
+}
+
+function handleOptions( req, resp ) {
+    if( req.headers[ "access-control-request-method" ] == "DELETE" )
+    {
+        log( "Accepted a preflight DELETE request" );
+        resp.writeHead( 200 );
+        resp.end();
+    }
+    else
+    {
+        if( req.headers[ "access-control-request-method" ] == "GET" && req.headers[ "access-control-request-headers" ]
+                .toLowerCase().split( ", ").indexOf( "longpoll" ) != -1 )
+        {
+            log( "Accepted a preflight Longpoll request" );
+            resp.writeHead( 200 );
+            resp.end();
+        }
+        else
+        {
+            return finalhandler( req, resp )();
+        }
+    }
+}
+
 function handleLongpoll( req, resp ) {
     log( "Long-Poll received", req.url );
     const parsedUrl = url.parse( req.url );
@@ -230,7 +296,7 @@ function handleLongpoll( req, resp ) {
     const dirs = file_path.split( "/" );
     pathSanity( dirs, resp );
     const filename = dirs[ dirs.length - 1 ];
-    const fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
+    const fdir = path.join( cloud_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
     const end_path = path.join( fdir, filename );
 
     const longPollReq = new LongPollReq( resp, end_path, req.headers["stamp"] );
@@ -244,7 +310,8 @@ function handleDynamic( req, resp, next )
     if(      req.method == "POST" )    return handlePost( req, resp );
     else if( req.method == "DELETE" )  return handleDelete( req, resp );
     else if( req.method == "OPTIONS" ) return handleOptions( req, resp );
-    else if( req.method == "GET" && req.headers["longpoll"] == "1") return handleLongpoll( req, resp );
+    else if( req.method == "GET" && req.headers["longpoll"] == "1")
+        return handleLongpoll( req, resp );
     log( "Not POST or DELETE or OPTIONS or long poll", req.url, req.method );
 
     if ( !next ) return finalhandler( req, resp )();
@@ -255,14 +322,22 @@ function handleDynamic( req, resp, next )
 
 function setHeadersHook( response, path, stat )
 {
-    response.setHeader( "etag", "jackfruit" );
+    try {
+        var version = file_versions[ path ];
+    }
+    catch( err ) {
+        var version = 1;
+        file_versions[ path ] = version;
+    }
+    response.setHeader( "etag", version );
 }
 
-function runServer()
+function main()
 {
     log( opt.options );
     if( "dir" in opt.options )
         root_dir = opt.options.dir;
+    cloud_dir = path.join( root_dir, "Cloud" )
     var port = DEFAULT_PORT;
     if( "port" in opt.options )
     {
@@ -271,39 +346,42 @@ function runServer()
             port = x;
     }
 
-    if (fs.existsSync(LONGPOLL_DATA_FILE)) {
-        const json = fs.readFileSync(LONGPOLL_DATA_FILE);
+    if( fs.existsSync( LONGPOLL_DATA_FILE ) )
+    {
+        const json = fs.readFileSync( LONGPOLL_DATA_FILE );
         LongPollReq.pastRequestedFiles = JSON.parse(json);
     }
 
-    const serveFiles = serveStatic( root_dir, { "setHeaders" : setHeadersHook } );
-
-    function handleReq( req, resp ) {
-        log( "Request received", req.url );
-        // throw new Error( "Request received", req.url );
-        for( i = 0; i < CORS_HEADERS.length; i++ )
-        {
-            resp.setHeader( CORS_HEADERS[i][0], CORS_HEADERS[i][1] );
-        }
-        serveFiles( req, resp, function() { handleDynamic( req, resp ) } );
-    }
-
-    var server, protocol = "HTTP";
+    var protocol = "HTTP", var options = {};
     if( "cert" in opt.options && "key" in opt.options )
     {
-        const options = {
+        options = {
             key:  fs.readFileSync( opt.options.key ),
             cert: fs.readFileSync( opt.options.cert )
         };
-        server = https.createServer( options, handleReq );
         protocol = "HTTPS"
     }
-    else
-    {
-        server = http.createServer( handleReq );
+
+    try {
+        file_versions = JSON.parse( fs.readFileSync( path.join( root_dir, "file_versions.json" ) ) );
     }
+    catch( err ) {
+        log( "Failed to read file_versions.json: ", err );
+    }
+
+    const serveFiles = serveStatic( cloud_dir, { "setHeaders" : setHeadersHook } );
+    const server = https.createServer( options,
+        ( req, resp ) => {
+            log( "Request received", req.url );
+            // throw new Error( "Request received", req.url );
+            for( i = 0; i < CORS_HEADERS.length; i++ )
+            {
+                resp.setHeader( CORS_HEADERS[i][0], CORS_HEADERS[i][1] );
+            }
+            serveFiles( req, resp, () => { handleDynamic( req, resp ) } );
+        } );
     server.listen( port );
-    log( "Serving directory", root_dir, "on port", port, "with protocol", protocol );
+    log( "Serving directory", cloud_dir, "on port", port, "with protocol", protocol );
 }
 
-runServer();
+main();
