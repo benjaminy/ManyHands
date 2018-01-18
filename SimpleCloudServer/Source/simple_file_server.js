@@ -3,22 +3,22 @@
  */
 
 const DEFAULT_PORT = 8080;
-const DEFAULT_DIR  = '.';
+const DEFAULT_DIR  = ".";
 
 const U            = require( "util" );
-const serveStatic  = require( 'serve-static' );
-const http         = require( 'http' );
-const https        = require( 'https' );
-const finalhandler = require( 'finalhandler' );
-const url          = require( 'url' );
-const fs           = require( 'fs' );
-const path         = require( 'path' );
-const mkdirp       = require( 'async-mkdirp' );
-const opt          = require( 'node-getopt' ).create( [
-    [ 'P', 'port=PORT',      'Port to server on; default is '+DEFAULT_PORT ],
-    [ 'D', 'dir=DIR',        'Root directory to serve from; default is '+DEFAULT_DIR ],
-    [ 'C', 'cert=CERT_FILE', 'Certificate file; will serve over HTTP if not given' ],
-    [ 'K', 'key=KEY_FILE',   'key file; will serve over HTTP if not given' ] ] )
+const serveStatic  = require( "serve-static" );
+const http         = require( "http" );
+const https        = require( "https" );
+const finalhandler = require( "finalhandler" );
+const url          = require( "url" );
+const fs           = require( "fs" );
+const path         = require( "path" );
+const mkdirp       = require( "async-mkdirp" );
+const opt          = require( "node-getopt" ).create( [
+    [ "P", "port=PORT",      "Port to server on; default is "+DEFAULT_PORT ],
+    [ "D", "dir=DIR",        "Root directory to serve from; default is "+DEFAULT_DIR ],
+    [ "C", "cert=CERT_FILE", "Certificate file; will serve over HTTP if not given" ],
+    [ "K", "key=KEY_FILE",   "key file; will serve over HTTP if not given" ] ] )
   .bindHelp().parseSystem();
 
 const LONGPOLL_DATA_FILE = "pastRequestedFiles.json";
@@ -27,10 +27,10 @@ const LONGPOLL_MEMORY_TIMEOUT = 8000;
 
 var root_dir = DEFAULT_DIR;
 
-var CORS_HEADERS = [ ['Access-Control-Allow-Methods', 'GET,POST,PUT,OPTIONS,DELETE'],
-                     [ 'Access-Control-Allow-Origin', '*' ],
-                     [ 'Access-Control-Allow-Headers',
-                       'Origin, X-Requested-With, Content-Type, Accept, Longpoll, Stamp' ] ];
+var CORS_HEADERS = [ ["Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS,DELETE"],
+                     [ "Access-Control-Allow-Origin", "*" ],
+                     [ "Access-Control-Allow-Headers",
+                       "Origin, X-Requested-With, Content-Type, Accept, Longpoll, Stamp" ] ];
 
 const fs_writeFile = U.promisify( fs.writeFile );
 const fs_unlink    = U.promisify( fs.unlink );
@@ -44,41 +44,41 @@ function assert( property, msg, resp )
 {
     if( property )
         return;
-    log( 'Internal error', msg );
+    log( "Internal error", msg );
     resp.writeHead( 500 );
     resp.end();
 }
 
 function pathSanity( path, resp )
 {
-    assert( path.length >= 2, 'Path too short', resp );
-    assert( path[0] === '', 'Text before first slash', resp )
+    assert( path.length >= 2, "Path too short", resp );
+    assert( path[0] === "", "Text before first slash", resp )
 }
 
 async function putFile( pathname, contents ) {
-    const dirs = pathname.split( '/' );
+    const dirs = pathname.split( "/" );
     const filename = dirs[ dirs.length - 1 ];
     const fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
     try {
         await mkdirp( fdir );
     }
     catch( err ) {
-        log( 'mkdir error', err );
+        log( "mkdir error", err );
         throw new Error( 500 );
     }
     try {
         await fs_writeFile( path.join( fdir, filename ), contents );
     }
     catch( err ) {
-        log( 'write error', err );
+        log( "write error", err );
         throw new Error(500);
     }
-    log( 'Wrote file', pathname );
+    log( "Wrote file", pathname );
 }
 
 async function writeFile( pathname, contents, resp )
 {
-    const dirs = pathname.split( '/' );
+    const dirs = pathname.split( "/" );
     pathSanity( dirs, resp );
     const filename = dirs[ dirs.length - 1 ];
     const fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
@@ -86,7 +86,7 @@ async function writeFile( pathname, contents, resp )
         await mkdirp( fdir );
     }
     catch( err ) {
-        log( 'mkdir error', err );
+        log( "mkdir error", err );
         resp.writeHead( 500 );
         resp.end();
         return;
@@ -95,12 +95,12 @@ async function writeFile( pathname, contents, resp )
         await fs_writeFile( path.join( fdir, filename ), contents );
     }
     catch( err ) {
-        log( 'write error', err );
+        log( "write error", err );
         resp.writeHead( 500 );
         resp.end();
         return;
     }
-    log( 'Wrote file', pathname );
+    log( "Wrote file", pathname );
     LongPollReq.updateReqsWithFileChange( path.join( fdir, filename ) );
     resp.writeHead( 200 );
     resp.end();
@@ -108,10 +108,10 @@ async function writeFile( pathname, contents, resp )
 
 function handlePost( req, resp )
 {
-    log( 'Post', req.url );
+    log( "Post", req.url );
     const body = [];
-    req.addListener( 'data', function( chunk ) { body.push( chunk ); } );
-    req.addListener( 'end', function()
+    req.addListener( "data", function( chunk ) { body.push( chunk ); } );
+    req.addListener( "end", function()
     {
         writeFile( url.parse( req.url ).pathname, Buffer.concat( body ), resp );
     } );
@@ -119,10 +119,10 @@ function handlePost( req, resp )
 
 async function handleDelete( req, resp )
 {
-    log( 'Delete', req.url );
+    log( "Delete", req.url );
     const parsedUrl = url.parse( req.url );
     const file_path = parsedUrl.pathname;
-    const dirs = file_path.split( '/' );
+    const dirs = file_path.split( "/" );
     pathSanity( dirs, resp );
     const filename = dirs[ dirs.length - 1 ];
     const fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
@@ -130,29 +130,29 @@ async function handleDelete( req, resp )
         await fs_unlink( path.join( fdir, filename ) );
     }
     catch( err ) {
-        log( 'Error during delete', err );
+        log( "Error during delete", err );
         resp.writeHead( 404 );
         resp.end();
         return;
     }
-    log( 'Deleted', path.join( fdir, filename ) );
+    log( "Deleted", path.join( fdir, filename ) );
     resp.writeHead( 200 );
     resp.end();
 }
 
 function handleOptions( req, resp ) {
-    if( req.headers[ "access-control-request-method" ] == 'DELETE' )
+    if( req.headers[ "access-control-request-method" ] == "DELETE" )
     {
-        log( 'Accepted a preflight DELETE request' );
+        log( "Accepted a preflight DELETE request" );
         resp.writeHead( 200 );
         resp.end();
     }
     else
     {
-        if( req.headers[ "access-control-request-method" ] == 'GET' && req.headers[ "access-control-request-headers" ]
+        if( req.headers[ "access-control-request-method" ] == "GET" && req.headers[ "access-control-request-headers" ]
                 .toLowerCase().split( ", ").indexOf( "longpoll" ) != -1 )
         {
-            log( 'Accepted a preflight Longpoll request' );
+            log( "Accepted a preflight Longpoll request" );
             resp.writeHead( 200 );
             resp.end();
         }
@@ -224,16 +224,16 @@ function longPollTimeout( longPollReq )
 }
 
 function handleLongpoll( req, resp ) {
-    log( 'Long-Poll received', req.url );
+    log( "Long-Poll received", req.url );
     const parsedUrl = url.parse( req.url );
     const file_path = parsedUrl.pathname;
-    const dirs = file_path.split( '/' );
+    const dirs = file_path.split( "/" );
     pathSanity( dirs, resp );
     const filename = dirs[ dirs.length - 1 ];
     const fdir = path.join( root_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
     const end_path = path.join( fdir, filename );
 
-    const longPollReq = new LongPollReq( resp, end_path, req.headers['stamp'] );
+    const longPollReq = new LongPollReq( resp, end_path, req.headers["stamp"] );
     setTimeout( function() { longPollTimeout(longPollReq); }, LONGPOLL_TIMEOUT );
 }
 
@@ -241,11 +241,11 @@ function handleDynamic( req, resp, next )
 {
     // throw new Error( req.url );
     log(req.headers);
-    if(      req.method == 'POST' )    return handlePost( req, resp );
-    else if( req.method == 'DELETE' )  return handleDelete( req, resp );
-    else if( req.method == 'OPTIONS' ) return handleOptions( req, resp );
-    else if( req.method == 'GET' && req.headers['longpoll'] == '1') return handleLongpoll( req, resp );
-    log( 'Not POST or DELETE or OPTIONS or long poll', req.url, req.method );
+    if(      req.method == "POST" )    return handlePost( req, resp );
+    else if( req.method == "DELETE" )  return handleDelete( req, resp );
+    else if( req.method == "OPTIONS" ) return handleOptions( req, resp );
+    else if( req.method == "GET" && req.headers["longpoll"] == "1") return handleLongpoll( req, resp );
+    log( "Not POST or DELETE or OPTIONS or long poll", req.url, req.method );
 
     if ( !next ) return finalhandler( req, resp )();
     else {
@@ -253,13 +253,18 @@ function handleDynamic( req, resp, next )
     }
 }
 
+function setHeadersHook( response, path, stat )
+{
+    response.setHeader( "etag", "jackfruit" );
+}
+
 function runServer()
 {
     log( opt.options );
-    if( 'dir' in opt.options )
+    if( "dir" in opt.options )
         root_dir = opt.options.dir;
     var port = DEFAULT_PORT;
-    if( 'port' in opt.options )
+    if( "port" in opt.options )
     {
         const x = parseInt( opt.options.port );
         if( !isNaN( x ) )
@@ -271,7 +276,7 @@ function runServer()
         LongPollReq.pastRequestedFiles = JSON.parse(json);
     }
 
-    const serveFiles = serveStatic( root_dir, { 'index': [ 'index.html', 'index.htm' ] } );
+    const serveFiles = serveStatic( root_dir, { "setHeaders" : setHeadersHook } );
 
     function handleReq( req, resp ) {
         log( "Request received", req.url );
@@ -283,22 +288,22 @@ function runServer()
         serveFiles( req, resp, function() { handleDynamic( req, resp ) } );
     }
 
-    var server, protocol = 'HTTP';
-    if( 'cert' in opt.options && 'key' in opt.options )
+    var server, protocol = "HTTP";
+    if( "cert" in opt.options && "key" in opt.options )
     {
         const options = {
             key:  fs.readFileSync( opt.options.key ),
             cert: fs.readFileSync( opt.options.cert )
         };
         server = https.createServer( options, handleReq );
-        protocol = 'HTTPS'
+        protocol = "HTTPS"
     }
     else
     {
         server = http.createServer( handleReq );
     }
     server.listen( port );
-    log( 'Serving directory', root_dir, 'on port', port, 'with protocol', protocol );
+    log( "Serving directory", root_dir, "on port", port, "with protocol", protocol );
 }
 
 runServer();
