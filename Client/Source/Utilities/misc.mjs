@@ -225,6 +225,15 @@ function p_all_resolve( promises, values, scp )
     return P.all( promises.concat( values.map( P.resolve.bind( P ) ) ) );
 }
 
+export function isPath( thing )
+{
+    if( typeof( thing ) === "string" )
+        return true;
+    if( Array.isArray( thing ) )
+        return thing.every( ( p ) => typeof( p ) === "string" );
+    return false;
+}
+
 export const handleServerError = A( async function handleServerError( actx, msg, resp )
 {
     if( resp.status == 404 )

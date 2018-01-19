@@ -52,10 +52,11 @@ export default function init( user, options )
 
     const host = protocol_hostname + ":" + DEFAULT_SERVER_PORT + "/";
 
-    const upload = A( async function upload( actx, path, content, content_type )
+    const upload = A( async function upload( actx, path, options )
     {
-        assert( ( typeof( path ) === "string" ) ||
-                ( path.every( ( p ) => typeof( p ) === "string" ) ) );
+        // XXX content, content_type, headersHook
+        assert( A.isContext( actx ) );
+        assert( M.isPath( path ) );
         /* assert( typeof( content ) is whatever fetch accepts ) */
 
         const pu = encode_path( user, path );
@@ -64,6 +65,8 @@ export default function init( user, options )
         {
             headers[ "Content-Type" ] = content_type;
         }
+        if( headersHook )
+            headersHook( headers );
 
         const response =
               await fetch( host+pu.u+"/"+pu.p,
@@ -77,33 +80,45 @@ export default function init( user, options )
             await UM.handleServerError( actx, pu.p, response );
     } );
 
-    const download = A( async function download( actx, path, isText )
+    const download = A( async function download( actx, path, options )
     {
-        assert( ( typeof( path ) === "string" ) ||
-                ( path.every( ( p ) => typeof( p ) === "string" ) ) );
-        assert( isText === undefined || isText === true || isText === false );
+        assert( A.isContext( actx ) );
+        assert( M.isPath( path ) );
 
         const pu = encode_path( user, path );
         const response = await fetch( host+pu.u+"/"+pu.p );
         actx.log( "Response", pu.p, response.status, response.statusText );
-        // actx.log( "Response", pu.p, typeof( response.headers ), response.headers );
-        if( response.ok )
+        const r = Object.assign( {}, response );
+        // actx.log( "Response", pu.p, typeof( r.headers ), r.headers );
+
+        if( !r.ok )
+            await UM.handleServerError( actx, pu.p, response );
+
+        if( response.headers.has( "etag" ) )
         {
-            try {
-                var etag = response.headers.get( "etag" );
-            }
-            catch( err ) {
-                throw new Error( "NO ETAG" );
-            }
-            const result = { meta: etag };
-            if( isText )
-                result.data = await response.text();
-            else
-                result.data = await response.arrayBuffer();
-            return result;
+            r.etag = response.headers.get( "etag" );
         }
         else
-            await UM.handleServerError( actx, pu.p, response );
+        {
+            throw new Error( "NO ETAG" );
+        }
+
+        if( "bodyDataKind" in options )
+        {
+            if( options.bodyDataKind === "arrayBuffer" )
+                r.full_body = await r.arrayBuffer();
+            else if( options.bodyDataKind === "blob" )
+                r.full_body = await r.blob();
+            else if( options.bodyDataKind === "formData" )
+                r.full_body = await r.formData();
+            else if( options.bodyDataKind === "json" )
+                r.full_body = await r.json();
+            else if( options.bodyDataKind === "text" )
+                r.full_body = await r.text();
+            else
+                throw new Error( "unknown stream kind " + options.bodyDataKind );
+        }
+        return r;
     } );
 
     return { upload: upload, download: download };
