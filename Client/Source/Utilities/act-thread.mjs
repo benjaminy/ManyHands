@@ -45,7 +45,7 @@ function atomicable( ...atomicable_params )
 
     assert( actx_setup === undefined || isContext( actx_setup ) );
 
-    console.log( "atomicable", async_function.name, actx_setup );
+    // console.log( "atomicable", async_function.name, actx_setup );
 
     if( ATOMICABLE_TAG in async_function )
         return async_function;
@@ -188,6 +188,15 @@ class Context
         }
     }
 
+    atomicify( p )
+    {
+        return new Promise( function( resolve, reject ) {
+            this.waitForAtomic().then(
+                function() { return p; } ).then(
+                    function() { return this.waitForAtomic() } );
+        } );
+    }
+
     atomic( ...params_plus_fn )
     {
         var params    = params_plus_fn.slice( 0, params_plus_fn.length - 1 );
@@ -270,5 +279,7 @@ function isContext( thing )
 
 atomicable.Scheduler = Scheduler;
 atomicable.isContext = isContext;
+
+const awaitPromise = atomicable( async function( p ) { return await p; } );
 
 export default atomicable;

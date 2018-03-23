@@ -54,30 +54,41 @@ export default function init( user, options )
 
     const upload = A( async function upload( actx, path, options )
     {
-        // XXX content, content_type, headersHook
         assert( A.isContext( actx ) );
         assert( M.isPath( path ) );
         /* assert( typeof( content ) is whatever fetch accepts ) */
 
         const pu = encode_path( user, path );
-        const headers = new Headers( { "Content-Length": "" + content.length } );
-        if( content_type )
-        {
-            headers[ "Content-Type" ] = content_type;
-        }
-        if( headersHook )
-            headersHook( headers );
 
-        const response =
-              await fetch( host+pu.u+"/"+pu.p,
-                           { method  : "POST",
-                             body    : content,
-                             headers : headers } );
+        const headers = new Headers();
+        if( "headersHook" in options )
+            options.headersHook( headers );
+
+        if( "body" in options && !( headers.has( "Content-Length" ) ) )
+        {
+            try {
+                headers.set( "Content-Length", options.body.length );
+            }
+            catch( err ) {
+                actx.log( "Failed to set content length" );
+            }
+        }
+
+        if( ( !( headers.has( "Content-Type" ) ) ) && "body" in options
+            && typeof( options.body ) === "string" )
+        {
+            headers.set( "Content-Type", "text/plain" );
+        }
+
+        const fetch_options = { method  : "POST", headers: headers };
+        if( "body" in options )
+        {
+            fetch_options.body = options.body;
+        }
+
+        const response = await fetch( host+pu.u+"/"+pu.p, fetch_options );
         actx.log( "Response", response.status, response.statusText );
-        if( response.ok )
-            return response;
-        else
-            await UM.handleServerError( actx, pu.p, response );
+        return response;
     } );
 
     const download = A( async function download( actx, path, options )
