@@ -52,10 +52,9 @@ export default function init( user, options )
 
     const host = protocol_hostname + ":" + DEFAULT_SERVER_PORT + "/";
 
-    const upload = A( async function upload( actx, path, options )
+    const upload = A( function* upload( path, options )
     {
         // XXX content, content_type, headersHook
-        assert( A.isContext( actx ) );
         assert( M.isPath( path ) );
         /* assert( typeof( content ) is whatever fetch accepts ) */
 
@@ -69,30 +68,29 @@ export default function init( user, options )
             headersHook( headers );
 
         const response =
-              await fetch( host+pu.u+"/"+pu.p,
+              yield fetch( host+pu.u+"/"+pu.p,
                            { method  : "POST",
                              body    : content,
                              headers : headers } );
-        actx.log( "Response", response.status, response.statusText );
+        A.log( "Response", response.status, response.statusText );
         if( response.ok )
             return response;
         else
-            await UM.handleServerError( actx, pu.p, response );
+            yield UM.handleServerError( pu.p, response );
     } );
 
-    const download = A( async function download( actx, path, options )
+    const download = A( function* download( path, options )
     {
-        assert( A.isContext( actx ) );
         assert( M.isPath( path ) );
 
         const pu = encode_path( user, path );
-        const response = await fetch( host+pu.u+"/"+pu.p );
-        actx.log( "Response", pu.p, response.status, response.statusText );
+        const response = yield fetch( host+pu.u+"/"+pu.p );
+        A.log( "Response", pu.p, response.status, response.statusText );
         const r = Object.assign( {}, response );
-        // actx.log( "Response", pu.p, typeof( r.headers ), r.headers );
+        // A.log( "Response", pu.p, typeof( r.headers ), r.headers );
 
         if( !r.ok )
-            await UM.handleServerError( actx, pu.p, response );
+            yield UM.handleServerError( pu.p, response );
 
         if( response.headers.has( "etag" ) )
         {
@@ -106,15 +104,15 @@ export default function init( user, options )
         if( "bodyDataKind" in options )
         {
             if( options.bodyDataKind === "arrayBuffer" )
-                r.full_body = await r.arrayBuffer();
+                r.full_body = yield r.arrayBuffer();
             else if( options.bodyDataKind === "blob" )
-                r.full_body = await r.blob();
+                r.full_body = yield r.blob();
             else if( options.bodyDataKind === "formData" )
-                r.full_body = await r.formData();
+                r.full_body = yield r.formData();
             else if( options.bodyDataKind === "json" )
-                r.full_body = await r.json();
+                r.full_body = yield r.json();
             else if( options.bodyDataKind === "text" )
-                r.full_body = await r.text();
+                r.full_body = yield r.text();
             else
                 throw new Error( "unknown stream kind " + options.bodyDataKind );
         }
