@@ -11,9 +11,7 @@ function RandomNameWrapper( storage )
 {
     const rstorage = Object.assign( {}, storage );
 
-    rstorage.upload = A( async function upload( actx, path, options ) {
-        assert( A.isContext( actx ) );
-
+    rstorage.upload = A( function* upload( path, options ) {
         const o = Object.assign( {}, options );
         o.headerHook = function addIfMatch( headers )
         {
@@ -21,7 +19,7 @@ function RandomNameWrapper( storage )
                 options.headerHook( headers );
             if( headers.has( "If-Match" ) )
             {
-                actx.log( "WARNING: Overwriting If-Match", headers.get( "If-Match" ) );
+                A.log( "WARNING: Overwriting If-Match", headers.get( "If-Match" ) );
                 headers.delete( "If-Match" );
             }
             headers.set( "If-Match", "*" );
@@ -31,8 +29,7 @@ function RandomNameWrapper( storage )
         {
             const name = "TODO: randomly generate name";
             try {
-                const response = await storage.upload(
-                    actx, M.pathJoin( path, name ), o );
+                const response = yield storage.upload( M.pathJoin( path, name ), o );
                 const r = Object.assign( {}, response );
                 r.random_name = name;
                 return r;
@@ -41,6 +38,7 @@ function RandomNameWrapper( storage )
                 if( !( err === 412 ) ) {
                     throw err;
                 }
+                A.log( "Name collision" );
             }
         }
     } );
@@ -70,20 +68,24 @@ function AtomicUpdateWrapper( storage )
             headers.set( "If-Match", options.etag );
         };
 
-        const new_etag = "TODO: randomly generate tag";
-            try {
-                const response = await storage.upload(
-                    actx, M.pathJoin( path, name ), o );
-                const r = Object.assign( {}, response );
-                r.random_name = name;
-                return r;
-            }
-            catch( err ) {
-                if( !( err === 412 ) ) {
-                    throw err;
-                }
+        try {
+            var response = await storage.upload(
+                actx, M.pathJoin( path, name ), o );
+        }
+        catch( err ) {
+            if( err === 412 )
+            {
+                
+                throw err;
+
+
+
+
             }
         }
+            var r = Object.assign( {}, response );
+            r.random_name = name;
+            return r;
     } );
 
     return astorage;
