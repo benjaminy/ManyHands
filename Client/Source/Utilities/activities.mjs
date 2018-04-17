@@ -5,28 +5,26 @@
 import assert from "./assert";
 const P = Promise;
 
-function yieldP()
-{
-    return new Promise( ( res ) => setImmediate( res ) );
-}
+/* A promise that immediately resolves.  Gives the scheduler a chance to switch. */
+const yieldP = ( () => ( new Promise( ( res ) => setImmediate( res ) ) ) );
 
-let ATOMICIFY_TAG  = Symbol( "atomicify" );
-let SCHEDULER_TAG  = Symbol( "scheduler" );
-let CONTINUE_TAG   = Symbol( "continue" );
-let ABORT_TAG      = Symbol( "abort" );
-let WAITS_TAG      = Symbol( "waits" );
-let CALL_STACK_TAG = Symbol( "call_stack" );
-let ID_TAG         = Symbol( "id" );
-let STATE_TAG      = Symbol( "state" );
-let PARENT_TAG     = Symbol( "parent" );
-let RUNNABLE             = Object.freeze( { t: STATE_TAG } );
-let RUNNING              = Object.freeze( { t: STATE_TAG } );
-let WAITING              = Object.freeze( { t: STATE_TAG } );
-let RESOLVING            = Object.freeze( { t: STATE_TAG } );
-let GENERATOR_ERROR      = Object.freeze( { t: STATE_TAG } );
-let FINISHED             = Object.freeze( { t: STATE_TAG } );
+const ATOMICIFY_TAG   = Symbol( "atomicify" );
+const SCHEDULER_TAG   = Symbol( "scheduler" );
+const CONTINUE_TAG    = Symbol( "continue" );
+const ABORT_TAG       = Symbol( "abort" );
+const WAITS_TAG       = Symbol( "waits" );
+const CALL_STACK_TAG  = Symbol( "call_stack" );
+const ID_TAG          = Symbol( "id" );
+const STATE_TAG       = Symbol( "state" );
+const PARENT_TAG      = Symbol( "parent" );
+const RUNNABLE        = Object.freeze( { t: STATE_TAG } );
+const RUNNING         = Object.freeze( { t: STATE_TAG } );
+const WAITING         = Object.freeze( { t: STATE_TAG } );
+const RESOLVING       = Object.freeze( { t: STATE_TAG } );
+const GENERATOR_ERROR = Object.freeze( { t: STATE_TAG } );
+const FINISHED        = Object.freeze( { t: STATE_TAG } );
 
-let scheduler =
+const scheduler =
     {
         all_actxs           : {},
         active_actxs        : new Set( [] ),
@@ -36,7 +34,7 @@ let scheduler =
 
 /* The global context is syntactically like a regular activity context,
  * but it never resolves. */
-let global_context = new Promise( function() {} );
+const global_context = new Promise( function() {} );
 makeContext( global_context, null );
 global_context[ SCHEDULER_TAG ] = scheduler;
 
@@ -45,21 +43,22 @@ var current_context = global_context;
 /* "prelude" is a convenience function */
 function prelude()
 {
-    let actx = current_context;
+    const actx = current_context;
     assert( isContext( actx ) );
-    let scheduler = actx[ SCHEDULER_TAG ];
-    assert( sched.active_actxs.has( actx[ ID_TAG ] ) );
-    let atomic_stack = scheduler.atomic_stack;
+    const scheduler = actx[ SCHEDULER_TAG ];
+    // assert( sched.active_actxs.has( actx[ ID_TAG ] ) );
+    const atomic_stack = scheduler.atomic_stack;
     return [ actx, scheduler, atomic_stack ];
 }
 
-/* Reminder: f can't be an async function, because we need to reset the
- * cur_ctx global variable after every yield. */
+/* Reminder: f can't be an async function, because current_context needs
+ * to be set after every yield/await. */
 /* Reminder: It would be a neat convenience if atomicified functions
  * could be called as regular async functions.  This seems to mess with
  * the global variable hack. */
 function atomicify( f )
 {
+    assert( f );
     /* assert( f is generator function ) */
     if( ATOMICIFY_TAG in f )
         return f;
@@ -72,11 +71,11 @@ function atomicify( f )
         try {
             gen_temp = f( ...params );
             if( !( gen_temp
-                   && ( typeof gen_temp[Symbol.iterator] === "function" ) ) )
+                   && ( typeof gen_temp[ Symbol.iterator ] === "function" ) ) )
                 throw {};
         }
         catch( err ) {
-            throw new Error( "atomicify expects generator function.  Given: " + typeof( f ) );
+            throw new Error( "atomicify needs generator function. " + typeof( f ) );
         }
         const generator = gen_temp;
         call_stack.push( [ f, generator ] );
@@ -93,7 +92,7 @@ function atomicify( f )
             var is_err = false;
             /* implicit yield before calls: */
             await yieldP();
-            while( true ) /* return in loop, when generator is done */
+            while( true ) /* return/throw in loop */
             {
                 const blocks = []; /* TODO: stats about blocking */
                 while( blockedByAtomic() )
@@ -104,11 +103,10 @@ function atomicify( f )
                     actx[ WAITS_TAG ]++;
                     actx[ QUEUE_LEN_TAG ] = top.waiting.length;
                     top.waiting.add( actx );
-                    const wait = new Promise( function( resolve, reject ) {
+                    blocks.push( await ( new Promise( function( resolve, reject ) {
                         actx[ CONTINUE_TAG ] = resolve;
                         actx[ ABORT_TAG ]    = reject;
-                    } );
-                    blocks.push( await wait );
+                    } ) ) );
                 }
 
                 current_context = actx;
@@ -132,7 +130,7 @@ function atomicify( f )
         }
         finally {
             assert( call_stack.length > 0 );
-            let [ fa, ga ] = call_stack.pop();
+            const [ fa, ga ] = call_stack.pop();
             assert( ga === generator );
             assert( fa === f );
         }
@@ -209,24 +207,24 @@ return async function activate( ...params_plus_f )
 }
 }
 
-let activate = activateOpts( {} );
-let activateShortLived = activateOpts( { "short-lived":true } );
+const activate = activateOpts( {} );
+const activateShortLived = activateOpts( { "short-lived":true } );
 
 function atomicOpts( options )
 {
 return async function atomic( ...params_plus_fn )
 {
-    let [ parent, sched, atomic_stack ] = prelude();
+    const [ parent, sched, atomic_stack ] = prelude();
     console.log( "atomic" );
 
-    let new_top      = {};
+    const new_top      = {};
     new_top.peers = new Set( scheduler.active_actxs );
     scheduler.active_actxs = new Set( [ actx ] );
     scheduler.atomic_stack.push( new_top );
 
     try {
         var params = params_plus_fn.slice( 0, params_plus_fn.length - 1 );
-        let fn     = atomicable( this, params_plus_fn[ params_plus_fn.length - 1 ] );
+        const fn     = atomicable( this, params_plus_fn[ params_plus_fn.length - 1 ] );
         var rv = await fn( ...params );
         var is_err = false;
     }
@@ -237,7 +235,7 @@ return async function atomic( ...params_plus_fn )
     /* pop atomic stack -- complicated shit */
 
     // console.log( "leaveAtomic", first_entry );
-    let top = scheduler.atomic_stack;
+    const top = scheduler.atomic_stack;
     assert( top.hasOwnProperty( this.id ) );
     scheduler.atomic_stack = top.next;
 
@@ -256,15 +254,15 @@ return async function atomic( ...params_plus_fn )
      * bug. */
 
     top.waiting.sort( function( a, b ) {
-        let diff = b.waits - a.waits;
+        const diff = b.waits - a.waits;
         if( diff == 0 )
             return a.queue_len - b.queue_len;
         else
             return diff;
     } );
-    for( let actx of top.waiting.values() )
+    for( const actx of top.waiting.values() )
     {
-        let cont = actx.continuation;
+        const cont = actx.continuation;
         actx.continuation = null;
         cont();
     }
@@ -277,7 +275,7 @@ return async function atomic( ...params_plus_fn )
 }
 }
 
-let atomic = atomicOpts( {} );
+const atomic = atomicOpts( {} );
 
 function selfActivity()
 {
