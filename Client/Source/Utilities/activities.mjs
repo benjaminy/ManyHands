@@ -6,7 +6,7 @@ import assert from "./assert";
 const P = Promise;
 
 /* A promise that immediately resolves.  Gives the scheduler a chance to switch. */
-const yieldP = ( () => ( new Promise( ( res ) => setImmediate( res ) ) ) );
+const yieldP = () => ( new Promise( setImmediate ) );
 
 const ATOMICIFY_TAG   = Symbol( "atomicify" );
 const SCHEDULER_TAG   = Symbol( "scheduler" );
@@ -70,8 +70,7 @@ function atomicify( f )
         var gen_temp;
         try {
             gen_temp = f( ...params );
-            if( !( gen_temp
-                   && ( typeof gen_temp[ Symbol.iterator ] === "function" ) ) )
+            if( !( typeof gen_temp[ Symbol.iterator ] === "function" ) )
                 throw {};
         }
         catch( err ) {
