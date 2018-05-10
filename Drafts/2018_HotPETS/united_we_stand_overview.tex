@@ -1,0 +1,230 @@
+\documentclass{sig-alternate-hotpets}
+
+\usepackage{graphicx}
+\DeclareGraphicsExtensions{.png}
+
+\begin{document}
+\title{Secure Collaborative Editing Without Central Servers}
+% \subtitle{[Modified for HotPETS]}
+%
+% You need the command \numberofauthors to handle the 'placement
+% and alignment' of the authors beneath the title.
+%
+% For aesthetic reasons, we recommend 'three authors at a time'
+% i.e. three 'name/affiliation blocks' be placed beneath the title.
+%
+% NOTE: You are NOT restricted in how many 'rows' of
+% "name/affiliations" may appear. We just ask that you restrict
+% the number of 'columns' to three.
+%
+% Because of the available 'opening page real-estate'
+% we ask you to refrain from putting more than six authors
+% (two rows with three columns) beneath the article title.
+% More than six makes the first-page appear very cluttered indeed.
+%
+% Use the \alignauthor commands to handle the names
+% and affiliations for an 'aesthetic maximum' of six authors.
+% Add names, affiliations, addresses for
+% the seventh etc. author(s) as the argument for the
+% \additionalauthors command.
+% These 'additional authors' will be output/set for you
+% without further effort on your part as the last section in
+% the body of your article BEFORE References or any Appendices.
+
+\numberofauthors{4} %  in this sample file, there are a *total*
+% of EIGHT authors. SIX appear on the 'first-page' (for formatting
+% reasons) and the remaining two appear in the \additionalauthors section.
+%
+\author{
+% You can go ahead and credit any number of authors here,
+% e.g. one 'row of three' or two rows (consisting of one row of three
+% and a second row of one, two or three).
+%
+% The command \alignauthor (no curly braces needed) should
+% precede each author name, affiliation/snail-mail address and
+% e-mail address. Additionally, tag each line of
+% affiliation/address with \affaddr, and tag the
+% e-mail address with \email.
+%
+% 1st. author
+\alignauthor
+Benjamin Ylvisaker\\
+       \affaddr{Colorado College}\\
+       \email{bylvisaker@coloradocollege.edu}
+% 2nd. author
+\alignauthor
+Michal Wisniewski\\
+       \affaddr{Colorado College}\\
+       \email{user2@host.com}
+% 3rd. author
+\alignauthor
+Jay Batavia\\
+       \affaddr{???}\\
+       \email{user4@host.com}
+%% % 4th. author
+%% \alignauthor Beau Carlborg\\
+%%        \affaddr{Colorado College}\\
+%%        \email{user3@host.com}
+%% \and  % use '\and' if you need 'another row' of author names
+}
+
+\maketitle
+
+\section{Introduction}
+Collaborative editing applications like Google Docs and EtherPad are a popular way for teams to work together on data.
+The most common implementations of these tools involve clients sending users' edits to a central service provider to be integrated into a single consistent document/database.
+This architecture has obvious security and privacy issues: users' data are vulnerable to bad behavior by companies, rogue employees, outsider attacks on the servers, and snooping and/or litigious governments.
+
+End-to-end encrypted (E2EE) architectures have been used in messaging applications (Signal, WhatsApp, Telegram) to provide protection against the attacks alluded to above.
+In E2EE applications, the service provider never has access to unencrypted user data or the keys needed to decrypt such data.
+There has been some research on bringing these kinds of E2EE architectures to collaborative editing applications, though we are not aware of any such applications that have reached the level of popularity achieved by messaging applications.
+
+The current generation of E2EE architectures was designed to cryptographically protect users' data from the service provider.
+However, the functioning of these applications still relies on central communication and storage services.
+This means that malicious actors can relatively easily carry out denial of services attacks by blocking access to servers, or legally forcing organizations to shut down services.
+In the last couple of years there have been several instances of governments engaging in this kind of attack.
+
+This proposal is about a new E2EE architecture for collaborative editing applications that has two goals, which are in some tension with each other:
+
+\begin{enumerate}
+\item Minimize the role of any central service.
+  Once deployed on client machines, applications should continue to function even if all resources controlled by the application authors are blocked or taken down.
+\item Require no specialized technical skill or resources on the parts of users.
+\end{enumerate}
+
+The United We Stand (UWS) protocol is our attempt to achieve these goals.
+The central concepts in UWS are users and teams; users can participate in many teams.
+The components of the protocol are:
+
+\begin{itemize}
+\item A secure messaging protocol for communicating transactions to team members.
+  The current prototype uses an adaptation of the Signal protocol.
+\item A mechanism for broadcasting messages to teammates.
+  The current prototype uses commodity cloud storage accounts, where each user keeps a copy of each team's data in their own cloud storage account.
+\item An accumulate-only data model.
+  The current prototype uses Datomic as inspiration for data modeling.
+\item A consistency protocol so all teammates can come to agreement on the state of the database.
+  We currently use a relatively simple vector clock-based system for coming to agreement on the order of transactions.
+\end{itemize}
+
+Our work on the protocol is at a fairly early stage, but our prototype has validated the basic feasibility of the protocol.
+
+\section{Blocking E2EE Services}
+
+The primary inspiration behind this work is the (sometimes successful) attempts governments and law enforcement organizations have made to interfere with either the basic functioning or cryptographic integrity of E2EE services.
+We believe that secure and private communication and collaboration among individuals and groups is on balance a positive thing in the world, and we seek to strengthen the technologies that enable it.
+We begin with a quick recap of some of the high profile cases of governments interfering with E2EE services in recent years.
+
+The Brazilian government and WhatsApp have been in conflict since 2015, when a prosecutor blocked the service nation-wide.
+More recently a Brazilian prosecutor froze millions of dollars worth of assets owned by Facebook, the owner of WhatsApp.
+The core of the conflict is WhatsApp's refusal to assist in criminal investigations.
+Of course, if WhatsApp has implemented the kind of E2EE system that they advertise, it is likely technically infeasible for them to provide the kind of data that the prosecutors want.
+
+More recently, the Russian government has attempted to block the Telegram service.
+Telegram has attempted to work around the blocking by obscuring its services in various ways.
+But the Russian government has kept up with this cat and mouse game.
+In general, it will always be hard to prevent blocking of an open public service.
+
+One technique that can be used to evade digital blockades is \emph{domain fronting}.
+Domain fronting a trick in TLS that can be used to make the apparent and actual endpoint for a connection different, if both are host by the same large provider, like Google App Engine or Amazon Web Services.
+The Signal service has used this trick to avoid blockade in countries like Iran, Egypt, Oman, Qatar, and UAE.
+Unfortunately, this technique requires at least passive acceptance by the large provider, and in May 2018 Amazon notified Signal that they should cease any domain fronting.
+
+Many governments are currently considering \emph{key disclosure laws}.
+These laws vary in their details, but in the most extreme cases they require any software or digital service provider that enables secure communication to hold copies of whatever keys are necessary to decrypt users' data.
+
+Our goal is to completely eliminate these kinds of concerns by decentralizing the storage and communication for E2EE collaborative editing applications.
+If there is no central service provider, there is no target for the kinds of attacks described above.
+
+\section{Weak Point: Cloud Storage}
+
+As mentioned in the introduction, the main storage and communication medium in UWS is commodity cloud storage accounts.
+It seems fairly unlikely that governments would completely block cloud storage systems like Dropbox or Google Drive.
+However, those storage providers may very well be motivated to block the storage of files for secure applications, especially if pressured to do so by governments.
+
+We first note that if motivated to do so, it would be trivially easy for a storage provider to deny service to a particular user by deleting their files.
+There is little the UWS protocol can do in this scenario.
+However, all files stored in the protocol are signed, so the storage provider cannot modify the files without the modification be detected.
+
+If denial of service attacks by cloud storage providers were to become a problem, we speculate about a couple possible solutions:
+The application could use steganographic techniques to make UWS files look like family photos (for example).
+It is also conceivable to use decentralized peer-to-peer cloud storage systems.
+Several such systems have been designed, but none has achieved much popularity as far as the authors know.
+Perhaps the current anti-privacy mood in many governments will help these systems become more widely used.
+
+\section{Modest Technical Requirements}
+
+In the interest of making UWS adaptable to any cloud storage service, we have made the technical requirements quite modest.
+
+\section{Threats/Risks from the Storage Servers}
+
+One of the most important and potentially problematic components of the UWS system is the cloud storage services.
+Because all stored files are signed, it is infeasible for a storage service to modify files or generate counterfeit files without being detected.
+
+Of course, it is trivially easy for a storage service to deny service by removing files.
+They could attempt to be more subtle by occasionally corrupting a file.
+
+Alternatively, access to the storage service could be blocked in a number of different ways.
+
+Easy to detect explicit maliciousness.
+
+\subsection{Storing Encrypted Files in the Cloud}
+
+It is conceivable that cloud storage services would block UWS either because of court/government mandate or because they don't like so many encrypted files due to compression/deduplication.
+Can consider either Tor-style steganography or building a P2P cloud storage network.
+
+\subsubsection{Subsubsection}
+And even further organize by subsubsection~\footnote{If necessary, you may place some address information in a footnote.}.
+
+%% \subsection{Tables}
+%% Label table content and provide captions.
+
+%% \begin{table}[h]
+%% \centering
+%% \caption{Table coption}
+%% \begin{tabular}{|c|c|c|c|}
+%% \hline
+%% \textbf{Column 1} & \textbf{Column 2} & \textbf{Column 3} & \textbf{Column 4}\\
+%% \hline
+%% Datum 11 & Datum 21 & Datum 31 & Datum 41\\
+%% \hline
+%% Datum 12 & Datum 22 & Datum 32 & Datum 42\\
+%% \hline
+%% \end{tabular}
+%% \end{table}
+
+\subsection{Figures}
+Figures can be inserted wherever is most convenient in the text. See, for example,
+Figure~\ref{fig1}.
+\begin{figure}[h]
+\centering
+% \includegraphics[width=0.33\textwidth]{stick-push}
+\caption{Insert caption to place caption below figure}
+\label{fig1}
+\end{figure}
+
+% \subsection{Page Numbering, Headers and Footers}
+% Page numbers, headers, and footers are not necessary.
+
+\section{More Main Text}
+This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text.
+
+\section{What About the Terrorists and Pedophiles?}
+
+Law enforcement organizations and governments have often argued that strong E2EE services are dangerous, because they allow criminals, terrorists and other ill-intentioned folk to communicate secretly.
+
+\balancecolumns
+
+% The following two commands are all you need in the
+% initial runs of your .tex file to
+% produce the bibliography for the citations in your paper.
+\bibliographystyle{abbrv}
+\bibliography{sig-alternate-hotpets}  % sigproc.bib is the name of the Bibliography in this case
+% You must have a proper ".bib" file
+%  and remember to run:
+% latex bibtex latex latex
+% to resolve all references
+%
+
+\balancecolumns
+\end{document}

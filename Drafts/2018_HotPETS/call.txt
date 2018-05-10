@@ -1,0 +1,80 @@
+Call for Talks: HotPETs 2017
+
+10th Workshop on Hot Topics in Privacy Enhancing Technologies (HotPETs 2017)
+Held in conjunction with the 17th Privacy Enhancing Technologies Symposium
+July 21, 2017
+
+The Workshop on Hot Topics in Privacy Enhancing Technologies (HotPETs) fosters new ideas and spirited debates on privacy. We are calling for engaging and informative 10-15 minute talks on hot topics in privacy enhancing technologies (PETs), with each talk to be followed by a 5-10 minute question period. Short, written talk proposals should be sent by May 8th, 2017, to hotpets17@petsymposium.org (details below). The nature of HotPETs' discussion-oriented format is especially suited to works in progress and new ideas that have not yet been fully formed.
+
+Topics of interest include, but are not limited to:
+
+    Anonymous communications and publishing systems
+    Censorship resistance
+    Challenges in deploying PETs
+    Cryptographic protocols with application to privacy
+    Economics of PETs
+    Genetic privacy
+    Human computer interaction with PETs
+    Impact of PETs in the wild
+    Interdisciplinary privacy
+    Legal issues surrounding PETs
+    Location privacy
+    Online surveillance
+    Privacy and identity management
+    Privacy-enhanced access control and authentication
+    Privacy in databases
+    Privacy in social networks
+    Public policy regulating the use and development of PETs
+    Usability of PETs
+    User studies of PETs
+
+Who should submit:
+
+We invite submissions from activists, artists, developers, journalists, lawyers, public servants, researchers, scholars, and any others who can give a compelling, novel talk about privacy and privacy-enhancing technologies.
+PETS and HotPETS attract world-renowned experts on the research, development, and practice of PETs.
+If you are excited to give a talk to such a group, and you think they would be excited to hear it, then you should submit.
+Some example talks:
+
+- Researcher describing recent research results or a work in progress, especially on a novel or newly-important topic in privacy or security
+- Experiences from an activist working with PETs "on the ground"
+- Software developer describing a recent experience with a privacy-enhancing tool they built
+- Government official discussing interactions between technology and the development of privacy or security-related policy
+
+What to submit:
+
+We invite two-page talk proposals that give an overview of what you intend to present, including any results or conclusions you intend to share.
+HotPETs strives for engaging talks and focused discussions, and so proposals should display exciting ideas that can be communicated clearly and with brevity.
+
+We encourage you to link to additional sources of your work (e.g., software, videos, websites, papers) within your proposal.
+The HotPETs chairs will strive to incorporate these additional sources into the review process, although full review of material beyond what is contained in the submission text is not guaranteed.
+
+A proposal must include a title and a list of authors responsible for the work to be presented (one of whom must give the talk).
+It must be no more than two pages including references.
+It must be submitted as a Word or PDF document, and we recommend that proposals use either this Word template or this LaTeX template.
+For detailed information on using these templates, see the ACM SIG Proceedings templates.
+
+HotPETs has no official proceedings, but accepted submissions will be made available on the HotPETs website (authors may revise them after acceptance).
+Authors may have the option to include talk-related resources, such as slides or software, on the HotPETs website.
+With speaker consent, recordings of HotPETs talks may be made during the workshop and put online.
+
+Submission Review:
+
+The HotPETs chairs will review the submissions and make the final decisions on acceptance. The chairs may request external input or advice to make fully informed decisions.
+
+The chairs will seek to accept submissions that have the potential to create an engaging workshop for speakers and attendees. Accepted submissions may include those that provoke interesting discussion, provide unique insight or value to the PETs community, share new and emerging PETs-related research, and have the potential to expand engagement between the PETs community and PETs users.
+
+The chairs seek submissions that are complete and concise. They should provide a full overview of the proposed talk, including (if available) any conclusions or findings that are to be presented.
+
+HotPETs Best Talk Award:
+
+A goal of HotPETs is to present talks that are informative, engaging, and even entertaining. To recognize such talks, each year HotPETs concludes with a vote by the audience for its favorite talk. The talk with the most votes wins the Best Talk Award!
+
+Deadlines:
+Submission Deadline: May 8th
+Submission Notification: May 15th
+
+HotPETs chairs:
+
+    Sadia Afroz (ICSI /UC Berkeley)
+    Moritz Bartl (Renewable Freedom Foundation)
+    Tariq Elahi (KU Leuven)
