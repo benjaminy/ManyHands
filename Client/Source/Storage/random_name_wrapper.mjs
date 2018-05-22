@@ -50,8 +50,7 @@ function AtomicUpdateWrapper( storage )
 {
     const astorage = Object.assign( {}, storage );
 
-    astorage.upload = A( async function upload( actx, path, options ) {
-        assert( A.isContext( actx ) );
+    astorage.upload = A( function* upload( path, options ) {
         assert( M.isPath( path ) );
         assert( "etag" in options );
 
