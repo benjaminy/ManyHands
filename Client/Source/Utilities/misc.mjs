@@ -251,6 +251,13 @@ export const handleServerError = A( async function handleServerError( actx, msg,
     throw new ServerError( msg, resp.statusText + ' ' + t );
 } );
 
+export function toHexString( byteArray )
+{
+    return byteArray.reduce(
+        ( output, elem ) =>
+            ( output + ( '0' + elem.toString( 16 ) ).slice( -2 ) ),
+        '' );
+}
 
 /* Graveyard */
 

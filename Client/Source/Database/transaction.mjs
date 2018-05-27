@@ -68,7 +68,7 @@ const getAttribute = A( async function getAttribute( actx, db, identName ) {
 
 /* Input: an array of txn statements
  * Output: either throw an exception, or return an array of datoms */
-const processTxn = A( async function processTxn( actx, db, txn )
+const processTxn = A( function* processTxn( db, txn )
 {
     /* assert( typeof( db )  == database ) */
     /* assert( typeof( txn ) == array of statements ) */
@@ -216,7 +216,7 @@ export {}
 
 
 
-DB.uploadTxn = async( '', function *( db, txn )
+DB.uploadTxn = A( function *uploadTxn( db, txn )
 {
     var wrapped = {
         t: txn,

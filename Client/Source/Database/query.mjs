@@ -2,7 +2,8 @@
 
 "use strict";
 
-import assert from "../Utilities/assert.mjs";
+import assert from "../Utilities/assert";
+import * as L from "../Utilities/logging";
 import * as K from "../Utilities/keyword";
 import * as S from "../Utilities/set";
 
@@ -29,7 +30,7 @@ export function parseQuery( q )
 
     var i = 0;
 
-    function getSection( section, startK, endSet )
+    function getSection( section, startK, endMarkers )
     {
         if( i < q.length && startK === K.key( q[ i ] ) )
         {
@@ -38,7 +39,7 @@ export function parseQuery( q )
             {
                 try {
                     const k = K.key( q[ i ] );
-                    if( endSet.has( k ) )
+                    if( endMarkers.has( k ) )
                         break;
                 }
                 catch( err ) {}
@@ -60,11 +61,70 @@ export function parseQuery( q )
     assert( i === q.length );
     assert( find_section.length > 0 );
 
-    console.log( "FI " + find_section );
-    console.log( "WI " + with_section );
-    console.log( "IN " + in_section );
-    console.log( "WH " + where_section );
+    L.debug( "FI " + find_section );
+    L.debug( "WI " + with_section );
+    L.debug( "IN " + in_section );
+    L.debug( "WH " + where_section );
 
+    /* Functions for parsing the four main sections */
+    function parseFindSpec()
+    {
+        // find-spec = ':find' (find-rel | find-coll | find-tuple | find-scalar)
+        if( find_section.length === 2 && find_section[ 1 ] === "." )
+        {
+            // find-scalar = find-elem '.'
+            throw new Error( "Unimplemented" );
+        }
+        else if( find_section.length === 1 && Array.isArray( find_section[ 0 ] ) )
+        {
+            const elems = find_section[ 0 ];
+            if( elems.length === 2 && elems[ 1 ] === "..." )
+            {
+                return { tag: find_coll_tag,
+                         elem: parseFindElem( elems[ 0 ] ) };
+            }
+            return { tag: find_tuple_tag,
+                     elems: elems.map( parseFindElem ) };
+        }
+        else
+        {
+            return { tag: find_rel_tag,
+                     elems: find_section.map( parseFindElem ) };
+        }
+    }
+
+    function parseWithClause()
+    {
+        if( with_section.length > 0 )
+            throw new Error( "Unimplemented" );
+        return [];
+    }
+
+    function parseInputElem( thing )
+    {
+        if( thing === "%" )
+            return { tag: rules_var_tag }
+        try {
+            return parseSrcVar( thing );
+        }
+        catch( err ) {}
+        try {
+            return parseVariable( thing );
+        }
+        catch( err ) {}
+        if( isPlainSymbol( thing ) )
+            return { tag: pattern_var_tag,
+                     name: thing };
+        throw new Error( "Query: Expecting input element.  Found: " + thing );
+    }
+
+    function parseWhereClauses()
+    {
+        return { tag: where_clauses_tag,
+                 clauses: where_section.map( parseClause ) };
+    }
+
+    /* Functions for parsing smaller elements of a query: */
     function parseSrcVar( thing )
     {
         try {
@@ -156,50 +216,6 @@ export function parseQuery( q )
         }
     }
 
-    function parseFindSpec()
-    {
-        // find-spec = ':find' (find-rel | find-coll | find-tuple | find-scalar)
-        if( find_section.length === 2 && find_section[ 1 ] === "." )
-        {
-            // find-scalar = find-elem '.'
-            throw new Error( "Unimplemented" );
-        }
-        else if( find_section.length === 1 && Array.isArray( find_section[ 0 ] ) )
-        {
-            const elems = find_section[ 0 ];
-            if( elems.length === 2 && elems[ 1 ] === "..." )
-            {
-                return { tag: find_coll_tag,
-                         elem: parseFindElem( elems[ 0 ] ) };
-            }
-            return { tag: find_tuple_tag,
-                     elems: elems.map( parseFindElem ) };
-        }
-        else
-        {
-            return { tag: find_rel_tag,
-                     elems: find_section.map( parseFindElem ) };
-        }
-    }
-
-    function parseInputElem( thing )
-    {
-        if( thing === "%" )
-            return { tag: rules_var_tag }
-        try {
-            return parseSrcVar( thing );
-        }
-        catch( err ) {}
-        try {
-            return parseVariable( thing );
-        }
-        catch( err ) {}
-        if( isPlainSymbol( thing ) )
-            return { tag: pattern_var_tag,
-                     name: thing };
-        throw new Error( "Query: Expecting input element.  Found: " + thing );
-    }
-
     function isPlainSymbol( thing )
     {
         try {
@@ -274,12 +290,6 @@ export function parseQuery( q )
         }
     }
 
-    function parseWhereClauses()
-    {
-        return { tag: where_clauses_tag,
-                 clauses: where_section.map( parseClause ) };
-    }
-
     return {
         find:  parseFindSpec(),
         with:  {},
@@ -294,7 +304,7 @@ function is_compatible( query_const, datom_value )
     return query_const.val === datom_value;
 }
 
-export const runQuery = A( async function runQuery( actx, db, q )
+export const runQuery = A( function* runQuery( actx, db, q )
 {
     const vars = [];
     const results = [];

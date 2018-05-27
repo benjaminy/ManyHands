@@ -102,11 +102,10 @@ export default function init( user, options )
         const pu = encode_path( user, path );
         const response = yield fetch( host+pu.u+"/"+pu.p );
         A.log( "Response", pu.p, response.status, response.statusText );
-        const r = Object.assign( {}, response );
         // A.log( "Response", pu.p, typeof( r.headers ), r.headers );
-
-        if( !r.ok )
-            yield UM.handleServerError( pu.p, response );
+        if( !response.ok )
+            return response;
+        const r = Object.assign( {}, response );
 
         if( response.headers.has( "etag" ) )
         {
