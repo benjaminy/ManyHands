@@ -127,7 +127,7 @@ export function authenticityWrapper( storage, crypto )
         const tag = yield crypto.sign( o.body, o.mac_key );
         assert( tag.length === crypto.tag_bytes );
         o.body = UM.typedArrayConcat( tag, o.body );
-        const response = yield storage.upload( path, o );
+        const response = Object.assign( {}, yield storage.upload( path, o ) );
         if( response.ok )
         {
             if( options.generate_mac_key )
@@ -139,7 +139,7 @@ export function authenticityWrapper( storage, crypto )
     } );
 
     astorage.download = A( function* download( path, options ) {
-        const response = yield storage.download( path, options );
+        const response = yield storage.upload( path, option );
         if( !response.ok )
         {
             return response;
@@ -162,7 +162,7 @@ export function authenticityWrapper( storage, crypto )
 }
 
 /*
- * When uplaoding, encrypt.  When downloading, decrypt.
+ * When uploading, encrypt.  When downloading, decrypt.
  *
  * This wrapper's data input and output are byte arrays.
  */
@@ -186,7 +186,7 @@ export function confidentialityWrapper( storage, crypto )
         }
 
         o.body = yield crypto.encrypt( options.body, o.key, o.iv );
-        const response = yield storage.upload( path, o );
+        const response = Object.assign( {}, yield storage.upload( path, o ) );
         if( response.ok )
         {
             if( options.generate_key )
