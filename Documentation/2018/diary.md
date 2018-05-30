@@ -7,6 +7,11 @@ But this would damage forward secrecy, because the keys would no longer be ephem
 It's debatable how important forward secrecy is, because the database is always there.
 But I think it's still an important feature, at least because in principle it's possible to purge data from the database.
 
+bwc. Attemping to understand the double ratchet algorithm is tricky because it is utilizing some capabillities of the DH algorithm that I am not fully familiar with.
+The nature of DH Ratchet algorithms "ping pong behavior" of replacing ratchet key pairs seems interesting at 50,000 feet. But makes little to no sense when my feet are on the ground.
+I guess the part that is most confusing as of now is the importance or significance of the DH output that is generated at every step.
+
+
 ------
 2018-5-29
 
