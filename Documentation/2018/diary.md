@@ -11,6 +11,8 @@ bwc. Attemping to understand the double ratchet algorithm is tricky because it i
 The nature of DH Ratchet algorithms "ping pong behavior" of replacing ratchet key pairs seems interesting at 50,000 feet. But makes little to no sense when my feet are on the ground.
 I guess the part that is most confusing as of now is the importance or significance of the DH output that is generated at every step.
 
+bwc. Trying to understand DH at a deeper level, so I went to Ferguson. Working through it slowly. Primes are annoying.
+
 
 ------
 2018-5-29
