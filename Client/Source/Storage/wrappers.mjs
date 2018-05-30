@@ -26,6 +26,12 @@ export const SK_JSON         = Symbol( "json" );
 export const SK_TEXT         = Symbol( "text" );
 export const stream_kinds = new Set( [ SK_ARRAY_BUFFER, SK_BLOB, SK_FORM_DATA, SK_JSON, SK_TEXT ] );
 
+function addProp( obj, prop1, prop2, val )
+{
+    obj[ prop1 ] = obj[ prop1 ] || {};
+    obj[ prop1 ][ prop2 ] = val;
+}
+
 /*
  * Upload to a randomly chosen name.  If a file already exists at that
  * path, retry until an unused name is found.
@@ -40,10 +46,9 @@ export function randomNameWrapper( storage )
 {
     const rstorage = Object.assign( {}, storage );
 
-    rstorage.upload = A( function* upload( path, options ) {
+    rstorage.upload = A( function* upload( file_ptr, options ) {
         const o = Object.assign( {}, options );
-        SU.appendHeaderHook( o, function( headers )
-        {
+        SU.appendHeaderHook( o, function( headers ) {
             SU.overwriteHeader( headers, "If-Match", "*" );
         } );
 
@@ -52,8 +57,9 @@ export function randomNameWrapper( storage )
         {
             const bytes = CB.getRandomBytes( BYTES_PER_NAME );
             const name = M.toHexString( bytes );
-            const response = Object.assign( {},
-                yield storage.upload( M.pathJoin( path, name ), o ) );
+            const fp = Object.assign( {}, file_ptr );
+            fp.path = M.pathJoin( file_ptr.path, name );
+            const response = Object.assign( {}, yield storage.upload( fp, o ) );
             if( response.status === 412 )
             {
                 retries += 1;
@@ -65,7 +71,7 @@ export function randomNameWrapper( storage )
             /* Reminder: The fetch convention is to return (not throw) for HTTP "errors" */
             if( response.ok )
             {
-                response.generated_name = name;
+                addProp( response, "file_ptr", "path", fp.path );
             }
             return response;
         }
@@ -82,17 +88,15 @@ export function atomicUpdateWrapper( storage )
 {
     const astorage = Object.assign( {}, storage );
 
-    astorage.upload = A( function* upload( path, options ) {
+    astorage.upload = A( function* upload( file_ptr, options ) {
         assert( "etag" in options );
 
         const o = Object.assign( {}, options );
-        SU.appendHeaderHook( o, function( headers )
-        {
+        SU.appendHeaderHook( o, function( headers ) {
             SU.overwriteHeader( headers, "If-Match", options.etag );
         } );
 
-        const response = Object.assign( {},
-            yield storage.upload( M.pathJoin( path, name ), o ) );
+        const response = Object.assign( {}, yield storage.upload( file_ptr, o ) );
         if( response.status === 412 )
         {
             L.warn( "Atomic update failed" );
@@ -107,39 +111,64 @@ export function atomicUpdateWrapper( storage )
 }
 
 /*
- * When uploading, calculate and prepend a MAC.  When downloading, verify the MAC.
+ *
+ */
+export function keyGenWrapper( crypto, name, storage )
+{
+    const gstorage = Object.assign( {}, storage );
+
+    gstorage.upload = A( function* upload( file_ptr, options ) {
+        const fp = Object.assign( {}, file_ptr );
+        fp[ "key_" + name ] = yield crypto.generateKey( name );
+        const response = Object.assign( {}, yield storage.upload( file_ptr, options ) );
+        if( response.ok )
+        {
+            addProp( response, "file_ptr", "key_" + name, fp.path );
+        }
+        return response;
+
+    } );
+}
+
+/*
+ *
+ */
+export function keyParamWrapper( key, name, storage )
+{
+    const gstorage = Object.assign( {}, storage );
+
+    gstorage.upload = A( function* upload( file_ptr, options ) {
+        const fp = Object.assign( {}, file_ptr );
+        fp[ "key_" + name ] = key;
+        return yield storage.upload( file_ptr, o );
+    } );
+}
+
+/*
+ * When uploading, sign.  When downloading, verify.
  *
  * This wrapper's data input and output are byte arrays.
  */
-export function authenticityWrapper( storage, crypto )
+export function authenticityWrapper( crypto, storage )
 {
     const astorage = Object.assign( {}, storage );
 
-    astorage.upload = A( function* upload( path, options ) {
+    astorage.upload = A( function* upload( file_ptr, options ) {
         assert( body in options );
         // assert byte array
 
         const o = Object.assign( {}, options );
-        if( options.generate_mac_key )
-        {
-            o.mac_key = yield crypto.generateKey();
-        }
-        const tag = yield crypto.sign( o.body, o.mac_key );
+        const tag = yield crypto.sign( o.body, file_ptr.key_auth );
         assert( tag.length === crypto.tag_bytes );
         o.body = UM.typedArrayConcat( tag, o.body );
-        const response = Object.assign( {}, yield storage.upload( path, o ) );
-        if( response.ok )
-        {
-            if( options.generate_mac_key )
-            {
-                response.generated_mac_key = o.mac_key;
-            }
-        }
-        return response;
+        SU.appendHeaderHook( o, function( headers ) {
+            SU.overwriteHeader( headers, "Content-Length", o.body.length );
+        } );
+        return yield storage.upload( file_ptr, o );
     } );
 
-    astorage.download = A( function* download( path, options ) {
-        const response = yield storage.upload( path, option );
+    astorage.download = A( function* download( file_ptr, options ) {
+        const response = yield storage.download( file_ptr, option );
         if( !response.ok )
         {
             return response;
@@ -148,7 +177,7 @@ export function authenticityWrapper( storage, crypto )
         const body_bytes = new Uint8Array( yield response.arrayBuffer() );
         const tag = body_bytes.subarray( 0, crypto.tag_bytes );
         const signed = body_bytes.subarray( crypto.tag_bytes );
-        if( !( yield crypto.verify( tag, signed, options.mac_key ) ) )
+        if( !( yield crypto.verify( tag, signed, file_ptr.auth_key ) ) )
         {
             throw new VerificationError( '' );
         }
@@ -166,11 +195,11 @@ export function authenticityWrapper( storage, crypto )
  *
  * This wrapper's data input and output are byte arrays.
  */
-export function confidentialityWrapper( storage, crypto )
+export function confidentialityWrapper( crypto, storage )
 {
     const cstorage = Object.assign( {}, storage );
 
-    cstorage.upload = A( function* upload( path, options ) {
+    cstorage.upload = A( function* upload( file_ptr, options ) {
         assert( body in options );
         // assert byte array
 
@@ -186,7 +215,10 @@ export function confidentialityWrapper( storage, crypto )
         }
 
         o.body = yield crypto.encrypt( options.body, o.key, o.iv );
-        const response = Object.assign( {}, yield storage.upload( path, o ) );
+        SU.appendHeaderHook( o, function( headers ) {
+            SU.overwriteHeader( headers, "Content-Length", o.body.length );
+        } );
+        const response = Object.assign( {}, yield storage.upload( file_ptr, o ) );
         if( response.ok )
         {
             if( options.generate_key )
@@ -197,8 +229,8 @@ export function confidentialityWrapper( storage, crypto )
         return response;
     } );
 
-    cstorage.download = A( function* download( path, options ) {
-        const response = yield storage.download( path, options );
+    cstorage.download = A( function* download( file_ptr, options ) {
+        const response = yield storage.download( file_ptr, options );
         if( !response.ok )
         {
             return response;
@@ -220,16 +252,19 @@ export function confidentialityWrapper( storage, crypto )
 text_encoders = {};
 text_decoders = {};
 
-export function encodingWrapper( storage, stream_kind, w_options )
+export function encodingWrapper( stream_kind, w_options, storage )
 {
     assert( stream_kinds.has( stream_kind ) );
     const estorage = Object.assign( {}, storage );
-    const tstorage = stream_kind === SK_JSON ? encodingWrapper( storage, SK_TEXT ) : null;
+    const tstorage = stream_kind === SK_JSON ? encodingWrapper( SK_TEXT, storage ) : null;
 
-    cstorage.upload = A( function* upload( path, options ) {
+    cstorage.upload = A( function* upload( file_ptr, options ) {
         assert( body in options );
 
         const o = Object.assign( {}, options );
+        SU.appendHeaderHook( o, function( headers ) {
+            SU.overwriteHeader( headers, "Content-Type", "application/octet-stream" );
+        } );
         switch( stream_kind ) {
         case SK_ARRAY_BUFFER:
             break;
@@ -244,8 +279,11 @@ export function encodingWrapper( storage, stream_kind, w_options )
             if( "body" in options )
             {
                 o.body = JSON.stringify( options.body );
+                SU.appendHeaderHook( o, function( headers ) {
+                    SU.overwriteHeader( headers, "Content-Length", o.body.length );
+                } );
             }
-            return yield tstorage.upload( path, o );
+            return yield tstorage.upload( file_ptr, o );
             break;
         case SK_TEXT:
             const encoding = ( "encoding" in options ) ? options.encoding :
@@ -255,17 +293,18 @@ export function encodingWrapper( storage, stream_kind, w_options )
             {
                 text_encoders[ encoding ] = new TextEncoder( encoding );
             }
-            const encoder = text_encoders[ encoding ];
-            o.body = encoder.encode( options.body );
+            o.body = text_encoders[ encoding ].encode( options.body );
             break;
         }
-        o.body = yield encrypt( options.body );
-        return yield storage.upload( path, o );
+        SU.appendHeaderHook( o, function( headers ) {
+            SU.overwriteHeader( headers, "Content-Length", o.body.length );
+        } );
+        return yield storage.upload( file_ptr, o );
     } );
 
-    cstorage.download = A( function* download( path, options ) {
+    cstorage.download = A( function* download( file_ptr, options ) {
         const s = stream_kind === SK_JSON ? tstorage : storage;
-        const response = yield s.download( path, options );
+        const response = yield s.download( file_ptr, options );
         if( !response.ok )
         {
             return response;

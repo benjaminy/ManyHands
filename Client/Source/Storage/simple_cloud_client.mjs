@@ -61,26 +61,16 @@ export default function init( user, options )
         const pu = encode_path( user, path );
 
         const headers = new Headers();
-        if( "headersHook" in options )
-            options.headersHook( headers );
-
-        if( "body" in options && !( headers.has( "Content-Length" ) ) )
-        {
-            try {
-                headers.set( "Content-Length", options.body.length );
-            }
-            catch( err ) {
-                actx.log( "Failed to set content length" );
-            }
-        }
+        if( !( "header_hooks" in opts ) )
+            return;
+        for( const hook of opts.header_hooks )
+            hook( headers );
 
         if( ( !( headers.has( "Content-Type" ) ) ) && "body" in options
             && typeof( options.body ) === "string" )
         {
             headers.set( "Content-Type", "text/plain" );
         }
-        if( headersHook )
-            headersHook( headers );
 
         const fetch_options = { method  : "POST", headers: headers };
         if( "body" in options )
@@ -88,11 +78,8 @@ export default function init( user, options )
             fetch_options.body = options.body;
         }
         const response = yield fetch( host+pu.u+"/"+pu.p, fetch_options );
-        A.log( "Response", response.status, response.statusText );
-        if( response.ok )
-            return response;
-        else
-            yield UM.handleServerError( pu.p, response );
+        A.log( "upload Response", response.status, response.statusText );
+        return response;
     } );
 
     const download = A( function* download( path, options )
@@ -101,7 +88,7 @@ export default function init( user, options )
 
         const pu = encode_path( user, path );
         const response = yield fetch( host+pu.u+"/"+pu.p );
-        A.log( "Response", pu.p, response.status, response.statusText );
+        L.debug( "download Response", pu.p, response.status, response.statusText );
         // A.log( "Response", pu.p, typeof( r.headers ), r.headers );
         if( !response.ok )
             return response;
@@ -116,21 +103,6 @@ export default function init( user, options )
             throw new Error( "NO ETAG" );
         }
 
-        if( "bodyDataKind" in options )
-        {
-            if( options.bodyDataKind === "arrayBuffer" )
-                r.full_body = yield r.arrayBuffer();
-            else if( options.bodyDataKind === "blob" )
-                r.full_body = yield r.blob();
-            else if( options.bodyDataKind === "formData" )
-                r.full_body = yield r.formData();
-            else if( options.bodyDataKind === "json" )
-                r.full_body = yield r.json();
-            else if( options.bodyDataKind === "text" )
-                r.full_body = yield r.text();
-            else
-                throw new Error( "unknown stream kind " + options.bodyDataKind );
-        }
         return r;
     } );
 
