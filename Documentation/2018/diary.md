@@ -13,6 +13,8 @@ I guess the part that is most confusing as of now is the importance or significa
 
 bwc. Trying to understand DH at a deeper level, so I went to Ferguson. Working through it slowly. Primes are annoying.
 
+bwc. Primes are still annoying. I started reading throuhg Sporc Documentation. The initial part of their paper primarily concerns Operation Consistancy and fork consistancy.
+Curious how these relate to the many hands project. 
 
 ------
 2018-5-29
