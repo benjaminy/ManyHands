@@ -7,9 +7,11 @@
 
 import assert  from "../Utilities/assert";
 import A       from "../Utilities/activities";
+import * as L  from "../Utilities/logging";
 import * as UM from "../Utilities/misc";
 import * as SU from "./utilities";
 import * as CB from "../Crypto/basics";
+import fetch   from "isomorphic-fetch"; /* imported for "Headers" */
 const P = Promise;
 
 export default function init( user, options )
@@ -25,7 +27,7 @@ export default function init( user, options )
 
     mstorage.upload = A( function* upload( path, options_u )
     {
-        assert( M.isPath( path ) );
+        assert( UM.isPath( path ) );
 
         const p = SU.encode_path( user, path );
         const headers = new Headers();
@@ -34,10 +36,7 @@ export default function init( user, options )
             hook( headers );
         }
 
-        const r = Response();
-        r.ok = false;
-        r.status = 412;
-        r.statusText = "Precondition Failed";
+        const r = new Response( null, { status: 412 } );
 
         if( p in mstorage.files )
         {
@@ -64,9 +63,9 @@ export default function init( user, options )
         }
         L.debug( "Finished checking preconditions" );
 
-        const etag = CB.digest_sha_512( options_u.body );
+        const etag = "abc"; // XXX CB.digest_sha_512( options_u.body );
         const file = { body: options_u.body, etag: etag };
-        files[ p ] = file;
+        mstorage.files[ p ] = file;
         r.ok = true;
         r.status = 200;
         r.statusText = "OK";
@@ -79,22 +78,17 @@ export default function init( user, options )
         assert( M.isPath( path ) );
 
         const p = SU.encode_path( user, path );
-        const r = Response();
         if( p in mstorage.files )
         {
             const file = mstorage.files[ p ];
-            r.ok = true;
-            r.status = 200;
-            r.statusText = "OK";
+            const r = new Response( null, { status: 200 } );
             r.headers.set( "etag", file.etag );
             r.arrayBuffer = () => P.resolve( file.body );
             return r;
         }
         else
         {
-            r.ok = false;
-            r.status = 404;
-            r.statusText = "Not Found";
+            const r = new Response( null, { status: 404 } );
             return r;
         }
     } );

@@ -1,15 +1,17 @@
 /* Top Matter */
 
 /*
- *
+ * File comment
  */
 
+"use strict";
+
 import assert  from "../Utilities/assert";
-import A       from "../Utilities/act-thread";
-import L       from "../Utilities/logging";
-import M       from "../Utilities/misc";
-import SU      from "./utilities";
-import CB      from "../Crypto/basics"
+import A       from "../Utilities/activities";
+import * as L  from "../Utilities/logging";
+import * as UM from "../Utilities/misc";
+import * as SU from "./utilities";
+import * as CB from "../Crypto/basics"
 import TE      from "text-encoding";
 
 const P = Promise;
@@ -249,8 +251,8 @@ export function confidentialityWrapper( crypto, storage )
 /*
  * Encode/decode various data kinds to byte arrays.
  */
-text_encoders = {};
-text_decoders = {};
+const text_encoders = {};
+const text_decoders = {};
 
 export function encodingWrapper( stream_kind, w_options, storage )
 {
@@ -258,7 +260,7 @@ export function encodingWrapper( stream_kind, w_options, storage )
     const estorage = Object.assign( {}, storage );
     const tstorage = stream_kind === SK_JSON ? encodingWrapper( SK_TEXT, storage ) : null;
 
-    cstorage.upload = A( function* upload( file_ptr, options ) {
+    estorage.upload = A( function* upload( file_ptr, options ) {
         assert( body in options );
 
         const o = Object.assign( {}, options );
@@ -302,7 +304,7 @@ export function encodingWrapper( stream_kind, w_options, storage )
         return yield storage.upload( file_ptr, o );
     } );
 
-    cstorage.download = A( function* download( file_ptr, options ) {
+    estorage.download = A( function* download( file_ptr, options ) {
         const s = stream_kind === SK_JSON ? tstorage : storage;
         const response = yield s.download( file_ptr, options );
         if( !response.ok )
@@ -322,7 +324,7 @@ export function encodingWrapper( stream_kind, w_options, storage )
             throw new Error( "Unimplemented" );
             break;
         case SK_JSON:
-            r.json = () => P.resolve( JSON.parse( yield response.text() ) );
+            r.json = () => response.text().then( ( text ) => JSON.parse( text ) );
             break;
         case SK_TEXT:
             const encoding = ( "encoding" in options ) ? options.encoding :
@@ -333,12 +335,12 @@ export function encodingWrapper( stream_kind, w_options, storage )
                 text_decoders[ encoding ] = new TextDecoder( encoding );
             }
             const decoder = text_decoders[ encoding ];
-            r.text = () => P.resolve( decoder.decode( yield response.arrayBuffer() ) );
+            r.text = () => response.arrayBuffer().then( ( bytes ) => decoder.decode( bytes ) );
             break;
         }
 
         return r;
     } );
 
-
+    return estorage;
 }

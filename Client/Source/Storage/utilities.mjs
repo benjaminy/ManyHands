@@ -1,9 +1,10 @@
 /* Top Matter */
 
 /*
- * File Descr
+ * File comment
  */
 
+import assert from "../Utilities/assert";
 import * as L from "../Utilities/logging";
 
 export function prependHeaderHook( opts, f )
@@ -42,10 +43,10 @@ export function encode_path( ...path_parts )
 
     var path = [];
 
-    for( part of path_parts )
+    for( const part of path_parts )
     {
         if( typeof( part ) === "string" )
-            real_path.push( part )
+            path.push( part )
         else
             path = path.concat( part );
     }

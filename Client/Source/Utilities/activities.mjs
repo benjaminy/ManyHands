@@ -58,7 +58,7 @@ function prelude()
  * the global variable hack. */
 function atomicify( f )
 {
-    assert( f );
+    assert( f ? true : false );
     /* assert( f is generator function ) */
     if( ATOMICIFY_TAG in f )
         return f;
