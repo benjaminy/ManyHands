@@ -35,3 +35,21 @@ export function overwriteHeader( headers, header_name, header_value )
     }
     headers.set( header_name, header_value );
 }
+
+export function encode_path( ...path_parts )
+{
+    assert( path_parts.every( ( p ) => ( typeof( p ) === "string" || Array.isArray( p ) ) ) );
+
+    var path = [];
+
+    for( part of path_parts )
+    {
+        if( typeof( part ) === "string" )
+            real_path.push( part )
+        else
+            path = path.concat( part );
+    }
+
+    return path.map( encodeURIComponent ).join( "/" );
+}
+

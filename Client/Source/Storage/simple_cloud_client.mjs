@@ -9,23 +9,10 @@ import assert  from "../Utilities/assert";
 import A       from "../Utilities/act-thread";
 import fetch   from "isomorphic-fetch";
 import * as UM from "../Utilities/misc";
+import * as SU from "./utilities";
 
 const DEFAULT_SERVER_PORT = 8123;
 const in_browser = this && ( this.window === this );
-
-function encode_path( user, path )
-{
-    assert( typeof( user ) === "string" );
-    assert( ( typeof( path ) === "string" ) ||
-            ( path.every( ( p ) => typeof( p ) === "string" ) ) );
-
-    if( !Array.isArray( path ) )
-    {
-        path = [ path ];
-    }
-    return { p: path.map( encodeURIComponent ).join( "/" ),
-             u: encodeURIComponent( user ) };
-}
 
 /* Note: Not using class syntax, because it seems to fit awkwardly with async/A */
 
@@ -58,7 +45,7 @@ export default function init( user, options )
         assert( M.isPath( path ) );
         /* assert( typeof( content ) is whatever fetch accepts ) */
 
-        const pu = encode_path( user, path );
+        const p = encode_path( user, path );
 
         const headers = new Headers();
         if( !( "header_hooks" in opts ) )
@@ -77,7 +64,7 @@ export default function init( user, options )
         {
             fetch_options.body = options.body;
         }
-        const response = yield fetch( host+pu.u+"/"+pu.p, fetch_options );
+        const response = yield fetch( p, fetch_options );
         A.log( "upload Response", response.status, response.statusText );
         return response;
     } );
@@ -86,10 +73,10 @@ export default function init( user, options )
     {
         assert( M.isPath( path ) );
 
-        const pu = encode_path( user, path );
-        const response = yield fetch( host+pu.u+"/"+pu.p );
-        L.debug( "download Response", pu.p, response.status, response.statusText );
-        // A.log( "Response", pu.p, typeof( r.headers ), r.headers );
+        const p = encode_path( user, path );
+        const response = yield fetch( p );
+        L.debug( "download Response", p, response.status, response.statusText );
+        // A.log( "Response", p, typeof( r.headers ), r.headers );
         if( !response.ok )
             return response;
         const r = Object.assign( {}, response );

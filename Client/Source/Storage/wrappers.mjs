@@ -49,7 +49,7 @@ export function randomNameWrapper( storage )
     rstorage.upload = A( function* upload( file_ptr, options ) {
         const o = Object.assign( {}, options );
         SU.appendHeaderHook( o, function( headers ) {
-            SU.overwriteHeader( headers, "If-Match", "*" );
+            SU.overwriteHeader( headers, "If-None-Match", "*" );
         } );
 
         var retries = 0;
