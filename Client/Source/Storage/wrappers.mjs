@@ -128,7 +128,6 @@ export function keyGenWrapper( crypto, name, storage )
             addProp( response, "file_ptr", "key_" + name, fp.path );
         }
         return response;
-
     } );
 }
 
@@ -156,7 +155,7 @@ export function authenticityWrapper( crypto, storage )
     const astorage = Object.assign( {}, storage );
 
     astorage.upload = A( function* upload( file_ptr, options ) {
-        assert( body in options );
+        assert( "body" in options );
         // assert byte array
 
         const o = Object.assign( {}, options );
@@ -202,7 +201,7 @@ export function confidentialityWrapper( crypto, storage )
     const cstorage = Object.assign( {}, storage );
 
     cstorage.upload = A( function* upload( file_ptr, options ) {
-        assert( body in options );
+        assert( "body" in options );
         // assert byte array
 
         const o = Object.assign( {}, options );
@@ -258,12 +257,12 @@ export function encodingWrapper( stream_kind, w_options, storage )
 {
     assert( stream_kinds.has( stream_kind ) );
     const estorage = Object.assign( {}, storage );
-    const tstorage = stream_kind === SK_JSON ? encodingWrapper( SK_TEXT, storage ) : null;
+    const tstorage = stream_kind === SK_JSON ? encodingWrapper( SK_TEXT, w_options, storage ) : null;
 
     estorage.upload = A( function* upload( file_ptr, options ) {
-        assert( body in options );
+        assert( "body" in options );
 
-        const o = Object.assign( {}, options );
+        var o = Object.assign( {}, options );
         SU.appendHeaderHook( o, function( headers ) {
             SU.overwriteHeader( headers, "Content-Type", "application/octet-stream" );
         } );
@@ -277,7 +276,7 @@ export function encodingWrapper( stream_kind, w_options, storage )
             throw new Error( "Unimplemented" );
             break;
         case SK_JSON:
-            const o = Object.assign( {}, options );
+            // const o = Object.assign( {}, options );
             if( "body" in options )
             {
                 o.body = JSON.stringify( options.body );

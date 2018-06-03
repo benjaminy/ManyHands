@@ -5,13 +5,14 @@
  * This module simulates in local memory an HTTP file server (i.e. no network comm at all).
  */
 
-import assert  from "../Utilities/assert";
-import A       from "../Utilities/activities";
-import * as L  from "../Utilities/logging";
-import * as UM from "../Utilities/misc";
-import * as SU from "./utilities";
-import * as CB from "../Crypto/basics";
-import fetch   from "isomorphic-fetch"; /* imported for "Headers" */
+import B32      from "hi-base32";
+import assert   from "../Utilities/assert";
+import A        from "../Utilities/activities";
+import * as L   from "../Utilities/logging";
+import * as UM  from "../Utilities/misc";
+import * as SU  from "./utilities";
+import * as CB  from "../Crypto/basics";
+import fetch    from "isomorphic-fetch"; /* imported for "Headers" */
 const P = Promise;
 
 export default function init( user, options )
@@ -25,11 +26,11 @@ export default function init( user, options )
 
     const mstorage = { files: {} };
 
-    mstorage.upload = A( function* upload( path, options_u )
+    mstorage.upload = A( function* upload( file_ptr, options_u )
     {
-        assert( UM.isPath( path ) );
+        assert( UM.isPath( file_ptr.path ) );
 
-        const p = SU.encode_path( user, path );
+        const p = SU.encode_path( user, file_ptr.path );
         const headers = new Headers();
         for( const hook of options_u.header_hooks )
         {
@@ -63,7 +64,8 @@ export default function init( user, options )
         }
         L.debug( "Finished checking preconditions" );
 
-        const etag = "abc"; // XXX CB.digest_sha_512( options_u.body );
+        const etag = B32.encode( yield CB.digest_sha_512( options_u.body ) );
+        console.log( "SDGSGFD", etag );
         const file = { body: options_u.body, etag: etag };
         mstorage.files[ p ] = file;
         r.ok = true;
@@ -73,11 +75,11 @@ export default function init( user, options )
         return r;
     } );
 
-    mstorage.download = A( function* download( path, options_d )
+    mstorage.download = A( function* download( file_ptr, options_d )
     {
-        assert( M.isPath( path ) );
+        assert( UM.isPath( file_ptr.path ) );
 
-        const p = SU.encode_path( user, path );
+        const p = SU.encode_path( user, file_ptr.path );
         if( p in mstorage.files )
         {
             const file = mstorage.files[ p ];

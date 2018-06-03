@@ -77,6 +77,7 @@ function atomicify( f )
             throw new Error( "atomicify needs generator function. " + typeof( f ) );
         }
         const generator = gen_temp;
+        // console.log( "ATOMICIFY : STEPPER : CALL_STACK PUSH", f.name, call_stack.length );
         call_stack.push( [ f, generator ] );
 
         function blockedByAtomic()
@@ -93,6 +94,7 @@ function atomicify( f )
             await yieldP();
             while( true ) /* return/throw in loop */
             {
+                // console.log( "STEPPER LOOP", f.name, call_stack.length );
                 const blocks = []; /* TODO: stats about blocking */
                 while( blockedByAtomic() )
                 {
@@ -129,7 +131,9 @@ function atomicify( f )
         }
         finally {
             assert( call_stack.length > 0 );
+            // console.log( "MERP", call_stack.length, generator );
             const [ fa, ga ] = call_stack.pop();
+            // console.log( "DERP", f.name, fa.name, ga === generator );
             assert( ga === generator );
             assert( fa === f );
         }
@@ -183,15 +187,16 @@ return async function activate( ...params_plus_f )
             delete sched.all_actxs[ id ];
             sched.active_actxs.delete( id );
             sched.num_activities--;
-            assert( Object.keys( sched.all_actxs ).length === sched.num_activities );
-            console.log( msg, id, sched.num_activities );
+            assert( Object.getOwnPropertySymbols( sched.all_actxs ).length === sched.num_activities );
+            console.log( id, sched.num_activities );
         }
     } ();
 
     makeContext( child, parent );
     sched.all_actxs[ child[ ID_TAG ] ] = child;
     sched.num_activities++;
-    assert( Object.keys( sched.all_actxs ).length === sched.num_activities );
+    console.log( "ACTIVATE", Object.getOwnPropertySymbols( sched.all_actxs ).length, sched.num_activities );
+    assert( Object.getOwnPropertySymbols( sched.all_actxs ).length === sched.num_activities );
     var delay_start = false;
     if( atomic_stack.length > 0 )
     {
@@ -202,7 +207,7 @@ return async function activate( ...params_plus_f )
     horses( delay_start );
 
     /* Wrapping the child Promise an a 1-element array, because of the weird */
-    return [ c ];
+    return [ child ];
 }
 }
 

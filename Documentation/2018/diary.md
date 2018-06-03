@@ -1,4 +1,16 @@
 ------
+2018-6-3
+
+biy. Getting sensible async traces from node:  --trace-warnings
+
+biy. Calls to "A" functions have to be yielded before the next call to an "A" function.
+Otherwise the stack gets messed up.
+Maybe just live with this as an annoyance.
+Possible follow-ups:
+1. Force callers to insert yield implicitly. Don't think this is possible. Maybe Proxy/Reflect.
+2. Implicitly spawn on 2nd, 3rd, etc calls. This seems super messy, but maybe not.
+
+------
 2018-6-2
 
 biy. node --experimental-modules
@@ -12,14 +24,14 @@ But this would damage forward secrecy, because the keys would no longer be ephem
 It's debatable how important forward secrecy is, because the database is always there.
 But I think it's still an important feature, at least because in principle it's possible to purge data from the database.
 
-bwc. Attemping to understand the double ratchet algorithm is tricky because it is utilizing some capabillities of the DH algorithm that I am not fully familiar with.
+bwc. Attempting to understand the double ratchet algorithm is tricky because it is utilizing some capabilities of the DH algorithm that I am not fully familiar with.
 The nature of DH Ratchet algorithms "ping pong behavior" of replacing ratchet key pairs seems interesting at 50,000 feet. But makes little to no sense when my feet are on the ground.
 I guess the part that is most confusing as of now is the importance or significance of the DH output that is generated at every step.
 
 bwc. Trying to understand DH at a deeper level, so I went to Ferguson. Working through it slowly. Primes are annoying.
 
-bwc. Primes are still annoying. I started reading throuhg Sporc Documentation. The initial part of their paper primarily concerns Operation Consistancy and fork consistancy.
-Curious how these relate to the many hands project. 
+bwc. Primes are still annoying. I started reading through Sporc Documentation. The initial part of their paper primarily concerns Operation Consistency and fork consistency.
+Curious how these relate to the many hands project.
 
 ------
 2018-5-29
