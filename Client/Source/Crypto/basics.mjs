@@ -7,10 +7,10 @@
 import A         from "../Utilities/act-thread";
 import * as M    from "../Utilities/misc";
 import WebCrypto from "node-webcrypto-ossl";
-const C = new WebCrypto();
-export const CS = C.subtle;
+const WC = new WebCrypto();
+export const CS = WC.subtle;
 
-export const getRandomValues = C.getRandomValues.bind( C );
+export const getRandomValues = WC.getRandomValues.bind( WC );
 
 // WC.generateKey( signing_kalgo, true, [ 'sign', 'verify
 // WC.generateKey(  pub_enc_algo, true, [ 'deriveKey', 'deriveBits' ] );
@@ -54,7 +54,7 @@ const makeUniqueId = function makeUniqueId( ids, len = UNIQUE_ID_DEFAULT_LEN )
 
 const exportKeyJwk = A( async function exportKeyJwk( actx, k )
 {
-    return JSON.stringify( await C.exportKey( 'jwk', k ) );
+    return JSON.stringify( await WC.exportKey( 'jwk', k ) );
 } );
 
 const importKeyJwk = A( async function importKeyJwk( actx, s, algo, ops )
@@ -64,7 +64,7 @@ const importKeyJwk = A( async function importKeyJwk( actx, s, algo, ops )
     // assert( typeof( ops )  == sequence of supported operations )
 
     const j = JSON.parse( s );
-    return await C.importKey( 'jwk', j, algo, true, ops );
+    return await WC.importKey( 'jwk', j, algo, true, ops );
 } );
 
 const importKeyPubDH = function importKeyPubDH( k, scp )
@@ -105,15 +105,15 @@ const makeLoginKey = A( async function makeLoginKey( actx, username, password, s
     // assert( typeof( password ) == 'string' )
     // assert( typeof( salt ) == typed array )
     var up = stringsToBuf( [ username, password ] );
-    return C.deriveKey(
+    return WC.deriveKey(
         pbkdf_algo( salt ),
-        await C.importKey( 'raw', up, { name: 'PBKDF2' }, false, [ 'deriveKey' ] ),
+        await WC.importKey( 'raw', up, { name: 'PBKDF2' }, false, [ 'deriveKey' ] ),
         sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
 } );
 
 const ecdh_aesDeriveKey = function ecdh_aesDeriveKey( pub, priv )
 {
-    return C.deriveKey(
+    return WC.deriveKey(
         { name: 'ECDH', namedCurve: 'P-521', public: pub }, priv,
         { name: 'AES-CBC', length: 256 }, true, [ 'encrypt', 'decrypt' ] );
 };
@@ -154,10 +154,10 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
             var d_as_bytes = new Uint8Array( sig_plus_data );
             var sig = d_as_bytes.subarray( 0, this.sig_length );
             var data_enc = d_as_bytes.subarray( this.sig_length );
-            if( !( await C.verify( this.sign_algo(), key_ver, sig, data_enc ) ) )
+            if( !( await WC.verify( this.sign_algo(), key_ver, sig, data_enc ) ) )
                 throw new VerificationError( '', scp );
             // 'else'
-            return C.decrypt( this.enc_algo( enc_param ), key_dec, data_enc );
+            return WC.decrypt( this.enc_algo( enc_param ), key_dec, data_enc );
         }
         catch( err ) {
             domToCrypto( err );
@@ -169,7 +169,7 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
     {
         try {
             var data_enc = ( new Uint8Array( sig_plus_data ) ).subarray( this.sig_length );
-            return await C.decrypt( this.enc_algo( enc_param ), key_dec, data_enc )
+            return await WC.decrypt( this.enc_algo( enc_param ), key_dec, data_enc )
         }
         catch( err ) {
             domToCrypto( err );
