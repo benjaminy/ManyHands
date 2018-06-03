@@ -50,17 +50,19 @@
 \alignauthor
 Benjamin Ylvisaker\\
        \affaddr{Colorado College}\\
-       \email{bylvisaker@coloradocollege.edu}
+       \email{bylvisaker@*}
 % 2nd. author
 \alignauthor
-Michal Wisniewski\\
+Micha\l{} Wi{\'s}niewski\\
        \affaddr{Colorado College}\\
-       \email{user2@host.com}
+       \email{michal.wis0@gmail.com}\\
+       \vspace{0.2cm}
+       * - @coloradocollege.edu
 % 3rd. author
 \alignauthor
 Jay Batavia\\
-       \affaddr{???}\\
-       \email{user4@host.com}
+       \affaddr{Galvanize, Inc.}\\
+       \email{Jay.Batavia@*}
 %% % 4th. author
 %% \alignauthor Beau Carlborg\\
 %%        \affaddr{Colorado College}\\
@@ -111,7 +113,7 @@ Our work on the protocol is at a fairly early stage, but our prototype has valid
 
 \section{Blocking E2EE Services}
 
-The primary inspiration behind this work is the (sometimes successful) attempts governments and law enforcement organizations have made to interfere with either the basic functioning or cryptographic integrity of E2EE services.
+The primary impetus behind this work is the (sometimes successful) attempts governments and law enforcement organizations have made to interfere with either the basic functioning or cryptographic integrity of E2EE services.
 We believe that secure and private communication and collaboration among individuals and groups is on balance a positive thing in the world, and we seek to strengthen the technologies that enable it.
 We begin with a quick recap of some of the high profile cases of governments interfering with E2EE services in recent years.
 
@@ -139,42 +141,42 @@ If there is no central service provider, there is no target for the kinds of att
 \section{Weak Point: Cloud Storage}
 
 As mentioned in the introduction, the main storage and communication medium in UWS is commodity cloud storage accounts.
+We need to consider two kinds of attacks.
+The first is the storage service providers modifying files in some way.
+This could certainly be disruptive, but \emph{all} uploaded files are signed by a private key, so making counterfeit files would be cryptographically infeasible.
+
+The second kind of attack is denial of service from the storage service provider themselves, or externally via blocked access.
 It seems fairly unlikely that governments would completely block cloud storage systems like Dropbox or Google Drive.
 However, those storage providers may very well be motivated to block the storage of files for secure applications, especially if pressured to do so by governments.
 
-We first note that if motivated to do so, it would be trivially easy for a storage provider to deny service to a particular user by deleting their files.
-There is little the UWS protocol can do in this scenario.
-However, all files stored in the protocol are signed, so the storage provider cannot modify the files without the modification be detected.
+As shown by the examples above, governments are certainly motivated to block secure communications applications.
+However, unlike many E2EE chat applications, in UWS there is no central service provider.
+So aspiring blockers could not block based solely on the traffic's destination.
 
-If denial of service attacks by cloud storage providers were to become a problem, we speculate about a couple possible solutions:
-The application could use steganographic techniques to make UWS files look like family photos (for example).
+Naturally, storage providers or external network service providers could examine files or network traffic for patterns that suggest it is UWS.
+If this ever became an issue we could investigate the kinds of steganographic techniques used by systems like Tor (for example we could make UWS files look like family photos).
 It is also conceivable to use decentralized peer-to-peer cloud storage systems.
 Several such systems have been designed, but none has achieved much popularity as far as the authors know.
 Perhaps the current anti-privacy mood in many governments will help these systems become more widely used.
 
-\section{Modest Technical Requirements}
+\section{Technical Highlights}
 
-In the interest of making UWS adaptable to any cloud storage service, we have made the technical requirements quite modest.
+One of the immediate challenges in the UWS protocol is that the storage and communication service is unreliable.
+Our prototype uses an approach inspired by journaling file systems to address this.
+A user's whole UWS collection of files is organized in a single tree structure.
+When a user wants to upload any changes, they first add new files that represent the changes, then make a single atomic modification to the root file pointer.
 
-\section{Threats/Risks from the Storage Servers}
+This means that the technical requirements for the storage service are quite modest: plain file uploads and download, and an atomic read-modify-write operation.
+Many cloud storage service providers support this kind of operation via the HTTP ETag headers.
 
-One of the most important and potentially problematic components of the UWS system is the cloud storage services.
-Because all stored files are signed, it is infeasible for a storage service to modify files or generate counterfeit files without being detected.
+An important issue we face is making the data access and consistency protocol fast enough for reasonable applications.
+There is no central server, so all work must be performed by clients.
+We take our inspiration for the database architecture part of the project from Datomic, a ``functional'' accumulate-only database.
+In preliminary testing, it seems that basic user to user communication with all the encryption and communication through database stored in cloud storage accounts can happen in less than a second.
+This should be low enough latency for many applications.
 
-Of course, it is trivially easy for a storage service to deny service by removing files.
-They could attempt to be more subtle by occasionally corrupting a file.
-
-Alternatively, access to the storage service could be blocked in a number of different ways.
-
-Easy to detect explicit maliciousness.
-
-\subsection{Storing Encrypted Files in the Cloud}
-
-It is conceivable that cloud storage services would block UWS either because of court/government mandate or because they don't like so many encrypted files due to compression/deduplication.
-Can consider either Tor-style steganography or building a P2P cloud storage network.
-
-\subsubsection{Subsubsection}
-And even further organize by subsubsection~\footnote{If necessary, you may place some address information in a footnote.}.
+Our prototype implementation of UWS is quite preliminary, but all code is available on GitHub:\\
+\texttt{https://github.com/benjaminy/ManyHands}
 
 %% \subsection{Tables}
 %% Label table content and provide captions.
@@ -193,33 +195,31 @@ And even further organize by subsubsection~\footnote{If necessary, you may place
 %% \end{tabular}
 %% \end{table}
 
-\subsection{Figures}
-Figures can be inserted wherever is most convenient in the text. See, for example,
-Figure~\ref{fig1}.
-\begin{figure}[h]
-\centering
-% \includegraphics[width=0.33\textwidth]{stick-push}
-\caption{Insert caption to place caption below figure}
-\label{fig1}
-\end{figure}
+%% \subsection{Figures}
+%% Figures can be inserted wherever is most convenient in the text. See, for example,
+%% Figure~\ref{fig1}.
+%% \begin{figure}[h]
+%% \centering
+%% % \includegraphics[width=0.33\textwidth]{stick-push}
+%% \caption{Insert caption to place caption below figure}
+%% \label{fig1}
+%% \end{figure}
 
 % \subsection{Page Numbering, Headers and Footers}
 % Page numbers, headers, and footers are not necessary.
 
-\section{More Main Text}
-This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text. This is filler text.
 
-\section{What About the Terrorists and Pedophiles?}
+%% \section{What About the Terrorists and Pedophiles?}
 
-Law enforcement organizations and governments have often argued that strong E2EE services are dangerous, because they allow criminals, terrorists and other ill-intentioned folk to communicate secretly.
+%% Law enforcement organizations and governments have often argued that strong E2EE services are dangerous, because they allow criminals, terrorists and other ill-intentioned folk to communicate secretly.
 
-\balancecolumns
+% \balancecolumns
 
 % The following two commands are all you need in the
 % initial runs of your .tex file to
 % produce the bibliography for the citations in your paper.
-\bibliographystyle{abbrv}
-\bibliography{sig-alternate-hotpets}  % sigproc.bib is the name of the Bibliography in this case
+% \bibliographystyle{abbrv}
+% \bibliography{sig-alternate-hotpets}  % sigproc.bib is the name of the Bibliography in this case
 % You must have a proper ".bib" file
 %  and remember to run:
 % latex bibtex latex latex
