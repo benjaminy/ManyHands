@@ -155,17 +155,18 @@ export function filePtrGenWrapper( options, storage )
  *
  * This wrapper's data input and output are byte arrays.
  */
-export function authenticityWrapper( crypto, options, storage )
+export function authenticityWrapper( options, storage )
 {
     const astorage = Object.assign( {}, storage );
 
     astorage.upload = A( function* upload( file_ptr, options_u ) {
         assert( "body" in options_u );
         // assert byte array
+        const tag_bytes = multiGetter( "tag_bytes", undefined, options_u, options );
 
         const o = Object.assign( {}, options_u );
-        const tag = yield crypto.sign( o.body, file_ptr.key_auth );
-        assert( tag.length === crypto.tag_bytes );
+        const tag = yield options.sign( o.body, file_ptr );
+        assert( tag.byteLength === tag_bytes );
         o.body = UM.typedArrayConcat( tag, o.body );
         SU.appendHeaderHook( o, function( headers ) {
             SU.overwriteHeader( headers, "Content-Length", o.body.length );
@@ -174,22 +175,24 @@ export function authenticityWrapper( crypto, options, storage )
     } );
 
     astorage.download = A( function* download( file_ptr, options_d ) {
-        const response = yield storage.download( file_ptr, option_d );
+        const tag_bytes = multiGetter( "tag_bytes", undefined, options_d, options );
+        const response = yield storage.download( file_ptr, options_d );
         if( !response.ok )
         {
             return response;
         }
         // 'else': response looks ok so far
-        const body_bytes = new Uint8Array( yield response.arrayBuffer() );
-        const tag = body_bytes.subarray( 0, crypto.tag_bytes );
-        const signed = body_bytes.subarray( crypto.tag_bytes );
-        if( !( yield crypto.verify( tag, signed, file_ptr.auth_key ) ) )
+        const tag_plus_body = yield response.arrayBuffer();
+        const tag  = new Uint8Array( tag_plus_body.subarray( 0, tag_bytes ) );
+        const body = new Uint8Array( tag_plus_body.subarray( tag_bytes ) );
+        const verified = yield options.verify( tag, body, file_ptr );
+        if( !verified )
         {
-            throw new VerificationError( '' );
+            throw new Error( "Verifiction Failed" );
         }
         // 'else': verification passed
         const r = Object.assign( {}, response );
-        r.arrayBuffer = () => P.resolve( signed );
+        r.arrayBuffer = () => P.resolve( body );
         return r;
     } );
 

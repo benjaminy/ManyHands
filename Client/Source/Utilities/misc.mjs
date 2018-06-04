@@ -207,7 +207,7 @@ function array_zip( a1, a2, flatten1, flatten2, strict1, strict2, scp )
     return a1.map( helper );
 }
 
-function typedArrayConcat( a, b )
+export function typedArrayConcat( a, b )
 {
     a = new Uint8Array( a );
     b = new Uint8Array( b );
