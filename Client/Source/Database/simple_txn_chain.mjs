@@ -20,10 +20,11 @@ export function newDB( user, storage, kind, options )
     assert( DC.kinds.has( kind ) );
     const db = {};
     db.user             = user;
-    db.head             = null;
-    db.index            = [];
-    db.uncommitted_txns = [];
+    db.root_file_ptr    = null;
+    db.added_txns       = [];
+    db.committed_txns   = [];
     db.next_entity_id   = 0;
+    db.txn_cache        = [];
     db.attr_cache       = {};
     db.func_cache       = {};
 
@@ -84,7 +85,7 @@ export function newDB( user, storage, kind, options )
     return db;
 }
 
-export const readDB( user, storage, kind )
+export const readDB( user, storage, root_ptr )
 {
 }
 
@@ -107,6 +108,11 @@ const addTxn = A( async function addTxn( actx, txn ) {
         for( const txn of db.
     } )
 }
+
+const add = A( function *add( db, txn )
+{
+    
+} );
 
 class MonolithicUnorderedxxx
 {
