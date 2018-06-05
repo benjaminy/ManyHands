@@ -237,7 +237,6 @@ export function confidentialityWrapper( options, storage )
 
     return cstorage;
 }
-// return C.decrypt( this.enc_algo( enc_param ), key_dec, data_enc );
 
 /*
  * Encode/decode various data kinds to byte arrays.
