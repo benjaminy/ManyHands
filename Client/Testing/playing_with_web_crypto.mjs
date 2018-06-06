@@ -38,19 +38,19 @@ async function main()
         Object.assign( {}, dh, { public: k_gen_dh.publicKey } ), k_imp_dh_pri, 256 );
 
     const k_kdf_ig_imp = await WCS.importKey(
-        "raw", bits_ig, { name: "PBKDF2", }, false, [ "deriveKey", "deriveBits" ] );
+        "raw", bits_ig, { name: "PBKDF2" }, false, [ "deriveKey", "deriveBits" ] );
     const k_kdf_gi_imp = await WCS.importKey(
-        "raw", bits_gi, { name: "PBKDF2", }, false, [ "deriveKey", "deriveBits" ] );
+        "raw", bits_gi, { name: "PBKDF2" }, false, [ "deriveKey", "deriveBits" ] );
 
     const salt = WC.getRandomValues( new Uint8Array( 16 ) );
     const k_kdf_ig = await WCS.deriveKey(
-        { "name": "PBKDF2", salt: salt, iterations: 1, hash: {name: "SHA-1"}, },
+        { "name": "PBKDF2", salt: salt, iterations: 1, hash: {name: "SHA-1"} },
         k_kdf_ig_imp,
-        { name: "AES-CBC", length: 256, }, true, [ "encrypt", "decrypt" ] );
+        { name: "AES-CBC", length: 256 }, true, [ "encrypt", "decrypt" ] );
     const k_kdf_gi = await WCS.deriveKey(
-        { "name": "PBKDF2", salt: salt, iterations: 1, hash: {name: "SHA-1"}, },
+        { "name": "PBKDF2", salt: salt, iterations: 1, hash: {name: "SHA-1"} },
         k_kdf_gi_imp,
-        { name: "AES-CBC", length: 256, }, true, [ "encrypt", "decrypt" ] );
+        { name: "AES-CBC", length: 256 }, true, [ "encrypt", "decrypt" ] );
 
     const k_exp_kdf_ig = await WCS.exportKey( "jwk", k_kdf_ig );
     const k_exp_kdf_gi = await WCS.exportKey( "jwk", k_kdf_gi );
