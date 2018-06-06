@@ -1,4 +1,11 @@
 ------
+2018-6-5
+
+biy. I think we can hack the export/import functions to use the same EC keys for DSA and DH.
+Just need to monkey with the key_ops field.
+Otherwise the format looks identical.
+
+------
 2018-6-3
 
 biy. Getting sensible async traces from node:  --trace-warnings
