@@ -5,6 +5,8 @@ biy. I think we can hack the export/import functions to use the same EC keys for
 Just need to monkey with the key_ops field.
 Otherwise the format looks identical.
 
+bwc. In order to sign a crypto_key, you must export it, then sign the stringified version of the key. 
+
 ------
 2018-6-3
 
