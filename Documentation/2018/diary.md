@@ -6,6 +6,8 @@ Just need to monkey with the key_ops field.
 Otherwise the format looks identical.
 
 bwc. In order to sign a crypto_key, you must export it, then sign the stringified version of the key. 
+bwc. In order you have to import a private key that is in jwk format, you must include the d: attribute.
+Leaving it out and only using x: and y: will import the key as a public key.  
 
 ------
 2018-6-3
