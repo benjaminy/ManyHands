@@ -7,12 +7,11 @@
 
 import B32      from "hi-base32";
 import assert   from "../Utilities/assert";
-import A        from "../Utilities/activities";
 import * as L   from "../Utilities/logging";
 import * as UM  from "../Utilities/misc";
 import * as SU  from "./utilities";
 import * as CB  from "../Crypto/basics";
-import fetch    from "isomorphic-fetch"; /* imported for "Headers" */
+import fetch    from "isomorphic-fetch"; /* imported for "Headers" and "Response" */
 const P = Promise;
 
 export default function init( user, options )
@@ -26,7 +25,7 @@ export default function init( user, options )
 
     const mstorage = { files: {} };
 
-    mstorage.upload = A( function* upload( file_ptr, options_u )
+    mstorage.upload = async function upload( file_ptr, options_u )
     {
         assert( UM.isPath( file_ptr.path ) );
 
@@ -64,7 +63,7 @@ export default function init( user, options )
         }
         L.debug( "Finished checking preconditions" );
 
-        const etag = B32.encode( yield CB.digest_sha_512( options_u.body ) );
+        const etag = B32.encode( await CB.digest_sha_512( options_u.body ) );
         console.log( "SDGSGFD", etag );
         const file = { body: options_u.body, etag: etag };
         mstorage.files[ p ] = file;
@@ -73,9 +72,9 @@ export default function init( user, options )
         r.statusText = "OK";
         r.headers.set( "etag", etag );
         return r;
-    } );
+    };
 
-    mstorage.download = A( function* download( file_ptr, options_d )
+    mstorage.download = async function download( file_ptr, options_d )
     {
         assert( UM.isPath( file_ptr.path ) );
 
@@ -93,7 +92,7 @@ export default function init( user, options )
             const r = new Response( null, { status: 404 } );
             return r;
         }
-    } );
+    };
 
     return mstorage;
 }
