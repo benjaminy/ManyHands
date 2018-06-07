@@ -6,6 +6,9 @@ bwc. TextEncoder isn't supported in node. Use buf = Buffer.from(bufStr, 'utf8');
 bwc. Can't have async constructor for object.
 Can get around this by constructing object using a simple empy object literal u = {} and filling fields and respective values from there.
 
+bwc. When you are trying to verify the signed prekey, be doubly sure to verify using the identity dsa key,
+even though this link isn't directly refferenced in the documentation.
+
 ------
 2018-6-5
 
