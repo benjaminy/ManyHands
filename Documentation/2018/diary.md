@@ -1,11 +1,19 @@
 ------
+2018-7-5
+
+bwc. TextEncoder isn't supported in node. Use buf = Buffer.from(bufStr, 'utf8');
+
+bwc. Can't have async constructor for object.
+Can get around this by constructing object using a simple empy object literal u = {} and filling fields and respective values from there.
+
+------
 2018-6-5
 
 biy. I think we can hack the export/import functions to use the same EC keys for DSA and DH.
 Just need to monkey with the key_ops field.
 Otherwise the format looks identical.
 
-bwc. In order to sign a crypto_key, you must export it, then sign the stringified version of the key. 
+bwc. In order to sign a crypto_key, you must export it, then encode the stringified version of the key using an encoder. 
 
 bwc. In order you have to import a private key that is in jwk format, you must include the d: attribute.
 Leaving it out and only using x: and y: will import the key as a public key.  
