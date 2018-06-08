@@ -56,7 +56,7 @@ function multiGetter( property_name, default_value, ...objects )
  */
 export function randomNameWrapper( options, storage )
 {
-    const u = A( function* upload( file_ptr, options_u ) {
+    const u = async function upload( file_ptr, options_u ) {
         const retry_limit = multiGetter( "retry_limit", undefined, options_u, options );
         const o = Object.assign( {}, options_u );
         SU.appendHeaderHook( o, function( headers ) {
@@ -70,7 +70,7 @@ export function randomNameWrapper( options, storage )
             const name = M.toHexString( bytes );
             const fp = Object.assign(
                 {}, file_ptr, { path: M.pathJoin( file_ptr.path, name ) } );
-            const response = Object.assign( {}, yield storage.upload( fp, o ) );
+            const response = Object.assign( {}, await storage.upload( fp, o ) );
             if( response.status === 412 )
             {
                 retries += 1;
@@ -86,7 +86,7 @@ export function randomNameWrapper( options, storage )
             }
         }
         throw new Error( "Retry limit exceeded" );
-    } );
+    };
 
     return Object.assign( {}, storage, { upload:u } );
 }
@@ -97,7 +97,7 @@ export function randomNameWrapper( options, storage )
  */
 export function atomicUpdateWrapper( storage )
 {
-    const u = A( function* upload( file_ptr, options_u ) {
+    const u = async function upload( file_ptr, options_u ) {
         assert( "etag" in file_ptr );
 
         const o = Object.assign( {}, options_u );
@@ -105,7 +105,7 @@ export function atomicUpdateWrapper( storage )
             SU.overwriteHeader( headers, "If-Match", file_ptr.etag );
         } );
 
-        const response = Object.assign( {}, yield storage.upload( file_ptr, o ) );
+        const response = Object.assign( {}, await storage.upload( file_ptr, o ) );
         if( response.status === 412 )
         {
             L.warn( "Atomic update failed" );
@@ -113,7 +113,7 @@ export function atomicUpdateWrapper( storage )
             response.statusText = "Conflict";
         }
         return response;
-    } );
+    };
 
     return Object.assign( {}, storage, { upload:u } );
 }
@@ -125,21 +125,21 @@ export function atomicUpdateWrapper( storage )
  */
 export function filePtrGenWrapper( options, storage )
 {
-    const u = A( function* upload( file_ptr, options_u ) {
+    const u = async function upload( file_ptr, options_u ) {
         const mg = ( n, d ) => multiGetter( n, d, options_u, options );
         const param_name    = mg( "param_name", "param" );
         const param_options = mg( param_name + "_options", undefined );
         const generator     = mg( param_name + "_generator", undefined );
-        const param = yield generator( param_name, param_options );
+        const param = await generator( param_name, param_options );
         const fp = Object.assign( {}, file_ptr );
         fp[ param_name ] = param;
-        const response = Object.assign( {}, yield storage.upload( fp, options_u ) );
+        const response = Object.assign( {}, await storage.upload( fp, options_u ) );
         if( response.ok )
         {
             addProp( response, "file_ptr", param_name, param );
         }
         return response;
-    } );
+    };
 
     return Object.assign( {}, storage, { upload:u } );
 }
@@ -151,36 +151,36 @@ export function filePtrGenWrapper( options, storage )
  */
 export function authenticityWrapper( options, storage )
 {
-    const u = A( function* upload( file_ptr, options_u ) {
+    const u = async function upload( file_ptr, options_u ) {
         assert( "body" in options_u );
         // assert byte array
         const tag_bytes = multiGetter( "tag_bytes", undefined, options_u, options );
         const sign = multiGetter( "sign", undefined, options_u, options );
 
         const o = Object.assign( {}, options_u );
-        const tag = yield sign( o.body, file_ptr );
+        const tag = await sign( o.body, file_ptr );
         assert( tag.byteLength === tag_bytes );
         o.body = UM.typedArrayConcat( tag, o.body );
         SU.appendHeaderHook( o, function( headers ) {
             SU.overwriteHeader( headers, "Content-Length", o.body.length );
         } );
-        return yield storage.upload( file_ptr, o );
-    } );
+        return await storage.upload( file_ptr, o );
+    };
 
-    const d = A( function* download( file_ptr, options_d ) {
+    const d = async function download( file_ptr, options_d ) {
         const tag_bytes = multiGetter( "tag_bytes", undefined, options_d, options );
         const verify = multiGetter( "verify", undefined, options_d, options );
-        const response = yield storage.download( file_ptr, options_d );
+        const response = await storage.download( file_ptr, options_d );
         if( !response.ok )
         {
             return response;
         }
         // 'else': response looks ok so far
-        const tag_plus_body = yield response.arrayBuffer();
+        const tag_plus_body = await response.arrayBuffer();
         /* TODO: is copying the byte arrays necessary? */
         const tag  = new Uint8Array( tag_plus_body.subarray( 0, tag_bytes ) );
         const body = new Uint8Array( tag_plus_body.subarray( tag_bytes ) );
-        const verified = yield verify( tag, body, file_ptr );
+        const verified = await verify( tag, body, file_ptr );
         if( !verified )
         {
             throw new Error( "Verifiction Failed" );
@@ -188,7 +188,7 @@ export function authenticityWrapper( options, storage )
         // 'else': verification passed
         return Object.assign(
             {}, response, { arrayBuffer:( () => P.resolve( body ) ) } );
-    } );
+    };
 
     return Object.assign( {}, storage, { upload:u, download:d } );
 }
@@ -200,32 +200,32 @@ export function authenticityWrapper( options, storage )
  */
 export function confidentialityWrapper( options, storage )
 {
-    const u = A( function* upload( file_ptr, options_u ) {
+    const u = async function upload( file_ptr, options_u ) {
         assert( "body" in options_u );
         // assert byte array
         const encrypt = multiGetter( "encrypt", undefined, options_u, options );
 
         const o = Object.assign( {}, options_u );
-        o.body = yield encrypt( options_u.body, file_ptr );
+        o.body = await encrypt( options_u.body, file_ptr );
         SU.appendHeaderHook( o, function( headers ) {
             SU.overwriteHeader( headers, "Content-Length", o.body.length );
         } );
-        return yield storage.upload( file_ptr, o );
-    } );
+        return await storage.upload( file_ptr, o );
+    };
 
-    const d = A( function* download( file_ptr, options_d ) {
+    const d = async function download( file_ptr, options_d ) {
         const decrypt = multiGetter( "decrypt", undefined, options_d, options );
-        const response = yield storage.download( file_ptr, options_d );
+        const response = await storage.download( file_ptr, options_d );
         if( !response.ok )
         {
             return response;
         }
         // 'else': response looks ok so far
-        const body_bytes = yield response.arrayBuffer();
+        const body_bytes = await response.arrayBuffer();
         const r = Object.assign( {}, response );
         r.arrayBuffer = () => decrypt( body_bytes, file_ptr );
         return r;
-    } );
+    };
 
     return Object.assign( {}, storage, { upload:u, download:d } );
 }
@@ -243,7 +243,7 @@ export function encodingWrapper( stream_kind, options, storage )
           ? encodingWrapper( SK_TEXT, options, storage )
           : null;
 
-    const u = A( function* upload( file_ptr, options_u ) {
+    const u = async function upload( file_ptr, options_u ) {
         assert( "body" in options_u );
 
         var o = Object.assign( {}, options_u );
@@ -268,7 +268,7 @@ export function encodingWrapper( stream_kind, options, storage )
                     SU.overwriteHeader( headers, "Content-Length", o.body.length );
                 } );
             }
-            return yield tstorage.upload( file_ptr, o );
+            return await tstorage.upload( file_ptr, o );
             break;
         case SK_TEXT:
             const encoding = multiGetter( "encoding", DEFAULT_ENCODING, options_u, options );
@@ -282,12 +282,12 @@ export function encodingWrapper( stream_kind, options, storage )
         SU.appendHeaderHook( o, function( headers ) {
             SU.overwriteHeader( headers, "Content-Length", o.body.length );
         } );
-        return yield storage.upload( file_ptr, o );
-    } );
+        return await storage.upload( file_ptr, o );
+    };
 
-    const d = A( function* download( file_ptr, options_d ) {
+    const d = async function download( file_ptr, options_d ) {
         const s = stream_kind === SK_JSON ? tstorage : storage;
-        const response = yield s.download( file_ptr, options_d );
+        const response = await s.download( file_ptr, options_d );
         if( !response.ok )
         {
             return response;
@@ -319,7 +319,7 @@ export function encodingWrapper( stream_kind, options, storage )
         }
 
         return r;
-    } );
+    };
 
     return Object.assign( {}, storage, { upload:u, download:d } );
 }

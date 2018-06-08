@@ -4,7 +4,6 @@
  *
  */
 
-import A         from "../Utilities/act-thread";
 import * as M    from "../Utilities/misc";
 import WebCrypto from "node-webcrypto-ossl";
 const WC = new WebCrypto();
@@ -52,12 +51,12 @@ const makeUniqueId = function makeUniqueId( ids, len = UNIQUE_ID_DEFAULT_LEN )
     return id;
 };
 
-const exportKeyJwk = A( async function exportKeyJwk( actx, k )
+const exportKeyJwk = async function exportKeyJwk( actx, k )
 {
     return JSON.stringify( await WC.exportKey( 'jwk', k ) );
-} );
+};
 
-const importKeyJwk = A( async function importKeyJwk( actx, s, algo, ops )
+const importKeyJwk = async function importKeyJwk( actx, s, algo, ops )
 {
     // assert( typeof( s )    == raw key buffer )
     // assert( typeof( algo ) == crypto algorithm )
@@ -65,7 +64,7 @@ const importKeyJwk = A( async function importKeyJwk( actx, s, algo, ops )
 
     const j = JSON.parse( s );
     return await WC.importKey( 'jwk', j, algo, true, ops );
-} );
+};
 
 const importKeyPubDH = function importKeyPubDH( k, scp )
 { return importKeyJwk( k, pub_enc_algo, [], scp ); };
@@ -99,7 +98,7 @@ const stringsToBuf = function stringsToBuf( strings )
     return b;
 };
 
-const makeLoginKey = A( async function makeLoginKey( actx, username, password, salt )
+const makeLoginKey = async function makeLoginKey( actx, username, password, salt )
 {
     // assert( typeof( username ) == 'string' )
     // assert( typeof( password ) == 'string' )
@@ -109,7 +108,7 @@ const makeLoginKey = A( async function makeLoginKey( actx, username, password, s
         pbkdf_algo( salt ),
         await WC.importKey( 'raw', up, { name: 'PBKDF2' }, false, [ 'deriveKey' ] ),
         sym_enc_algo, true, [ 'encrypt', 'decrypt' ] );
-} );
+};
 
 const ecdh_aesDeriveKey = function ecdh_aesDeriveKey( pub, priv )
 {
@@ -147,7 +146,7 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
         }
     };
 
-    const verifyThenDecrypt = A( async function verifyThenDecrypt(
+    const verifyThenDecrypt = async function verifyThenDecrypt(
         actx, key_dec, key_ver, sig_plus_data, enc_param )
     {
         try {
@@ -162,9 +161,9 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
         catch( err ) {
             domToCrypto( err );
         }
-    } );
+    };
 
-    const decryptSkipVerify = A( async function decryptSkipVerify(
+    const decryptSkipVerify = async function decryptSkipVerify(
         actx, key_dec, sig_plus_data, enc_param )
     {
         try {
@@ -174,7 +173,7 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
         catch( err ) {
             domToCrypto( err );
         }
-    } );
+    };
 
     const encryptThenSignSalted = function encryptThenSignSalted(
         key_enc, key_sign, data )
@@ -184,20 +183,20 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
             zeros );
     };
 
-    const verifyThenDecryptSalted = A( async function verifyThenDecryptSalted(
+    const verifyThenDecryptSalted = async function verifyThenDecryptSalted(
         actx, key_dec, key_ver, data )
     {
         const bytes = await this.verifyThenDecrypt( null, key_dec, key_ver, data, zeros )
         return new Uint8Array( bytes ).subarray( this.iv_length );
-    } );
+    };
 
-    const decryptSkipVerifySalted = A( async function decryptSkipVerifySalted(
+    const decryptSkipVerifySalted = async function decryptSkipVerifySalted(
         actx, key_dec, data )
     {
         const salt_plus_data = await this.decryptSkipVerify( key_dec, data, zeros );
         // log( new Uint8Array( salt_plus_data ), this.iv_length );
         return ( new Uint8Array( salt_plus_data ) ).subarray( this.iv_length );
-    } );
+    };
 
     return { encryptThenSign, verifyThenDecrypt, decryptSkipVerify, encryptThenSignSalted,
              verifyThenDecryptSalted, decryptSkipVerifySalted };

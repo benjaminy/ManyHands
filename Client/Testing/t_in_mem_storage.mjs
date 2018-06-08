@@ -3,26 +3,25 @@
  */
 
 import assert  from "../Source/Utilities/assert";
-import A       from "../Source/Utilities/activities";
 import SM      from "../Source/Storage/in_memory";
 import * as SW from "../Source/Storage/wrappers";
 import * as CB from "../Source/Crypto/basics";
 const WCS = CB.CS;
 
-const u1 = A( function* u1( s ) {
-    var resp = yield s.upload( { path: "sadf" }, { header_hooks:[], body:new Uint8Array(6) } );
+const u1 = async function u1( s ) {
+    var resp = await s.upload( { path: "sadf" }, { header_hooks:[], body:new Uint8Array(6) } );
     console.log( "U1", resp.ok, resp.status, resp.statusText );
-} );
+};
 
-const e1 = A( function* e1( s ) {
+const e1 = async function e1( s ) {
     const j = SW.encodingWrapper( SW.SK_JSON, {}, s );
-    var resp1 = yield j.upload( { path: "t2" }, { body: { a: "42", b: 42 } } );
-    var resp2 = yield j.download( { path: "t2" }, {} );
-    var yelp = yield resp2.json();
+    var resp1 = await j.upload( { path: "t2" }, { body: { a: "42", b: 42 } } );
+    var resp2 = await j.download( { path: "t2" }, {} );
+    var yelp = await resp2.json();
     console.log( "E1", resp2.ok, resp2.status, resp2.statusText, yelp );
-} );
+};
 
-const c1 = A( function* c1( s ) {
+const c1 = async function c1( s ) {
     const crypto = {};
     function generateKey() {
         return WCS.generateKey(
@@ -51,14 +50,14 @@ const c1 = A( function* c1( s ) {
                       { encrypt: encrypt,
                         decrypt: decrypt },
                       s ) ) ) );
-    var resp1 = yield j.upload( { path: "tx2" }, { body: { a: "42", b: 42, c: [ 7, 8 ] } } );
+    var resp1 = await j.upload( { path: "tx2" }, { body: { a: "42", b: 42, c: [ 7, 8 ] } } );
     console.log( "C1", resp1.ok, resp1.status, resp1.statusText, resp1.file_ptr.iv, resp1.file_ptr.key );
     const fp = Object.assign( { path: "tx2" }, resp1.file_ptr );
-    var resp2 = yield j.download( fp, {} );
-    console.log( "C1b", resp1.ok, resp1.status, resp1.statusText, yield resp2.json() );
-} );
+    var resp2 = await j.download( fp, {} );
+    console.log( "C1b", resp1.ok, resp1.status, resp1.statusText, await resp2.json() );
+};
 
-const v1 = A( function* v1( s ) {
+const v1 = async function v1( s ) {
     const crypto = {};
     function generateCryptKey() {
         return WCS.generateKey(
@@ -104,22 +103,22 @@ const v1 = A( function* v1( s ) {
                                 verify: verify },
                               s ) ) ) ) ) );
 
-    var resp1 = yield j.upload( { path: "tx2" }, { body: { a: "42", b: 42, c: [ 7, 8 ], d:"quick brown" } } );
+    var resp1 = await j.upload( { path: "tx2" }, { body: { a: "42", b: 42, c: [ 7, 8 ], d:"quick brown" } } );
     console.log( "V1", resp1.ok, resp1.status, resp1.statusText, resp1.file_ptr.iv, resp1.file_ptr.key );
     const fp = Object.assign( { path: "tx2" }, resp1.file_ptr );
-    var resp2 = yield j.download( fp, {} );
-    console.log( "V1b", resp1.ok, resp1.status, resp1.statusText, yield resp2.json() );
-} );
+    var resp2 = await j.download( fp, {} );
+    console.log( "V1b", resp1.ok, resp1.status, resp1.statusText, await resp2.json() );
+};
 
-const main = A( function* main() {
+const main = async function main() {
     const s = SM( "alice" );
-    yield u1( s );
-    yield e1( s );
-    yield c1( s );
-    yield v1( s );
+    await u1( s );
+    await e1( s );
+    await c1( s );
+    await v1( s );
     console.log( "VICTORY" );
-} );
+};
 
-const S = A.activate( main );
+main();
 
 console.log( "t_in_mem_storage reached EOF" );
