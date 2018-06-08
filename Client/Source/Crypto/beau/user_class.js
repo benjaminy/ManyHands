@@ -7,6 +7,7 @@ async function main() {
     alice = await user();
 
     alice_shared_secret = await triple_diffie_hellman(alice, bob);
+    console.log(alice_shared_secret)
 }
 
 
@@ -90,23 +91,37 @@ async function triple_diffie_hellman(sender, reciever) {
             sender.identity_dh_keypair.privateKey,
             reciever.signed_prekey.keypair.publicKey
     );
+    derived_dh_key_1 = new Uint32Array(derived_dh_key_1);
 
     derived_dh_key_2 = await derive_shared_secret(
             sender.ephemeral_keypair.privateKey,
             reciever.signed_prekey.keypair.publicKey
     );
+    derived_dh_key_2 = new Uint32Array(derived_dh_key_2);
 
     derived_dh_key_3 = await derive_shared_secret(
         sender.ephemeral_keypair.privateKey,
         reciever.identity_dh_keypair.publicKey
     );
+    derived_dh_key_3 = new Uint32Array(derived_dh_key_3);
 
     derived_dh_key_4 = await derive_shared_secret(
         sender.ephemeral_keypair.privateKey,
         reciever.one_time_prekey.publicKey
     );
+    derived_dh_key_4 = new Uint32Array(derived_dh_key_4);
 
-    shared_secret = "super secret message";
+    let shared_secret = new Uint32Array(
+        derived_dh_key_1.length + derived_dh_key_2.length +
+        derived_dh_key_3.length + derived_dh_key_4.length
+    );
+
+    // TODO: sphaghetti code
+    shared_secret.set(derived_dh_key_1);
+    shared_secret.set(derived_dh_key_2, derived_dh_key_1.length);
+    shared_secret.set(derived_dh_key_3, (derived_dh_key_1.length + derived_dh_key_2.length));
+    shared_secret.set(derived_dh_key_4, (derived_dh_key_1.length + derived_dh_key_2.length + derived_dh_key_3.length));
+
     return shared_secret
 }
 
