@@ -14,7 +14,9 @@ export const whereK = K.key( ":where" );
 
 const variable_tag      = Symbol( "variable" );
 const underbar_tag      = Symbol( "underbar" );
+const src_var_tag       = Symbol( "src_var" );
 const find_rel_tag      = Symbol( "find_rel" );
+const find_tuple_tag    = Symbol( "find_tuple" );
 const where_clauses_tag = Symbol( "where_clauses" );
 const data_pattern_tag  = Symbol( "data_pattern" );
 const type_keyword_tag  = Symbol( "type_keyword" );
@@ -64,7 +66,7 @@ export function parseQuery( q )
     L.debug( "FI " + find_section );
     L.debug( "WI " + with_section );
     L.debug( "IN " + in_section );
-    L.debug( "WH " + where_section );
+    // L.debug( "WH " + where_section );
 
     /* Functions for parsing the four main sections */
     function parseFindSpec()
@@ -304,7 +306,7 @@ function is_compatible( query_const, datom_value )
     return query_const.val === datom_value;
 }
 
-export const runQuery = A( function* runQuery( actx, db, q )
+export async function runQuery( db, q )
 {
     const vars = [];
     const results = [];
@@ -382,4 +384,4 @@ export const runQuery = A( function* runQuery( actx, db, q )
     {
         throw new Error( "Unimplemented" );
     }
-} );
+}

@@ -17,35 +17,34 @@ const CS = CB.CS;
  * There could still be a race on the user name, but might as well check
  * before doing all the account init work.
  */
-const checkUidAvailable = A( async function checkUidAvailable( actx, uid, user )
+async function checkUidAvailable( uid, user )
 {
-    assert( A.isContext( actx ) );
     assert( typeof( uid ) === "string" );
     /* TODO: negotiate hash algo with server */
     user.huid_text = B32.encode( await CB.digest_sha_512( uid ) );
-    actx.log( "Checking", uid, "(", user.huid_text, ")" );
+    L.info( "Checking", uid, "(", user.huid_text, ")" );
     const path = "/Users/CheckAvail/" + user.huid_text;
     const resp = await fetch( path );
-    actx.log( "Response", resp.status, resp.statusText );
+    L.info( "Response", resp.status, resp.statusText );
     if( resp.ok )
         throw new NameNotAvailableError( uid, scp );
     else if( !( resp.status === 404 ) )
         await handleServerError( scp, path, resp );
     /* seems "uid" is available ... */
-} );
+}
 
 /* */
-const linkCloudAccount = A( async function linkCloudAccount( actx, user )
+async function linkCloudAccount( user )
 {
     const cloud_bits = getRandomBytes( 5 );
     const cloud_text = B32.encode( cloud_bits );
-    actx.log( "Link", cloud_text, cloud_bits );
+    L.info( "Link", cloud_text, cloud_bits );
     /* TODO: A real version would get credentials for a cloud storage account */
     user.storage = SCC.init( user.uid + cloud_text )
-} );
+}
 
 /* Initializes the necessary components of a user object (mostly keys) */
-const initializeUserAccount = A( async function initializeUserAccount( actx, uid, passwd, user )
+async function initializeUserAccount( uid, passwd, user )
 {
     user.login_salt = CB.getRandomBytes( SALT_NUM_BYTES );
     const keys_dh    = await CB.generateDHKeyPair();
@@ -55,23 +54,23 @@ const initializeUserAccount = A( async function initializeUserAccount( actx, uid
     user.key_priv_dh = keys_dh.privateKey;
     user.key_signing = keys_sg.privateKey;
     user.key_verify  = keys_sg.publicKey;
-    user.key_login   = await CB.makeLoginKey( actx, uid, passwd, user.login_salt );
+    user.key_login   = await CB.makeLoginKey( uid, passwd, user.login_salt );
     user.key_pub_dh_exported  = await exportKeyJwk( user.key_pub_dh );
     user.key_priv_dh_exported = await exportKeyJwk( user.key_priv_dh );
     user.key_signing_exported = await exportKeyJwk( user.key_signing );
     user.key_verify_exported  = await exportKeyJwk( user.key_verify );
     user.key_login_exported   = await exportKeyJwk( user.key_login );
     user.key_self_exported    = await exportKeyJwk( user.key_self );
-} );
+}
 
 /*
  * Create a skeleton UWS account with private and public DBs.
  * TODO: Currently this code assumes it is uploading a freshly minted user object.
  *   It would be nice to make a more general user info uploader that knew when things
  *   were dirty and needed to be uploaded. */
-const initializeCloudStorage = A( async function initializeCloudStorage( actx, user )
+async function initializeCloudStorage( user )
 {
-    actx.log( "Encrypting data ..." );
+    L.info( "Encrypting data ..." );
     function encrypt( k, d )
     { return aes_cbc_ecdsa.encryptThenSignSalted(
         k, user.key_signing, encode( d ), scp ); }
@@ -123,10 +122,10 @@ const initializeCloudStorage = A( async function initializeCloudStorage( actx, u
                [ [ "Teams", "manifest" ], teams_manifest ],
                [ [ "Invites", "manifest" ], invites_manifest ] ]
     await P.all( fs.map( upload ) );
-} );
+}
 
 /* Submit the necessary user information to the central server */
-const submitRegistrationInfo = A( async function submitRegistrationInfo( actx, user )
+async function submitRegistrationInfo( user )
 {
     log( "Encrypting cloud link ..." );
     var reg_info = JSON.stringify( {
@@ -144,10 +143,10 @@ const submitRegistrationInfo = A( async function submitRegistrationInfo( actx, u
                     } ) } );
     if( !resp.ok )
         await handleServerError( scp, "/Users/"+user.huid, resp );
-} );
+}
 
 /* Returns a Promise that resolves to the user object */
-export default const register = A( async function register( actx, uid, passwd )
+export async function register( uid, passwd )
 {
     log( "Enter", uid );
     // TODO uid sanity check
@@ -165,4 +164,4 @@ export default const register = A( async function register( actx, uid, passwd )
     }
     log( "Exit", uid );
     return user;
-} );
+}

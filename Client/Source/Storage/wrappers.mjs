@@ -7,7 +7,6 @@
 "use strict";
 
 import assert  from "../Utilities/assert";
-import A       from "../Utilities/activities";
 import * as L  from "../Utilities/logging";
 import * as UM from "../Utilities/misc";
 import * as SU from "./utilities";

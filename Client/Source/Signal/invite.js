@@ -5,7 +5,7 @@
 import A        from "../Utilities/act-thread";
 
 /* alice sets up an invite for bob to team_id */
-let inviteStep1 = A( async function InviteStep1( actx, alice, bob, team_id )
+export async function InviteStep1( alice, bob, team_id )
 {
     /* typeof( alice )   == UWS user object */
     /* typeof( bob )     == string (some identifying info about Bob) */
@@ -21,7 +21,7 @@ let inviteStep1 = A( async function InviteStep1( actx, alice, bob, team_id )
     var step1_priv = yield aes_cbc_ecdsa.encryptThenSignSalted(
         alice.key_self, alice.key_signing,
         encode( JSON.stringify( { bob: bob, team: team_id } ) ), scp )
-    actx.log( 'Encrypted step1_priv' );
+    L.info( 'Encrypted step1_priv' );
     function upload( [ data, name, type ] )
     { return uploadFile( scp, alice.cloud_text,
                          [ 'Invites', step1_id, name ],
@@ -30,10 +30,10 @@ let inviteStep1 = A( async function InviteStep1( actx, alice, bob, team_id )
     files = [ [ step1_priv, 'step1' ],
               [ '', 'step3', 'text/plain' ] ];
     yield P.all( files.map( upload ) );
-    actx.log( 'Uploaded step1_priv and dummy step3' );
+    L.info( 'Uploaded step1_priv and dummy step3' );
     var step1_pub = JSON.stringify( { cloud: alice.cloud_text, id: step1_id } );
     return step1_pub;
-} );
+}
 
 /* bob accepts the invitation */
 var inviteStep2 = async( 'InviteStep2', function *( scp, log, bob, step1_pub )

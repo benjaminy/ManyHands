@@ -9,7 +9,7 @@ const self_key_dhK   = K.key( ":self.key/dh" );
 const team_idK       = K.key( ":team/id" );
 const team_root_keyK = K.key( ":team/root_key" );
 
-const init_personal_UWS_DBs = A( async function init_UWS_DB( actx, storage )
+export = async function init_UWS_DB( storage )
 {
     /* private DB */
     const self_key_sign = DA.makeAttribute(
@@ -46,9 +46,9 @@ const init_personal_UWS_DBs = A( async function init_UWS_DB( actx, storage )
 :team/id
 :team/root
 
-} );
+}
 
-const init_team_UWS_DB = A( async function init_team_UWS_DB( actx, root )
+export async function init_team_UWS_DB( root )
 {
 /* team DB */
 
@@ -56,4 +56,4 @@ const init_team_UWS_DB = A( async function init_team_UWS_DB( actx, root )
 :user/
 
 
-} );
+}

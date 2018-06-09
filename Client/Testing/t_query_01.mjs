@@ -46,8 +46,13 @@ db.datoms = [
     [ sally, likes, "opera" ],
     [ ethel, likes, "sushi" ] ];
 
-const r1 = Q.runQuery( db, q1 );
+async function main()
+{
+    const r1 = await Q.runQuery( db, q1 );
 
-console.log( JSON.stringify( r1 ) );
+    console.log( "FINI?", JSON.stringify( r1 ) );
+}
+
+main();
 
 console.log( "t_query_01.mjs tests passed." );
