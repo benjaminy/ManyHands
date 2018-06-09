@@ -3,11 +3,11 @@ const WC = new WebCrypto();
 const CS = WC.subtle;
 
 async function main() {
-    let alice = user("alice");
-    let bob = user("bob");
+    let alice = await user("alice");
+    let bob = await user("bob");
 
-    let sent_message = await send_message("mensaje numero uno!");
-    let recieved_message = await send_message("mensaje numero dos!");
+    let sent_message =  await alice.send_message("mensaje numero uno!");
+    let recieved_message = await bob.recieve_message("mensaje numero dos!");
 
     console.log("SENT MESSAGE");
     console.log(sent_message);
@@ -18,15 +18,13 @@ async function main() {
 async function user(name) {
     let u = {}
     u.name = name;
+    u.send_message = async function(message) {
+        return message;
+    }
+    u.recieve_message = async function(message) {
+        return message;
+    }
     return u;
-}
-
-async function send_message(message) {
-    return message;
-}
-
-async function recieve_message(message) {
-    return message;
 }
 
 main();
