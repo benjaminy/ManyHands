@@ -1,13 +1,23 @@
 ------
-2018-7-5
+2018-6-9
+
+biy. Remember: Basic architecture of the DB storage is a linked list of txns, where any txn might have an additional pointer to some "index".
+
+------
+2018-6-8
+
+biy. There's an NPM package called text-encoding that provides a polyfill for TextEncoder.
+
+------
+2018-6-7
 
 bwc. TextEncoder isn't supported in node. Use buf = Buffer.from(bufStr, 'utf8');
 
 bwc. Can't have async constructor for object.
-Can get around this by constructing object using a simple empy object literal u = {} and filling fields and respective values from there.
+Can get around this by constructing object using a simple empty object literal u = {} and filling fields and respective values from there.
 
 bwc. When you are trying to verify the signed prekey, be doubly sure to verify using the identity dsa key,
-even though this link isn't directly refferenced in the documentation.
+even though this link isn't directly referenced in the documentation.
 
 bwc. when trying to combine multile typed arrays a and b... use newTypedArray.set(a), new TypedArray.set(b, a.length);
 
@@ -18,10 +28,10 @@ biy. I think we can hack the export/import functions to use the same EC keys for
 Just need to monkey with the key_ops field.
 Otherwise the format looks identical.
 
-bwc. In order to sign a crypto_key, you must export it, then encode the stringified version of the key using an encoder. 
+bwc. In order to sign a crypto_key, you must export it, then encode the stringified version of the key using an encoder.
 
 bwc. In order you have to import a private key that is in jwk format, you must include the d: attribute.
-Leaving it out and only using x: and y: will import the key as a public key.  
+Leaving it out and only using x: and y: will import the key as a public key.
 
 bwc. Why is typeof ArrayBuffer and object.... I can't get this.
 
