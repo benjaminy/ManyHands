@@ -9,6 +9,8 @@ Can get around this by constructing object using a simple empy object literal u 
 bwc. When you are trying to verify the signed prekey, be doubly sure to verify using the identity dsa key,
 even though this link isn't directly refferenced in the documentation.
 
+bwc. when trying to combine multile typed arrays a and b... use newTypedArray.set(a), new TypedArray.set(b, a.length);
+
 ------
 2018-6-5
 
