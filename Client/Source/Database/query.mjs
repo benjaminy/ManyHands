@@ -2,10 +2,12 @@
 
 "use strict";
 
-import assert from "../Utilities/assert";
-import * as L from "../Utilities/logging";
-import * as K from "../Utilities/keyword";
-import * as S from "../Utilities/set";
+import assert  from "../Utilities/assert";
+import * as UM from "../Utilities/misc";
+import * as L  from "../Utilities/logging";
+import * as K  from "../Utilities/keyword";
+import * as S  from "../Utilities/set";
+import * as DA from "./attribute";
 
 export const findK  = K.key( ":find" );
 export const withK  = K.key( ":with" );
@@ -25,6 +27,34 @@ const type_number_tag   = Symbol( "type_number" );
 const constant_tags     = new Set( [ type_keyword_tag, type_number_tag ] );
 const var_const_under_tags =
       S.union( new Set( [ variable_tag ] ), new Set( [ variable_tag ] ), constant_tags );
+
+const attrQuery = parseQuery( [
+    findK, [ "?vtype", "?card", "?doc", "?uniq", "?idx", "?ftxt", "?isComp", "?noHist" ],
+    inK, "$", "?ident",
+    whereK, [ "?attr", DA.identK,       "?ident" ],
+            [ "?attr", DA.valueTypeK,   "?vtype" ],
+            [ "?attr", DA.cardinalityK, "?card" ],
+            [ "?attr", DA.docK,         "?doc" ],
+            [ "?attr", DA.uniqueK,      "?uniq" ],
+            [ "?attr", DA.indexK,       "?idx" ],
+            [ "?attr", DA.fulltextK,    "?ftxt" ],
+            [ "?attr", DA.isComponentK, "?isComp" ],
+            [ "?attr", DA.noHistoryK,   "?noHist" ] ] );
+
+/*
+alternate syntax:
+" [ :find [ ?vtype ?card ?doc ?uniq ?idx ?ftxt ?isComp ?noHist ]
+    :in $ ?ident
+    :where [ ?attr :db/ident       ?ident ]
+           [ ?attr :db/valueType   ?vtype ]
+           [ ?attr :db/cardinality ?card ]
+           [ ?attr :db/doc         ?doc ]
+           [ ?attr :db/unique      ?uniq ]
+           [ ?attr :db/index       ?idx ]
+           [ ?attr :db/fulltext    ?ftxt ]
+           [ ?attr :db/isComponent ?isComp ]
+           [ ?attr :db/noHistory   ?noHist ] ] "
+*/
 
 export function parseQuery( q )
 {
@@ -66,7 +96,7 @@ export function parseQuery( q )
     L.debug( "FI " + find_section );
     L.debug( "WI " + with_section );
     L.debug( "IN " + in_section );
-    // L.debug( "WH " + where_section );
+    L.debug( "WH " + JSON.stringify( where_section, UM.tagger ) );
 
     /* Functions for parsing the four main sections */
     function parseFindSpec()

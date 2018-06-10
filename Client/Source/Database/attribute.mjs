@@ -1,6 +1,7 @@
 /* Top Matter */
 
-import * as K from "../Utilities/keyword";
+import * as K  from "../Utilities/keyword";
+import * as DQ from "./query";
 
 export const identK       = K.key( ":db/ident" );
 export const docK         = K.key( ":db/doc" );

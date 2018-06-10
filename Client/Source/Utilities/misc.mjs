@@ -1,7 +1,6 @@
 /* Top Matter */
 
 const P = Promise;
-import A from "./act-thread";
 import BufferThing from "buffer/";
 const Buffer = BufferThing.Buffer;
 import TE from "text-encoding";
@@ -257,6 +256,23 @@ export function toHexString( byteArray )
         ( output, elem ) =>
             ( output + ( '0' + elem.toString( 16 ) ).slice( -2 ) ),
         '' );
+}
+
+/* For use with JSON.stringify: */
+export function strFromSym( k, v )
+{
+    if( typeof( v ) === "symbol" )
+    {
+        const x = Symbol.keyFor( v );
+        if( typeof( x ) === "string" )
+            return x;
+        else
+            return String( v );
+    }
+    else
+    {
+        return v;
+    }
 }
 
 /* Graveyard */

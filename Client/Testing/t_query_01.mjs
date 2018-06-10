@@ -1,25 +1,9 @@
 /* Top Matter */
 
-import assert from "../Source/Utilities/assert";
-import * as K from "../Source/Utilities/keyword";
-import * as Q from "../Source/Database/query";
-
-function tagger( k, v )
-{
-    if( typeof( v ) === "symbol" )
-    {
-        const x = Symbol.keyFor( v );
-        if( typeof( x ) === "string" )
-            return x;
-        else
-            return String( v );
-    }
-    else
-    {
-        return v;
-    }
-}
-
+import assert  from "../Source/Utilities/assert";
+import * as UM from "../Source/Utilities/misc";
+import * as K  from "../Source/Utilities/keyword";
+import * as Q  from "../Source/Database/query";
 
 const q1 = Q.parseQuery(
     [ Q.findK, "?e",
@@ -29,7 +13,7 @@ const q1 = Q.parseQuery(
 //     [ DQ.findK, v("e"),
 //       DQ.whereK, [ v("e"), k("age"), 42 ] ] );
 
-console.log( JSON.stringify( q1, tagger, 2 ) );
+console.log( JSON.stringify( q1, UM.tagger, 2 ) );
 
 const age   = K.key( ":age" );
 const likes = K.key( ":likes" );

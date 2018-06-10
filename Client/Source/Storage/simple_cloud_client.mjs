@@ -6,7 +6,6 @@
  */
 
 import assert  from "../Utilities/assert";
-import A       from "../Utilities/act-thread";
 import fetch   from "isomorphic-fetch";
 import * as UM from "../Utilities/misc";
 import * as SU from "./utilities";

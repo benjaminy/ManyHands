@@ -2,8 +2,6 @@
  * Top Matter
  */
 
-import A        from "../Utilities/act-thread";
-
 /* alice sets up an invite for bob to team_id */
 export async function InviteStep1( alice, bob, team_id )
 {

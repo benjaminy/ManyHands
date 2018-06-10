@@ -2,7 +2,6 @@
  * Top Matter
  */
 
-import A        from "../Utilities/act-thread";
 import * as B32 from "hi-base32";
 import * as SCC from "../Cloud/simple_cloud_client";
 import L        from '../Utilities/logging';

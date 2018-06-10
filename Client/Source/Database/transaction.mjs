@@ -14,33 +14,6 @@ function new_entity( db )
     return [ eid, Object.assign( {}, db, { next_entity_id: eid + 1 } ) ];
 }
 
-const attrQuery = DQ.parseQuery( [
-    DQ.findK, [ "?vtype", "?card", "?doc", "?uniq", "?idx", "?ftxt", "?isComp", "?noHist" ],
-    DQ.inK, "$", "?ident",
-    DQ.whereK, [ "?attr", DA.identK,       "?ident" ],
-               [ "?attr", DA.valueTypeK,   "?vtype" ],
-               [ "?attr", DA.cardinalityK, "?card" ],
-               [ "?attr", DA.docK,         "?doc" ],
-               [ "?attr", DA.uniqueK,      "?uniq" ],
-               [ "?attr", DA.indexK,       "?idx" ],
-               [ "?attr", DA.fulltextK,    "?ftxt" ],
-               [ "?attr", DA.isComponentK, "?isComp" ],
-               [ "?attr", DA.noHistoryK,   "?noHist" ] ] );
-
-/*
-" [ :find [ ?vtype ?card ?doc ?uniq ?idx ?ftxt ?isComp ?noHist ]
-    :in $ ?ident
-    :where [ ?attr :db/ident       ?ident ]
-           [ ?attr :db/valueType   ?vtype ]
-           [ ?attr :db/cardinality ?card ]
-           [ ?attr :db/doc         ?doc ]
-           [ ?attr :db/unique      ?uniq ]
-           [ ?attr :db/index       ?idx ]
-           [ ?attr :db/fulltext    ?ftxt ]
-           [ ?attr :db/isComponent ?isComp ]
-           [ ?attr :db/noHistory   ?noHist ] ] "
-*/
-
 export async function getAttribute( db, identName ) {
     const ident = K.key( identName );
 

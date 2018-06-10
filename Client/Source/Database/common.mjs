@@ -3,7 +3,6 @@ w/* Top Matter */
 /* File comment */
 
 import assert from "../Utilities/assert.mjs";
-import A      from "../Utilities/act-thread";
 import * as K from "../Utilities/keyword.mjs";
 
 export const KIND_PUBLIC  = Symbol( "KIND_PUBLIC" );

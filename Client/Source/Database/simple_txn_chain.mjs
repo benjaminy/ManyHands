@@ -19,7 +19,7 @@ const TXN_STATE_ADDED     = Symbol( "txn_state_added" );
 const TXN_STATE_COMMITTED = Symbol( "txn_state_committed" );
 const TXN_STATE_PUSHED    = Symbol( "txn_state_pushed" );
 
-export function newDB( user, storage, kind, options )
+export function newDB( user, storage, options )
 {
     assert( DC.kinds.has( kind ) );
     const db = {};
