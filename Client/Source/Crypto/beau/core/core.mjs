@@ -1,7 +1,8 @@
 import {user} from "./user";
 import {line_beak, named_beak} from "./debug_helpers";
-import {x3dh_sender} from "./extended_triple_diffie_hellman"
-import {generate_sender_key_bundle} from "./extended_triple_diffie_hellman"
+import {sender_triple_diffie_hellman} from "./extended_triple_diffie_hellman"
+import {reciever_triple_diffie_hellman} from "./extended_triple_diffie_hellman"
+
 
 import  WebCrypto from "node-webcrypto-ossl";
 import TextEncoder from "text-encoding";

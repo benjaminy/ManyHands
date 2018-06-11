@@ -1,7 +1,6 @@
 import {user} from "./user";
 import {line_beak, named_beak} from "./debug_helpers";
 import {key_to_buffer} from "./crypto_helpers";
-import {x3dh_sender} from "./extended_triple_diffie_hellman";
 import {core_extended_triple_diffie_hellman} from "./extended_triple_diffie_hellman";
 import {reciever_triple_diffie_hellman} from "./extended_triple_diffie_hellman";
 import {sender_triple_diffie_hellman} from "./extended_triple_diffie_hellman";
@@ -59,4 +58,3 @@ async function triple_diffie_hellman() {
     let bob_secret = await reciever_triple_diffie_hellman(alice, bob);
     console.log(bob_secret);
 }
-triple_diffie_hellman();
