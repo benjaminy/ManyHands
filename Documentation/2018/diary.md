@@ -1,7 +1,16 @@
 ------
+2018-6-10
+
+bwc. How could I do something like const decode = new TextEncoder.TextDecoder('utf-8').decode
+
+bwc. maybe generate signed prekey, or the actualy functionality that is signing they keys should live in x3dh
+
+------
 2018-6-9
 
 biy. Remember: Basic architecture of the DB storage is a linked list of txns, where any txn might have an additional pointer to some "index".
+
+bwc. in order to make a function of a field, you need to create an anonymous function and pass that function to the field u.myFunctio = async function(text) { return text; }
 
 ------
 2018-6-8
