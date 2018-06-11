@@ -3,11 +3,12 @@
 import assert  from "../Source/Utilities/assert";
 import * as UM from "../Source/Utilities/misc";
 import * as K  from "../Source/Utilities/keyword";
-import * as Q  from "../Source/Database/query";
+import * as DQ from "../Source/Database/query";
+import * as DA from "../Source/Database/attribute";
 
-const q1 = Q.parseQuery(
-    [ Q.findK, "?e",
-      Q.whereK, [ "?e", ":age", 42 ] ] );
+const q1 = DQ.parseQuery(
+    [ DQ.findK, "?e",
+      DQ.whereK, [ "?e", ":age", 42 ] ] );
 
 // const q2 = DQ.parseQuery(
 //     [ DQ.findK, v("e"),
@@ -32,7 +33,7 @@ db.datoms = [
 
 async function main()
 {
-    const r1 = await Q.runQuery( db, q1 );
+    const r1 = await DQ.runQuery( db, q1 );
 
     console.log( "FINI?", JSON.stringify( r1 ) );
 }

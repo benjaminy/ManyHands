@@ -10,7 +10,11 @@ Of course there can still be ships passing in the night, so there needs to be a 
 
 
 
+In the cloud:
 
+Each DB root has a link to 
+
+separate the message queue from the transaction chain!!!
 
 :db/doc specifies a documentation string.
 :db/unique - specifies a uniqueness constraint for the values of an attribute. Setting an attribute :db/unique also implies :db/index. The values allowed for :db/unique are:

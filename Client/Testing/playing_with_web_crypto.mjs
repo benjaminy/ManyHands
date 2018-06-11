@@ -2,7 +2,6 @@
  * Top Matter
  */
 
-import assert  from "../Source/Utilities/assert";
 import WebCrypto from "node-webcrypto-ossl";
 const WC = new WebCrypto();
 const WCS = WC.subtle;

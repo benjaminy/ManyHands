@@ -6,7 +6,6 @@
  */
 
 import assert  from "../Utilities/assert";
-import A       from "../Utilities/act-thread";
 import fetch   from "isomorphic-fetch";
 import * as UM from "../Utilities/misc";
 import * as SU from "./utilities";
@@ -64,7 +63,7 @@ export default function init( user, options )
         {
             fetch_options.body = options.body;
         }
-        const response = yield fetch( p, fetch_options );
+        const response = await fetch( p, fetch_options );
         A.log( "upload Response", response.status, response.statusText );
         return response;
     } );
@@ -74,7 +73,7 @@ export default function init( user, options )
         assert( M.isPath( path ) );
 
         const p = encode_path( user, path );
-        const response = yield fetch( p );
+        const response = await fetch( p );
         L.debug( "download Response", p, response.status, response.statusText );
         // A.log( "Response", p, typeof( r.headers ), r.headers );
         if( !response.ok )

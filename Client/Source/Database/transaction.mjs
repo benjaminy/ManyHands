@@ -1,8 +1,8 @@
 /* Top Matter */
 
 import * as K  from "../Utilities/keyword";
-import A       from "../Utilities/act-thread";
 import * as DA from "./attribute";
+import * as DQ from "./query";
 
 export const addK     = K.key( ":db/add" );
 export const retractK = K.key( ":db/retract" );
@@ -11,44 +11,16 @@ export const idK      = K.key( ":db/id" );
 function new_entity( db )
 {
     const eid = db.next_entity_id;
-    db.next_entity_id++;
-    return eid;
+    return [ eid, Object.assign( {}, db, { next_entity_id: eid + 1 } ) ];
 }
 
-const attrQuery = Q.parseQuery( [
-    Q.findK, [ "?vtype", "?card", "?doc", "?uniq", "?idx", "?ftxt", "?isComp", "?noHist" ],
-    Q.inK, "$", "?ident",
-    Q.whereK, [ "?attr", DA.identK,       "?ident" ],
-              [ "?attr", DA.valueTypeK,   "?vtype" ],
-              [ "?attr", DA.cardinalityK, "?card" ],
-              [ "?attr", DA.docK,         "?doc" ],
-              [ "?attr", DA.uniqueK,      "?uniq" ],
-              [ "?attr", DA.indexK,       "?idx" ],
-              [ "?attr", DA.fulltextK,    "?ftxt" ],
-              [ "?attr", DA.isComponentK, "?isComp" ],
-              [ "?attr", DA.noHistoryK,   "?noHist" ] ] );
-
-/*
-" [ :find [ ?vtype ?card ?doc ?uniq ?idx ?ftxt ?isComp ?noHist ]
-    :in $ ?ident
-    :where [ ?attr :db/ident       ?ident ]
-           [ ?attr :db/valueType   ?vtype ]
-           [ ?attr :db/cardinality ?card ]
-           [ ?attr :db/doc         ?doc ]
-           [ ?attr :db/unique      ?uniq ]
-           [ ?attr :db/index       ?idx ]
-           [ ?attr :db/fulltext    ?ftxt ]
-           [ ?attr :db/isComponent ?isComp ]
-           [ ?attr :db/noHistory   ?noHist ] ] "
-*/
-
-const getAttribute = A( async function getAttribute( actx, db, identName ) {
+export async function getAttribute( db, identName ) {
     const ident = K.key( identName );
 
     if( !( ak in db.attributes ) )
     {
         try {
-            [ v, c, d, u, i, f, ic, n ] = await Q.runQuery( actx, db, attrQuery, ak );
+            [ v, c, d, u, i, f, ic, n ] = await Q.runQuery( db, attrQuery, ak );
             db.attributes[ ak ] = DA.makeAttribute( ident, v, c, d, u, i, f, ic, n );
         }
         catch( err ) {
@@ -64,11 +36,11 @@ const getAttribute = A( async function getAttribute( actx, db, identName ) {
     }
 
     return db.attributes[ ak ];
-} );
+}
 
 /* Input: an array of txn statements
  * Output: either throw an exception, or return an array of datoms */
-const processTxn = A( function* processTxn( db, txn )
+export async function processTxn( db, txn )
 {
     /* assert( typeof( db )  == database ) */
     /* assert( typeof( txn ) == array of statements ) */
@@ -76,7 +48,8 @@ const processTxn = A( function* processTxn( db, txn )
     var datoms = [];
     var temp_ids = {};
 
-    function getEntityId( e ) {
+    function getEntityId( e )
+    {
         if( !e )
             return new_entity( db );
         /* "else" */
@@ -91,7 +64,7 @@ const processTxn = A( function* processTxn( db, txn )
         try {
             return temp_ids[ e ];
         }
-        catch() {
+        catch( err ) {
             const eid = DB.new_entity( db );
             temp_ids[ e ] = eid;
             return eid
@@ -190,10 +163,8 @@ const processTxn = A( function* processTxn( db, txn )
     }
     catch( err ) {
     }
-} );
+}
 
-
-export {}
 
 // DB.query = function( db, q )
 // {
@@ -216,74 +187,56 @@ export {}
 
 
 
-DB.uploadTxn = A( function *uploadTxn( db, txn )
+export function txnStatementToWire( stmt )
 {
-    var wrapped = {
-        t: txn,
-        n: db.cloud_head,
-        v: db.current_vector
-    };
-    /* new random file name */
-    /* add timestamp */
-} );
-
-DB.txnStatementToWire( stmt )
-{
- * [ TXN_STMT_ADD,     e, a, v ]
- * avs
- * [ TXN_STMT_RETRACT, e, a, v ]
- * [ fn-name (keyword), p1, p2, p3, ... ]
- */
+ // * [ TXN_STMT_ADD,     e, a, v ]
+ // * avs
+ // * [ TXN_STMT_RETRACT, e, a, v ]
+ // * [ fn-name (keyword), p1, p2, p3, ... ]
+ // */
 }
 
-DB.uploadOneTxn = async( '', function *( txn )
-{
-    var wire_txn = {
-        prev : txn.prev;
-    }
-} );
+// DB.save = function()
+// {
+//     var txn_head = {}
+//     var datoms_head = {}
+//     var txn_prev = txn_head;
+//     var datoms_prev = datoms_head;
+//     var i;
+//     for( i = this.txn_chain.length - 1; i >= 0; i-- )
+//     {
+//         if( txn.saved )
+//             break;
+//     }
+//     i++;
+//     for( ; i < this.txn_chain.length; i++ )
+//     {
+//         var txn = txn_chain[ i ];
+//         if( txn.saved )
+//             break;
+//         file = save;
+//         txn_prev.next = file;
+//         txn_prev = txn;
+//     }
+//     // ffoooo
+// }
 
-DB.save = function()
-{
-    var txn_head = {}
-    var datoms_head = {}
-    var txn_prev = txn_head;
-    var datoms_prev = datoms_head;
-    var i;
-    for( i = this.txn_chain.length - 1; i >= 0; i-- )
-    {
-        if( txn.saved )
-            break;
-    }
-    i++;
-    for( ; i < this.txn_chain.length; i++ )
-    {
-        var txn = txn_chain[ i ];
-        if( txn.saved )
-            break;
-        file = save;
-        txn_prev.next = file;
-        txn_prev = txn;
-    }
-    // ffoooo
-}
-
-var DB.readFromCloud = async( 'DB.readFromCloud', function *(
-    scp, log, download, decrypt ) {
-    var txn_pointer_encrypted = yield download( [ 'Data', 'Txns' ] );
-    var txn_pointer_encoded   = yield decrypt( txn_pointer_encrypted );
-    var txn_pointer           =       JSON.parse( decode( txn_pointer_encoded ) );
-    var filename = txn_pointer.filename;
-    var txns = [];
-    do {
-        var txn_encrypted = yield download( [ 'Data', filename ] );
-        var txn_encoded   = yield decrypt( txn_encrypted );
-        var txn           =       JSON.parse( decode( txn_encoded ) );
-        filename          = txn.n;
-        txns.push( txn );
-    } while( filename );
-    return txns;
-} );
+// var DB.readFromCloud = async( 'DB.readFromCloud', function *(
+//     scp, log, download, decrypt ) {
+//     var txn_pointer_encrypted = await download( [ 'Data', 'Txns' ] );
+//     var txn_pointer_encoded   = await decrypt( txn_pointer_encrypted );
+//     var txn_pointer           =       JSON.parse( decode( txn_pointer_encoded ) );
+//     var filename = txn_pointer.filename;
+//     var txns = [];
+//     do {
+//         var txn_encrypted = await download( [ 'Data', filename ] );
+//         var txn_encoded   = await decrypt( txn_encrypted );
+//         var txn           =       JSON.parse( decode( txn_encoded ) );
+//         filename          = txn.n;
+//         txns.push( txn );
+//     } while( filename );
+//     return txns;
+// } );
 
 function isTxnStmt( thing )
 {

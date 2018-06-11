@@ -1,6 +1,6 @@
 /* Top Matter */
 
-import * as K from "../Utilities/keyword";
+import * as K  from "../Utilities/keyword";
 
 export const identK       = K.key( ":db/ident" );
 export const docK         = K.key( ":db/doc" );
@@ -158,7 +158,7 @@ export function normalizeValue( attribute, value )
     return v;
 }
 
-function transactionAdd( attr )
+export function makeAddTxnStmt( attr )
 {
     const txn = {};
     txn[ identK.key ]      = attr.ident;

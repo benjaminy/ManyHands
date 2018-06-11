@@ -7,26 +7,24 @@
  */
 
 import assert  from "../Utilities/assert";
-import A       from "../Utilities/act-thread";
 import * as K  from "../Utilities/keyword";
 import * as SW from "../Storage/wrappers";
 import * as DC from "./common";
+import * as DT from "./transaction";
 
 
 /* Reminder: tempting to use classes, */
 
-export function newDB( user, storage, kind, options )
+const TXN_STATE_ADDED     = Symbol( "txn_state_added" );
+const TXN_STATE_COMMITTED = Symbol( "txn_state_committed" );
+const TXN_STATE_PUSHED    = Symbol( "txn_state_pushed" );
+
+export function newDB( storage, options )
 {
     assert( DC.kinds.has( kind ) );
     const db = {};
-    db.user             = user;
-    db.root_file_ptr    = null;
-    db.added_txns       = [];
-    db.committed_txns   = [];
-    db.next_entity_id   = 0;
-    db.txn_cache        = [];
-    db.attr_cache       = {};
-    db.func_cache       = {};
+    db.txn_root       = null;
+    db.next_entity_id = 0;
 
     function generateSignKey() {
         return WCS.generateKey(
@@ -43,7 +41,7 @@ export function newDB( user, storage, kind, options )
         SW.filePtrGenWrapper(
             { param_name: "keyS",
               keyS_generator: generateSignKey },
-            SW.authenticityWrapper(
+            SW.authenticationWrapper(
                 { tag_bytes: 32,
                   sign: sign,
                   verify: verify },
@@ -85,54 +83,70 @@ export function newDB( user, storage, kind, options )
     return db;
 }
 
-export const readDB( user, storage, root_ptr )
+export async function huh( user, storage, root_ptr )
 {
+    const root_storage = 42;
+    const resp = storage.download( root_ptr);
 }
 
-export const initializeStorage = A( function* createDB( db )
+export const initializeStorage = async function createDB( db )
 {
     
-} );
+};
 
-export const fullRead = A( function* fullRead( db )
+export const fullRead = async function fullRead( db )
 {
-    txn = yield db.storage.download( db.head, {} );
-} );
+    txn = await db.storage.download( db.head, {} );
+};
 
-const addTxn = A( async function addTxn( actx, txn ) {
-    assert( A.isContext( actx ) );
-    db.recent_txns.push( txn );
-} );
-
-    const syncToStorage = A( function* syncWithStorage( db ) {
-        for( const txn of db.
-    } )
-}
-
-const add = A( function *add( db, txn )
+export function addTxn( db, txn )
 {
-    
-} );
+    /* TODO: check the txn at all? */
+    return Object.assign( {}, db, { added_txns: { txn: txn, prev: db.txn_root } } );
+};
 
-class MonolithicUnorderedxxx
+export async function commitAddedTxns( db )
 {
-    constructor( storage, is_public, is_shared )
+    async function helper( txn )
     {
-        this.storage = storage;
-        this.eavt    = [];
-        this.aevt    = [];
-        this.avet    = [];
-        this.vaet    = [];
-        this.txns    = [];
-        this.next_entity_id = 0;
-        this.attributes     = {};
-        this.functions      = {};
+        if( ( !txn ) || txn.state === TXN_STATE_COMMITTED || txn.state === TXN_STATE_PUSHED )
+            return txn;
+        const prev = helper( txn.prev );
+        return { txn: txn, datoms: [ /* TODO: run txn */ ], prev: prev }
     }
 }
 
+export async function pushCommittedTxns( db )
+{
+    async function helper( txn )
+    {
+        if( !txn )
+            return db.root_file_ptr;
+    }
+    prev_file_ptr = null;
+    //for( const txn of db. )
+    //{}
+}
+
+// class MonolithicUnorderedxxx
+// {
+//     constructor( storage, is_public, is_shared )
+//     {
+//         this.storage = storage;
+//         this.eavt    = [];
+//         this.aevt    = [];
+//         this.avet    = [];
+//         this.vaet    = [];
+//         this.txns    = [];
+//         this.next_entity_id = 0;
+//         this.attributes     = {};
+//         this.functions      = {};
+//     }
+// }
 
 
-example = '[ "p1", "p2", "p3" ] {  }';
+
+// example = '[ "p1", "p2", "p3" ] {  }';
 
 
 

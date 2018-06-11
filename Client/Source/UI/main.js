@@ -29,7 +29,7 @@ function onRegisterReq()
         var passwd = elemPass.value;
         try
         {
-            var user = yield register( name, passwd );
+            var user = await register( name, passwd );
             alert( 'Registration successful' );
         }
         catch( err )
@@ -49,7 +49,7 @@ function onLoginReq()
     {
         try
         {
-            var user = yield login( elemUID.value, elemPass.value );
+            var user = await login( elemUID.value, elemPass.value );
             logged_in_user = user;
             elemLoggedIn.innerText = ''+name+' '+user.cloud_text;
             removeChildren( elemTeamSelect );
@@ -112,7 +112,7 @@ function onInvite()
         }
         try
         {
-            elemInvite.innerText = yield inviteStep1(
+            elemInvite.innerText = await inviteStep1(
                 logged_in_user, elemInviteName.value, team_id );
         }
         catch( err )
@@ -131,7 +131,7 @@ function onInviteAccept()
             alert( 'Must login first' );
             return;
         }
-        elemInvite.innerText = yield inviteStep2( elemInviteInput.value, logged_in_user );
+        elemInvite.innerText = await inviteStep2( elemInviteInput.value, logged_in_user );
     } )( null );
 }
 

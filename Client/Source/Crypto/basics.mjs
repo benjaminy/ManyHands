@@ -51,12 +51,12 @@ const makeUniqueId = function makeUniqueId( ids, len = UNIQUE_ID_DEFAULT_LEN )
     return id;
 };
 
-const exportKeyJwk = async function exportKeyJwk( actx, k )
+const exportKeyJwk = async function exportKeyJwk( k )
 {
     return JSON.stringify( await WC.exportKey( 'jwk', k ) );
 };
 
-const importKeyJwk = async function importKeyJwk( actx, s, algo, ops )
+const importKeyJwk = async function importKeyJwk( s, algo, ops )
 {
     // assert( typeof( s )    == raw key buffer )
     // assert( typeof( algo ) == crypto algorithm )
@@ -98,7 +98,7 @@ const stringsToBuf = function stringsToBuf( strings )
     return b;
 };
 
-const makeLoginKey = async function makeLoginKey( actx, username, password, salt )
+const makeLoginKey = async function makeLoginKey( username, password, salt )
 {
     // assert( typeof( username ) == 'string' )
     // assert( typeof( password ) == 'string' )
@@ -147,7 +147,7 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
     };
 
     const verifyThenDecrypt = async function verifyThenDecrypt(
-        actx, key_dec, key_ver, sig_plus_data, enc_param )
+        key_dec, key_ver, sig_plus_data, enc_param )
     {
         try {
             var d_as_bytes = new Uint8Array( sig_plus_data );
@@ -164,7 +164,7 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
     };
 
     const decryptSkipVerify = async function decryptSkipVerify(
-        actx, key_dec, sig_plus_data, enc_param )
+        key_dec, sig_plus_data, enc_param )
     {
         try {
             var data_enc = ( new Uint8Array( sig_plus_data ) ).subarray( this.sig_length );
@@ -184,14 +184,14 @@ const cryptoSpecificAlgos = function cryptoSpecificAlgos(
     };
 
     const verifyThenDecryptSalted = async function verifyThenDecryptSalted(
-        actx, key_dec, key_ver, data )
+        key_dec, key_ver, data )
     {
         const bytes = await this.verifyThenDecrypt( null, key_dec, key_ver, data, zeros )
         return new Uint8Array( bytes ).subarray( this.iv_length );
     };
 
     const decryptSkipVerifySalted = async function decryptSkipVerifySalted(
-        actx, key_dec, data )
+        key_dec, data )
     {
         const salt_plus_data = await this.decryptSkipVerify( key_dec, data, zeros );
         // log( new Uint8Array( salt_plus_data ), this.iv_length );

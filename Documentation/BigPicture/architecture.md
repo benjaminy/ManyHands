@@ -1,7 +1,26 @@
 United We Stand Architecture
 =======================
 
-This document is a snapshot of the architecture of United We Stand circa autumn, 2017.
+This document is a snapshot of the architecture of United We Stand circa summer, 2018.
+
+The big-picture goals of the UWS protocol are described in the elevator_pitch document.
+
+UWS is a meta-protocol composed of the following parts:
+
+- A secure communications protocol (e.g. Signal)
+- A broadcast communications infrastructure (e.g. cloud storage)
+- A message order consistency protocol (e.g. ???)
+- A data storage format (e.g. Datomic)
+
+## Communication Protocol
+
+In order for a team to collaborate on some document/database, they clearly need some way to communicate with each other.
+The current UWS prototype uses a lightly adapted version of the Signal protocol for the encryption and authentication features of communication.
+
+## Communication Medium
+
+Existing messaging apps use central servers for relaying and buffering messages.
+This is problematic for reasons discussed in the threat_model document.
 
 The core entities in the system are users and teams.
 Users can belong to any number of teams.

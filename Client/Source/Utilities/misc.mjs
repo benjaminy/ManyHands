@@ -1,7 +1,6 @@
 /* Top Matter */
 
 const P = Promise;
-import A from "./act-thread";
 import BufferThing from "buffer/";
 const Buffer = BufferThing.Buffer;
 import TE from "text-encoding";
@@ -234,22 +233,22 @@ export function isPath( thing )
     return false;
 }
 
-export const handleServerError = A( async function handleServerError( actx, msg, resp )
+export async function handleServerError( msg, resp )
 {
     if( resp.status == 404 )
     {
-        actx.log( "NOT FOUND ERROR" );
+        L.warn( "NOT FOUND ERROR" );
         throw new NotFoundError( msg );
     }
     const t = await resp.text();
     if( resp.status >= 400 && resp.status < 500 )
     {
-        actx.log( "REQUEST ERROR" );
+        L.warn( "REQUEST ERROR" );
         throw new RequestError( msg, resp.statusText + ' ' + t );
     }
-    actx.log( "SERVER ERROR" );
+    L.warn( "SERVER ERROR" );
     throw new ServerError( msg, resp.statusText + ' ' + t );
-} );
+}
 
 export function toHexString( byteArray )
 {
@@ -257,6 +256,33 @@ export function toHexString( byteArray )
         ( output, elem ) =>
             ( output + ( '0' + elem.toString( 16 ) ).slice( -2 ) ),
         '' );
+}
+
+/* For use with JSON.stringify: */
+export function strFromSym( k, v )
+{
+    if( typeof( v ) === "symbol" )
+    {
+        const x = Symbol.keyFor( v );
+        if( typeof( x ) === "string" )
+            return x;
+        else
+            return String( v );
+    }
+    else
+    {
+        return v;
+    }
+}
+
+export function multiGetter( property_name, default_value, ...objects )
+{
+    for( const o of objects )
+    {
+        if( o && property_name in o )
+            return o[ property_name ];
+    }
+    return default_value;
 }
 
 /* Graveyard */
