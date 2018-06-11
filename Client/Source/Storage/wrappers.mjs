@@ -27,20 +27,9 @@ export const SK_JSON         = Symbol( "json" );
 export const SK_TEXT         = Symbol( "text" );
 export const stream_kinds = new Set( [ SK_ARRAY_BUFFER, SK_BLOB, SK_FORM_DATA, SK_JSON, SK_TEXT ] );
 
-function addProp( obj, prop1, prop2, val )
+function addProps( obj, prop1, props )
 {
-    obj[ prop1 ] = obj[ prop1 ] || {};
-    obj[ prop1 ][ prop2 ] = val;
-}
-
-function multiGetter( property_name, default_value, ...objects )
-{
-    for( const o of objects )
-    {
-        if( o && property_name in o )
-            return o[ property_name ];
-    }
-    return default_value;
+    obj[ prop1 ] = Object.assign( obj[ prop1 ] || {}, props );
 }
 
 /*
@@ -56,7 +45,7 @@ function multiGetter( property_name, default_value, ...objects )
 export function randomNameWrapper( options, storage )
 {
     const u = async function upload( file_ptr, options_u ) {
-        const retry_limit = multiGetter( "retry_limit", undefined, options_u, options );
+        const retry_limit = UM.multiGetter( "retry_limit", undefined, options_u, options );
         const o = Object.assign( {}, options_u );
         SU.appendHeaderHook( o, function( headers ) {
             SU.overwriteHeader( headers, "If-None-Match", "*" );
@@ -79,7 +68,7 @@ export function randomNameWrapper( options, storage )
             {
                 if( response.ok )
                 {
-                    addProp( response, "file_ptr", "path", fp.path );
+                    addProps( response, "file_ptr", { path: fp.path } );
                 }
                 return response;
             }
@@ -125,17 +114,16 @@ export function atomicUpdateWrapper( storage )
 export function filePtrGenWrapper( options, storage )
 {
     const u = async function upload( file_ptr, options_u ) {
-        const mg = ( n, d ) => multiGetter( n, d, options_u, options );
+        const mg = ( n, d ) => UM.multiGetter( n, d, options_u, options );
         const param_name    = mg( "param_name", "param" );
         const param_options = mg( param_name + "_options", undefined );
         const generator     = mg( param_name + "_generator", undefined );
-        const param = await generator( param_name, param_options );
-        const fp = Object.assign( {}, file_ptr );
-        fp[ param_name ] = param;
+        const params = await generator( param_name, param_options );
+        const fp = Object.assign( {}, file_ptr, params );
         const response = Object.assign( {}, await storage.upload( fp, options_u ) );
         if( response.ok )
         {
-            addProp( response, "file_ptr", param_name, param );
+            addProps( response, "file_ptr", params );
         }
         return response;
     };
@@ -148,13 +136,13 @@ export function filePtrGenWrapper( options, storage )
  *
  * This wrapper's data input and output are byte arrays.
  */
-export function authenticityWrapper( options, storage )
+export function authenticationWrapper( options, storage )
 {
     const u = async function upload( file_ptr, options_u ) {
         assert( "body" in options_u );
         // assert byte array
-        const tag_bytes = multiGetter( "tag_bytes", undefined, options_u, options );
-        const sign = multiGetter( "sign", undefined, options_u, options );
+        const tag_bytes = UM.multiGetter( "tag_bytes", undefined, options_u, options );
+        const sign = UM.multiGetter( "sign", undefined, options_u, options );
 
         const o = Object.assign( {}, options_u );
         const tag = await sign( o.body, file_ptr );
@@ -167,8 +155,8 @@ export function authenticityWrapper( options, storage )
     };
 
     const d = async function download( file_ptr, options_d ) {
-        const tag_bytes = multiGetter( "tag_bytes", undefined, options_d, options );
-        const verify = multiGetter( "verify", undefined, options_d, options );
+        const tag_bytes = UM.multiGetter( "tag_bytes", undefined, options_d, options );
+        const verify = UM.multiGetter( "verify", undefined, options_d, options );
         const response = await storage.download( file_ptr, options_d );
         if( !response.ok )
         {
@@ -202,7 +190,7 @@ export function confidentialityWrapper( options, storage )
     const u = async function upload( file_ptr, options_u ) {
         assert( "body" in options_u );
         // assert byte array
-        const encrypt = multiGetter( "encrypt", undefined, options_u, options );
+        const encrypt = UM.multiGetter( "encrypt", undefined, options_u, options );
 
         const o = Object.assign( {}, options_u );
         o.body = await encrypt( options_u.body, file_ptr );
@@ -213,7 +201,7 @@ export function confidentialityWrapper( options, storage )
     };
 
     const d = async function download( file_ptr, options_d ) {
-        const decrypt = multiGetter( "decrypt", undefined, options_d, options );
+        const decrypt = UM.multiGetter( "decrypt", undefined, options_d, options );
         const response = await storage.download( file_ptr, options_d );
         if( !response.ok )
         {
@@ -270,7 +258,7 @@ export function encodingWrapper( stream_kind, options, storage )
             return await tstorage.upload( file_ptr, o );
             break;
         case SK_TEXT:
-            const encoding = multiGetter( "encoding", DEFAULT_ENCODING, options_u, options );
+            const encoding = UM.multiGetter( "encoding", DEFAULT_ENCODING, options_u, options );
             if( !( encoding in text_encoders ) )
             {
                 text_encoders[ encoding ] = new TextEncoder( encoding );
@@ -307,7 +295,7 @@ export function encodingWrapper( stream_kind, options, storage )
             r.json = () => response.text().then( ( text ) => JSON.parse( text ) );
             break;
         case SK_TEXT:
-            const encoding = multiGetter( "encoding", DEFAULT_ENCODING, options_d, options );
+            const encoding = UM.multiGetter( "encoding", DEFAULT_ENCODING, options_d, options );
             if( !( encoding in text_decoders ) )
             {
                 text_decoders[ encoding ] = new TextDecoder( encoding );
@@ -322,3 +310,27 @@ export function encodingWrapper( stream_kind, options, storage )
 
     return Object.assign( {}, storage, { upload:u, download:d } );
 }
+
+// export function authedPublicWrapper( options, storage )
+// {
+//     return filePtrGenWrapper(
+//         options.authGen,
+//         authenticationWrapper(
+//             options,
+//             randomNameWrapper(
+//                 options,
+//                 storage ) ) );
+// }
+
+// export function authedPrivateWrapper( options, storage )
+// {
+//     return filePtrGenWrapper(
+//         options.authGen,
+//         filePtrGenWrapper(
+//             options.cryptGen,
+//             authenticationWrapper(
+//                 options,
+//             randomNameWrapper(
+//                 options,
+//                 storage ) ) );
+// }

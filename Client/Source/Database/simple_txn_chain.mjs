@@ -19,11 +19,10 @@ const TXN_STATE_ADDED     = Symbol( "txn_state_added" );
 const TXN_STATE_COMMITTED = Symbol( "txn_state_committed" );
 const TXN_STATE_PUSHED    = Symbol( "txn_state_pushed" );
 
-export function newDB( user, storage, options )
+export function newDB( storage, options )
 {
     assert( DC.kinds.has( kind ) );
     const db = {};
-    db.user           = user;
     db.txn_root       = null;
     db.next_entity_id = 0;
 
@@ -42,7 +41,7 @@ export function newDB( user, storage, options )
         SW.filePtrGenWrapper(
             { param_name: "keyS",
               keyS_generator: generateSignKey },
-            SW.authenticityWrapper(
+            SW.authenticationWrapper(
                 { tag_bytes: 32,
                   sign: sign,
                   verify: verify },
@@ -84,9 +83,9 @@ export function newDB( user, storage, options )
     return db;
 }
 
-export const readDB = async function( user, storage, root_ptr )
+export async function huh( user, storage, root_ptr )
 {
-    const root_storage = 
+    const root_storage = 42;
     const resp = storage.download( root_ptr);
 }
 
@@ -97,7 +96,7 @@ export const initializeStorage = async function createDB( db )
 
 export const fullRead = async function fullRead( db )
 {
-    txn = yield db.storage.download( db.head, {} );
+    txn = await db.storage.download( db.head, {} );
 };
 
 export function addTxn( db, txn )
@@ -125,29 +124,29 @@ export async function pushCommittedTxns( db )
             return db.root_file_ptr;
     }
     prev_file_ptr = null;
-    for( const txn of db. )
-    {}
+    //for( const txn of db. )
+    //{}
 }
 
-class MonolithicUnorderedxxx
-{
-    constructor( storage, is_public, is_shared )
-    {
-        this.storage = storage;
-        this.eavt    = [];
-        this.aevt    = [];
-        this.avet    = [];
-        this.vaet    = [];
-        this.txns    = [];
-        this.next_entity_id = 0;
-        this.attributes     = {};
-        this.functions      = {};
-    }
-}
+// class MonolithicUnorderedxxx
+// {
+//     constructor( storage, is_public, is_shared )
+//     {
+//         this.storage = storage;
+//         this.eavt    = [];
+//         this.aevt    = [];
+//         this.avet    = [];
+//         this.vaet    = [];
+//         this.txns    = [];
+//         this.next_entity_id = 0;
+//         this.attributes     = {};
+//         this.functions      = {};
+//     }
+// }
 
 
 
-example = '[ "p1", "p2", "p3" ] {  }';
+// example = '[ "p1", "p2", "p3" ] {  }';
 
 
 

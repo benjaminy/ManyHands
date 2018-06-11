@@ -1,4 +1,4 @@
-w/* Top Matter */
+/* Top Matter */
 
 /* File comment */
 

@@ -5,31 +5,26 @@
  * This module simulates in local memory an HTTP file server (i.e. no network comm at all).
  */
 
-import B32      from "hi-base32";
-import assert   from "../Utilities/assert";
-import * as L   from "../Utilities/logging";
-import * as UM  from "../Utilities/misc";
-import * as SU  from "./utilities";
-import * as CB  from "../Crypto/basics";
-import fetch    from "isomorphic-fetch"; /* imported for "Headers" and "Response" */
+import B32     from "hi-base32";
+import assert  from "../Utilities/assert";
+import * as L  from "../Utilities/logging";
+import * as UM from "../Utilities/misc";
+import * as SU from "./utilities";
+import * as CB from "../Crypto/basics";
+import fetch   from "isomorphic-fetch"; /* imported for "Headers" and "Response" */
 const P = Promise;
 
-export default function init( user, options )
+export default function init( options )
 {
-    assert( typeof( user ) === "string" );
-
-    if( options )
-    {
-        throw new Error( "Unimplemented" );
-    }
-
     const mstorage = { files: {} };
 
     mstorage.upload = async function upload( file_ptr, options_u )
     {
         assert( UM.isPath( file_ptr.path ) );
+        const prefix = UM.multiGetter( "path_prefix", "", options, options_u );
 
-        const p = SU.encode_path( user, file_ptr.path );
+        const p = SU.encode_path( prefix, file_ptr.path );
+        L.warn( "Upload path", p );
         const headers = new Headers();
         for( const hook of options_u.header_hooks )
         {
@@ -77,8 +72,10 @@ export default function init( user, options )
     mstorage.download = async function download( file_ptr, options_d )
     {
         assert( UM.isPath( file_ptr.path ) );
+        const prefix = UM.multiGetter( "path_prefix", "", options, options_d );
 
-        const p = SU.encode_path( user, file_ptr.path );
+        const p = SU.encode_path( prefix, file_ptr.path );
+        L.warn( "Download path", p );
         if( p in mstorage.files )
         {
             const file = mstorage.files[ p ];

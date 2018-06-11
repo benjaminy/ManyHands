@@ -275,6 +275,16 @@ export function strFromSym( k, v )
     }
 }
 
+export function multiGetter( property_name, default_value, ...objects )
+{
+    for( const o of objects )
+    {
+        if( o && property_name in o )
+            return o[ property_name ];
+    }
+    return default_value;
+}
+
 /* Graveyard */
 
 //     sessionStorage.setItem( 'filePort', p );
