@@ -83,7 +83,7 @@ async function send(user, message) {
         }, kdf_key, 256
     );
 
-    user.shared_secret = new_secret;
+    user.secret_key = new Uint8Array(new_secret);
 
     let encryption = await encrypt(message, user.secret_key.buffer);
     internet = encryption;
@@ -103,7 +103,7 @@ async function recieve(user) {
         }, kdf_key, 256
     );
 
-    user.shared_secret = new_secret;
+    user.secret_key = new Uint8Array(new_secret);
 
     let message = await decrypt(internet, user.secret_key.buffer);
     return message;
