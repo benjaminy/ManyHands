@@ -119,21 +119,27 @@ async function decrypt_verify(message_buffer, secret) {
     return {decryption: decryption, verification: verification};
 }
 
+async function increment(secret) {
+    let kdf_key = await CS.importKey(
+        "raw", secret, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
+    );
+
+    let new_secret = await CS.deriveBits(
+        { "name": "PBKDF2", salt: iv_val, iterations: 1000, hash: {name: "SHA-1"} },
+         kdf_key, 256
+    );
+
+    return new_secret;
+}
+
 async function main() {
     let shared_secret = await WC.getRandomValues(new Uint32Array(8));
-
+    
     let message = {
         a: "this is something",
         b: "this is also something"
     }
 
-    // let encryption = await encrypt(message, shared_secret);
-    // let signature = await sign(encryption, shared_secret);
-    // let verification = await verify(encryption, signature, shared_secret);
-    // let decryption = await decrypt(encryption, shared_secret);
-    // console.log(decryption);
-    // console.log(signature);
-    // console.log(verification);
     let signed_and_encrypted_message = await encrypt_sign(message, shared_secret);
     let decrypted_and_verified_message = await decrypt_verify(
         signed_and_encrypted_message, shared_secret
