@@ -38,7 +38,7 @@ export function split_signature(message_buffer) {
     return {message: message.buffer, signature: signature.buffer};
 }
 
-async function encrypt(json_object, secret) {
+export async function encrypt(json_object, secret) {
     let object_string = JSON.stringify(json_object);
     let object_buffer = Encoder.encode(object_string);
     let cbc_key = await CS.importKey(
@@ -54,7 +54,7 @@ async function encrypt(json_object, secret) {
 }
 
 
-async function decrypt(message_buffer, secret) {
+export async function decrypt(message_buffer, secret) {
     let cbc_key = await CS.importKey(
         "raw", secret, { name: "AES-CBC" }, false, ["encrypt", "decrypt"]
     );
@@ -69,7 +69,7 @@ async function decrypt(message_buffer, secret) {
 
 }
 
-async function sign(message_buffer, secret) {
+export async function sign(message_buffer, secret) {
     let sign_key = await CS.importKey(
         "raw", secret, { name: "HMAC", hash: {name: "SHA-256"} }, false, ["sign", "verify"]
     );
@@ -84,7 +84,7 @@ async function sign(message_buffer, secret) {
     return signature;
 }
 
-async function verify(message_buffer, signature, secret) {
+export async function verify(message_buffer, signature, secret) {
     let sign_key = await CS.importKey(
         "raw", secret, { name: "HMAC", hash: {name: "SHA-256"} }, false, ["sign", "verify"]
     );
@@ -96,7 +96,7 @@ async function verify(message_buffer, signature, secret) {
     return verification;
 }
 
-async function encrypt_sign(json_object, secret) {
+export async function encrypt_sign(json_object, secret) {
     let encryption = await encrypt(json_object, secret);
 
     let signature = await sign(encryption, secret);
@@ -109,17 +109,17 @@ async function encrypt_sign(json_object, secret) {
 
 }
 
-async function decrypt_verify(message_buffer, secret) {
+export async function decrypt_verify(message_buffer, secret) {
     let message_object = split_signature(message_buffer);
     let verification = await verify(
         message_object.message, message_object.signature, secret
     );
     let decryption = await decrypt(message_object.message, secret);
 
-    return {decryption: decryption, verification: verification};
+    return {decryption: JSON.parse(decryption), verification: verification};
 }
 
-async function increment(secret) {
+export async function increment(secret) {
     let kdf_key = await CS.importKey(
         "raw", secret, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
     );
@@ -134,7 +134,7 @@ async function increment(secret) {
 
 async function main() {
     let shared_secret = await WC.getRandomValues(new Uint32Array(8));
-    
+
     let message = {
         a: "this is something",
         b: "this is also something"
@@ -147,6 +147,5 @@ async function main() {
 
     console.log(decrypted_and_verified_message.verification);
 
-}
 
-main();
+}
