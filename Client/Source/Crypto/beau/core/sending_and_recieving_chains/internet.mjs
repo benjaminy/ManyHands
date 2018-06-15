@@ -19,6 +19,14 @@ function internet() {
                 u.communication[new_user.name][user] = [];
             }
         }
+    };
+    u.send = function(user_from, user_to, message) {
+        u.communication[user_from.name][user_to.name].push(message);
+    }
+    u.recieve_all = function(user_from, user_to) {
+        let output = u.communication[user_from.name][user_to.name];
+        u.communication[user_from.name][user_to.name] = [];
+        return output;
     }
     return u;
 }
@@ -31,13 +39,16 @@ async function main() {
     let eve = await user("eve", shared_secret);
 
     console.log(i.name);
-    console.log(i.communication);
     i.add_user(alice);
-    console.log(i.communication);
     i.add_user(bob);
-    console.log(i.communication);
     i.add_user(eve);
     console.log(i.communication);
+    i.send(alice, bob, "Hey bob!");
+    i.send(alice, bob, "How are you doing?");
+    i.send(alice, bob, "its been quite a long time there");
+    console.log(i.recieve_all(alice, bob));
+
+
 }
 
 main();
