@@ -15,12 +15,14 @@ iv_root = iv_root.buffer;
 iv_send = iv_send.buffer;
 iv_recieve = iv_recieve.buffer;
 
+let ratchet_seed = new Uint32Array([ 273448763, 536192628, 2993665023, 1022114671 ]);
+ratchet_seed = ratchet_seed.buffer;
+
 const WC = new WebCrypto();
 const CS = WC.subtle;
 
 export function combine_typed_arrays(typed_arrays) {
     let total_number_of_bytes = 0;
-
     for (let i = 0; i < typed_arrays.length; i++) {
         total_number_of_bytes += typed_arrays[i].length;
     }
@@ -125,7 +127,9 @@ export async function decrypt_verify(message_buffer, secret) {
 
     if (verification) {
         let decryption = await decrypt(message_object.message, secret);
-        return {decryption: JSON.parse(decryption), verification: verification};
+        let return_object = JSON.parse(decryption);
+        return_object.verification = verification;
+        return return_object;
     }
     else {
         return {verification: verification};
@@ -146,11 +150,24 @@ export async function step(secret) {
 
     return new_secret;
 }
+/*
+TODO: this is going to beceome the double ratchet function
+    1. make it simply integrate some fixed random number
+    2. use the diffie hellman key exchange protocol to create
+    updated psuedo randomness
+*/
+export async function step_root(secret, seed = null) {
+    // TODO: need to combine secret buffer witht the incoming bits.
+    let input_secret = null;
+    if (seed) {
+        input_secret = combine_typed_arrays([secret, seed]);
+    }
+    else {
+        input_secret = secret;
+    }
 
-
-export async function step_root(secret) {
     let kdf_key = await CS.importKey(
-        "raw", secret, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
+        "raw", input_secret, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
     );
 
     let new_secret = await CS.deriveBits(

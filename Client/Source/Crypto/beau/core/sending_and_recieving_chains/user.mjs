@@ -20,6 +20,9 @@ export async function user(name, secret) {
     u.send = await step(u.send);
     u.recieve = await step(u.root);
     u.recieve = await step(u.recieve);
+    u.sent_key = null;
+    u.recieved_key = null;
+    u.send_key = true;
     return u;
 }
 
