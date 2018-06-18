@@ -19,16 +19,29 @@ async function main() {
     let alice = await user("alice", shared_secret);
     let bob = await user("bob", shared_secret);
 
-    interweb.add_user(alice);
     interweb.add_user(bob);
+    interweb.add_user(alice);
 
-    await send("first message", alice, bob);
-    await send("second message", alice, bob);
-    await send("third message", alice, bob);
-    await send("fourth message", alice, bob);
-    await send("fifth message", alice, bob);
-    await send("sixth message", alice, bob);
+
+    console.log("--------------message 1 -------------");
+    await send("from bob 1 message", bob, alice);
+    await recieve_all_messages(bob, alice);
+    console.log("-----------------------------")
+    await send("from alice 1 message", alice, bob);
     await recieve_all_messages(alice, bob);
+    console.log("--------------message 2 -------------");
+    await send("from bob 2 message", bob, alice);
+    await recieve_all_messages(bob, alice);
+    console.log("-----------------------------")
+    await send("from alice 2 message", alice, bob);
+    await recieve_all_messages(alice, bob);
+    console.log("--------------message 3 -------------");
+    await send("from bob 3 message", bob, alice);
+    await recieve_all_messages(bob, alice);
+    console.log("-----------------------------")
+    await send("from alice 3 message", alice, bob);
+    await recieve_all_messages(alice, bob);
+
 
 }
 
@@ -36,6 +49,7 @@ main();
 
 async function send(message, user_from, user_to) {
     let message_object = {};
+    user_from.send = await step_send(user_from.send);
 
     if (user_from.send_key) {
         let new_key = await CS.generateKey(
@@ -56,14 +70,13 @@ async function send(message, user_from, user_to) {
                 { name: "ECDH", namedCurve: "P-256", public: user_from.recieved_key},
                 user_from.sent_key, 256
             );
-            user_to.root = await step_root(user_to.root, recieve_seed);
-            user_to.recieve = await step_recieve(user_to.root);
+            user_from.root = await step_root(user_from.root, recieve_seed);
+            user_from.recieve = await step_recieve(user_from.root);
         }
-
+        console.log("sending public key!")
         user_from.send_key = false;
     }
 
-    user_from.send = await step_send(user_from.send);
     message_object.message = message;
 
     let encrypted_message = await encrypt_sign(message_object, user_from.send);
@@ -83,11 +96,13 @@ async function recieve(message, user_to) {
     let message_object = await decrypt_verify(message, user_to.recieve);
 
     if (!message_object.verification) {
-        let new_root = await step_root(user_to.root);
-        user_to.root = new_root;
-        user_to.recieve = await step_recieve(new_root);
-        message_object = await decrypt_verify(message, user_to.recieve);
+        // let new_root = await step_root(user_to.root);
+        // user_to.root = new_root;
+        // user_to.recieve = await step_recieve(new_root);
+        // message_object = await decrypt_verify(message, user_to.recieve);
+        console.log("it didn't verify");
     }
+
 
     if (message_object.public_key) {
 
@@ -104,13 +119,12 @@ async function recieve(message, user_to) {
                 { name: "ECDH", namedCurve: "P-256", public: user_to.recieved_key},
                 user_to.sent_key, 256
             );
-
             user_to.root = await step_root(user_to.root, send_seed);
             user_to.send = await step_send(user_to.root);
 
-            user_to.sent_key = true;
+            user_to.send_key = true;
         }
-        console.log("LOOK LOOK LOOK! ITS A PUBLIC KEY!")
+        console.log("recieving public key!!");
     }
     console.log(message_object.message);
 }
