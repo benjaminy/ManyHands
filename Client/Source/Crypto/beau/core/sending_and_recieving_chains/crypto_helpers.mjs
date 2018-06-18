@@ -1,4 +1,4 @@
-import  WebCrypto from "node-webcrypto-ossl";
+import WebCrypto from "node-webcrypto-ossl";
 import TextEncoder from "text-encoding";
 
 const Encoder = new TextEncoder.TextEncoder();
@@ -6,6 +6,14 @@ const Decoder = new TextEncoder.TextDecoder('utf-8');
 
 const iv_32 = new Uint32Array([272313578, 3325780468, 283646714, 120955213]);
 const iv_val = new Uint8Array(iv_32.buffer);
+
+let iv_root = new Uint32Array([ 4183535103, 1663654904, 3786963079, 1962665393 ]);
+let iv_send = new Uint32Array([ 3855252484, 3425917560, 4268165549, 128035330 ]);
+let iv_recieve = new Uint32Array([ 3855252484, 3425917560, 4268165549, 128035330 ]);
+
+iv_root = iv_root.buffer;
+iv_send = iv_send.buffer;
+iv_recieve = iv_recieve.buffer;
 
 const WC = new WebCrypto();
 const CS = WC.subtle;
@@ -114,12 +122,19 @@ export async function decrypt_verify(message_buffer, secret) {
     let verification = await verify(
         message_object.message, message_object.signature, secret
     );
-    let decryption = await decrypt(message_object.message, secret);
 
-    return {decryption: JSON.parse(decryption), verification: verification};
+    if (verification) {
+        let decryption = await decrypt(message_object.message, secret);
+        return {decryption: JSON.parse(decryption), verification: verification};
+    }
+    else {
+        return {verification: verification};
+    }
+
+
 }
 
-export async function increment(secret) {
+export async function step(secret) {
     let kdf_key = await CS.importKey(
         "raw", secret, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
     );
@@ -132,20 +147,48 @@ export async function increment(secret) {
     return new_secret;
 }
 
-async function main() {
-    let shared_secret = await WC.getRandomValues(new Uint32Array(8));
 
-    let message = {
-        a: "this is something",
-        b: "this is also something"
-    }
-
-    let signed_and_encrypted_message = await encrypt_sign(message, shared_secret);
-    let decrypted_and_verified_message = await decrypt_verify(
-        signed_and_encrypted_message, shared_secret
+export async function step_root(secret) {
+    let kdf_key = await CS.importKey(
+        "raw", secret, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
     );
 
-    console.log(decrypted_and_verified_message.verification);
+    let new_secret = await CS.deriveBits(
+        { "name": "PBKDF2", salt: iv_root, iterations: 1000, hash: {name: "SHA-1"} },
+         kdf_key, 256
+    );
 
+    return new_secret;
+}
+
+
+export async function step_send(secret) {
+    let kdf_key = await CS.importKey(
+        "raw", secret, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
+    );
+
+    let new_secret = await CS.deriveBits(
+        { "name": "PBKDF2", salt: iv_send, iterations: 1000, hash: {name: "SHA-1"} },
+         kdf_key, 256
+    );
+
+    return new_secret;
+}
+
+export async function step_recieve(secret) {
+    let kdf_key = await CS.importKey(
+        "raw", secret, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
+    );
+
+    let new_secret = await CS.deriveBits(
+        { "name": "PBKDF2", salt: iv_recieve, iterations: 1000, hash: {name: "SHA-1"} },
+         kdf_key, 256
+    );
+
+    return new_secret;
+}
+
+async function main() {
+    console.log(await WC.getRandomValues(new Uint32Array(4)))
 
 }

@@ -7,9 +7,8 @@ const WC = new WebCrypto();
 const CS = WC.subtle;
 
 
-function internet() {
+export function internet() {
     let u = {};
-    u.name = "eve's evil interwebs";
     u.communication = {};
     u.add_user = function(new_user) {
         u.communication[new_user.name] = {};
@@ -22,6 +21,10 @@ function internet() {
     };
     u.send = function(user_from, user_to, message) {
         u.communication[user_from.name][user_to.name].push(message);
+    }
+    u.recieve = function(user_from, user_to, message) {
+        let message = u.communication[user_from.name][user_to.name].shift();
+        return message;
     }
     u.recieve_all = function(user_from, user_to) {
         let output = u.communication[user_from.name][user_to.name];
@@ -50,5 +53,3 @@ async function main() {
 
 
 }
-
-main();
