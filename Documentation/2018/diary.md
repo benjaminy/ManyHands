@@ -1,4 +1,10 @@
 ------
+2018-6-20
+
+Russian Censorship of Telegram
+https://www.schneier.com/blog/archives/2018/06/russian_censors.html
+
+------
 2018-6-10
 
 bwc. How could I do something like const decode = new TextEncoder.TextDecoder('utf-8').decode
