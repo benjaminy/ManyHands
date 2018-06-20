@@ -4,6 +4,12 @@
 Russian Censorship of Telegram
 https://www.schneier.com/blog/archives/2018/06/russian_censors.html
 
+Using Law against Technology
+https://www.schneier.com/blog/archives/2015/12/using_law_again.html
+
+Possible Government Demand for WhatsApp Backdoor
+https://www.schneier.com/blog/archives/2016/03/possible_govern.html
+
 ------
 2018-6-10
 
