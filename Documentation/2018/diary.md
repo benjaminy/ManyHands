@@ -11,6 +11,9 @@ https://www.schneier.com/blog/archives/2015/12/using_law_again.html
 Possible Government Demand for WhatsApp Backdoor
 https://www.schneier.com/blog/archives/2016/03/possible_govern.html
 
+bwc. Not totally sure how to simply convert a number into a fixed size buffer.
+For right now it seems somewhat sensible to just leave it at creating a new Uint32Array(1) and assigning the first element to the number.
+
 ------
 2018-6-10
 
