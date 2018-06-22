@@ -311,26 +311,40 @@ export function encodingWrapper( stream_kind, options, storage )
     return Object.assign( {}, storage, { upload:u, download:d } );
 }
 
-// export function authedPublicWrapper( options, storage )
-// {
-//     return filePtrGenWrapper(
-//         options.authGen,
-//         authenticationWrapper(
-//             options,
-//             randomNameWrapper(
-//                 options,
-//                 storage ) ) );
-// }
+export function authedPublicWrapper( options, storage )
+{
+    return filePtrGenWrapper(
+        options,
+        authenticationWrapper(
+            options,
+            randomNameWrapper(
+                options,
+                storage ) ) );
+}
 
-// export function authedPrivateWrapper( options, storage )
-// {
-//     return filePtrGenWrapper(
-//         options.authGen,
-//         filePtrGenWrapper(
-//             options.cryptGen,
-//             authenticationWrapper(
-//                 options,
-//             randomNameWrapper(
-//                 options,
-//                 storage ) ) );
-// }
+export function authedPrivateWrapper( options, storage )
+{
+    return filePtrGenWrapper(
+        options,
+        authenticationWrapper(
+            options,
+            confidentialityWrapper(
+                options,
+                randomNameWrapper(
+                    options,
+                    storage ) ) ) );
+}
+
+export function authedPublicJsonWrapper( options, storage )
+{
+    return encodingWrapper(
+        SK_JSON, options, authedPublicWrapper( options, storage ) );
+
+}
+
+export function authedPrivateJsonWrapper( options, storage )
+{
+    return encodingWrapper(
+        SK_JSON, options, authedPrivateWrapper( options, storage ) );
+
+}
