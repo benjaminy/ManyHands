@@ -10,8 +10,8 @@ const Encoder = new TextEncoder.TextEncoder();
 const Decoder = new TextEncoder.TextDecoder('utf-8');
 
 async function main() {
-    await test_form_and_parse_message_with_empty_header();
     await test_form_and_parse_message();
+    await test_form_and_parse_message_with_empty_header();
     await test_encrypt_decrypt();
     await test_sign_verify();
     await test_encode_decode_string();
@@ -33,7 +33,10 @@ async function test_form_and_parse_message() {
     );
     let parsed_messaage = await my_crypto.parse_message_buffer(shared_secret, message_buffer);
 
-    assert(parsed_messaage.plain_text === initial_message);
+    await my_crypto.verify(shared_secret, parsed_messaage.signature, parsed_messaage.signed_data);
+    let decrypted_message = await my_crypto.decrypt_text(shared_secret, parsed_messaage.cipher_text);
+
+    assert(decrypted_message === initial_message);
     assert(parsed_messaage.header.last_name === initial_header.last_name);
     assert(parsed_messaage.header.first_name === initial_header.first_name);
     success();
@@ -51,7 +54,10 @@ async function test_form_and_parse_message_with_empty_header() {
     );
     let parsed_messaage = await my_crypto.parse_message_buffer(shared_secret, message_buffer);
 
-    assert(parsed_messaage.plain_text === initial_message);
+    await my_crypto.verify(shared_secret, parsed_messaage.signature, parsed_messaage.signed_data);
+    let decrypted_message = await my_crypto.decrypt_text(shared_secret, parsed_messaage.cipher_text);
+
+    assert(decrypted_message === initial_message);
     assert(Object.keys(parsed_messaage.header).length === 0);
     success();
 }
@@ -119,7 +125,7 @@ async function test_export_import_dh_public_key() {
     let imported_key = await my_crypto.import_dh_key(key_object);
 
     let re_exported = await CS.exportKey("jwk", imported_key);
-    
+
     assert(key_object.kty === re_exported.kty);
     assert(key_object.crv === re_exported.crv);
     assert(key_object.x === re_exported.x);

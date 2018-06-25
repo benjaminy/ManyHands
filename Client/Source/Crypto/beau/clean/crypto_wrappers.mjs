@@ -50,7 +50,12 @@ export async function parse_message_buffer(secret_key, input_buffer) {
     let cipher_text = input_typed_array.slice((36 + header_length), input_length).buffer
     let plain_text = await decrypt_text(secret_key, cipher_text);
 
-    return { "header": header, "plain_text": plain_text }
+    return {
+        "signature": signature,
+        "signed_data": signed_data,
+        "header": header,
+        "cipher_text": cipher_text
+    }
 }
 
 export async function encrypt_text(secret_key, plain_text) {
