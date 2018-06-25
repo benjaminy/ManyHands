@@ -12,6 +12,8 @@ const Decoder = new TextEncoder.TextDecoder('utf-8');
 async function main() {
     await test_form_and_parse_message();
     await test_form_and_parse_message_with_empty_header();
+    await test_form_parse_header();
+    await test_form_parse_empty_header();
     await test_encrypt_decrypt();
     await test_sign_verify();
     await test_encode_decode_string();
@@ -31,7 +33,7 @@ async function test_form_and_parse_message() {
     let message_buffer = await my_crypto.form_message_buffer(
         shared_secret, initial_header, initial_message
     );
-    let parsed_messaage = await my_crypto.parse_message_buffer(shared_secret, message_buffer);
+    let parsed_messaage = await my_crypto.parse_message_buffer(message_buffer);
 
     await my_crypto.verify(shared_secret, parsed_messaage.signature, parsed_messaage.signed_data);
     let decrypted_message = await my_crypto.decrypt_text(shared_secret, parsed_messaage.cipher_text);
@@ -42,6 +44,7 @@ async function test_form_and_parse_message() {
     success();
 }
 
+// TODO: consider adding in the form header function
 async function test_form_and_parse_message_with_empty_header() {
     named_log("test forming and parsing a complete message");
 
@@ -52,13 +55,43 @@ async function test_form_and_parse_message_with_empty_header() {
     let message_buffer = await my_crypto.form_message_buffer(
         shared_secret, initial_header, initial_message
     );
-    let parsed_messaage = await my_crypto.parse_message_buffer(shared_secret, message_buffer);
+    let parsed_messaage = await my_crypto.parse_message_buffer(message_buffer);
 
     await my_crypto.verify(shared_secret, parsed_messaage.signature, parsed_messaage.signed_data);
     let decrypted_message = await my_crypto.decrypt_text(shared_secret, parsed_messaage.cipher_text);
 
     assert(decrypted_message === initial_message);
     assert(Object.keys(parsed_messaage.header).length === 0);
+    success();
+}
+
+async function test_form_parse_header() {
+    named_log("test forming and parsing a header object");
+
+    let public_key = await my_crypto.generate_dh_key();
+    public_key = public_key.publicKey;
+    // { name: 'ECDH', namedCurve: 'P-256' }
+    console.log(public_key);
+    let header_object = await my_crypto.form_header(public_key);
+    let parsed_header = await my_crypto.parse_header(header_object);
+
+    let exported_initial_key = await my_crypto.export_dh_key(public_key);
+    let exported_parsed_key = await my_crypto.export_dh_key(parsed_header.public_key);
+
+    assert(exported_initial_key.kty === exported_parsed_key.kty);
+    assert(exported_initial_key.crv === exported_parsed_key.crv);
+    assert(exported_initial_key.x === exported_parsed_key.x);
+    assert(exported_initial_key.y === exported_parsed_key.y);
+    success();
+}
+
+async function test_form_parse_empty_header() {
+    named_log("testing forming and parsing a header without a public key");
+
+    let header_object = await my_crypto.form_header();
+    let parsed_header = await my_crypto.parse_header(header_object);
+
+    assert(parsed_header.public_key === null);
     success();
 }
 
