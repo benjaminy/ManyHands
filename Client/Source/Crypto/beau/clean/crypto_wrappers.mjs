@@ -1,5 +1,4 @@
 import assert from "assert";
-import {text_to_array_buffer} from "./util.mjs";
 
 import WebCrypto from "node-webcrypto-ossl";
 const WC = new WebCrypto();
@@ -32,8 +31,9 @@ export async function form_message_buffer(secret_key, header, message_text) {
 }
 
 
-export async function parse_message_buffer(secret_key, input_buffer) {
-    assert(new DataView(secret_key).byteLength === 32);
+export async function parse_message_buffer(input_buffer) {
+// export async function parse_message_buffer(secret_key, input_buffer) {
+    // assert(new DataView(secret_key).byteLength === 32);
     assert(new DataView(input_buffer).byteLength >= 36);
 
     let input_typed_array = new Uint8Array(input_buffer);
@@ -41,14 +41,14 @@ export async function parse_message_buffer(secret_key, input_buffer) {
 
     let signature = input_typed_array.slice(0, 32).buffer
     let signed_data = input_typed_array.slice(32, input_length).buffer
-    await verify(secret_key, signature, signed_data);
+    // await verify(secret_key, signature, signed_data);
 
     let header_length = new Uint32Array(input_typed_array.slice(32, 36))[0];
     let header_buffer = input_typed_array.slice(36, (36 + header_length)).buffer;
     let header = decode_object(header_buffer);
 
     let cipher_text = input_typed_array.slice((36 + header_length), input_length).buffer
-    let plain_text = await decrypt_text(secret_key, cipher_text);
+    // let plain_text = await decrypt_text(secret_key, cipher_text);
 
     return {
         "signature": signature,
@@ -56,6 +56,22 @@ export async function parse_message_buffer(secret_key, input_buffer) {
         "header": header,
         "cipher_text": cipher_text
     }
+}
+
+export async function form_header(public_key) {
+    let header_object = {};
+    if (public_key !== undefined) {
+        header_object.public_key = await export_dh_key(public_key);
+    }
+    return header_object;
+}
+
+export async function parse_header(header) {
+    let public_key = null;
+    if (header.public_key) {
+        public_key = await import_dh_key(header.public_key);
+    }
+    return { "public_key": public_key }
 }
 
 export async function encrypt_text(secret_key, plain_text) {
@@ -148,7 +164,7 @@ export async function chain_kdf_step(chain_key) {
     assert(new DataView(chain_key).byteLength === 32);
 
     let kdf_key = await CS.importKey(
-        "raw", ck, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
+        "raw", chain_key, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
     );
 
     let output = await CS.deriveBits(
@@ -167,6 +183,20 @@ export async function generate_dh_key() {
     );
 
     return keypair;
+}
+
+export async function derive_dh(public_key, private_key) {
+    assert(public_key.algorithm.name === 'ECDH');
+    assert(public_key.type === 'public');
+    assert(private_key.algorithm.name === 'ECDH');
+    assert(private_key.type === 'private');
+
+    let secret = await CS.deriveBits(
+        { name: "ECDH", namedCurve: "P-256", public: public_key },
+        private_key, 256
+    );
+
+    return secret;
 }
 
 export async function export_dh_key(key) {

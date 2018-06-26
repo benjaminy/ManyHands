@@ -70,8 +70,6 @@ async function test_form_parse_header() {
 
     let public_key = await my_crypto.generate_dh_key();
     public_key = public_key.publicKey;
-    // { name: 'ECDH', namedCurve: 'P-256' }
-    console.log(public_key);
     let header_object = await my_crypto.form_header(public_key);
     let parsed_header = await my_crypto.parse_header(header_object);
 

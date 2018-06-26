@@ -12,7 +12,6 @@ export async function ratchet_encrypt(send_user, plain_text) {
 
     let message_header = {}
     if (send_user.new_send_key) {
-        console.log("alice is sending a new public key!");
         message_header = await my_crypto.form_header(send_user.send_key.publicKey);
         send_user.new_send_key = false;
     }
@@ -43,25 +42,35 @@ export async function ratchet_decrypt(recieve_user, message_buffer) {
     let header = await my_crypto.parse_header(parsed_message.header);
 
     if (header.public_key) {
-        console.log("Bob recieved a new public key!");
-
         // need to increment the recieve chain using the current sent key.
-        let ratchet_seed = await my_crypto.derive_dh(
-            header.public_key,
+        recieve_user.recieve_key = header.public_key;
+        let receive_ratchet_seed = await my_crypto.derive_dh(
+            recieve_user.recieve_key,
             recieve_user.send_key.privateKey
         );
 
-        let root_step = await my_crypto.root_kdf_step(
+        let recieve_root_step = await my_crypto.root_kdf_step(
             recieve_user.root_key,
-            ratchet_seed
+            receive_ratchet_seed
         );
-        recieve_user.root_key = root_step.root_key;
-        recieve_user.recieve_chain_key = root_step.chain_key;
-
+        recieve_user.root_key = recieve_root_step.root_key;
+        recieve_user.recieve_chain_key = recieve_root_step.chain_key;
 
         // need to create new send_key;
         recieve_user.new_send_key = true;
         recieve_user.send_key = await my_crypto.generate_dh_key();
+
+        let send_ratchet_seed = await my_crypto.derive_dh(
+            recieve_user.recieve_key,
+            recieve_user.send_key.privateKey
+        );
+
+        let send_root_step = await my_crypto.root_kdf_step(
+            recieve_user.root_key,
+            send_ratchet_seed
+        );
+        recieve_user.root_key = send_root_step.root_key;
+        recieve_user.send_chain_key = send_root_step.chain_key;
 
     }
 

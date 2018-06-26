@@ -17,6 +17,7 @@ export async function user(name, secret) {
     u.root_key = null;
     u.send_chain_key = null;
     u.recieve_chain_key = null;
+    u.messaging = {};
     return u;
 }
 
