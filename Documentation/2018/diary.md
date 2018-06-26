@@ -1,4 +1,11 @@
 ------
+2018-6-26
+
+bwc. When trying to to use a variable that is a string to create a new key in an object, you need to use the [] notation instead of dot notation
+for example. if my_str = foo, my_obj.my_str = "bar" will create {my_str: bar} instead of {"foo": "bar"} 
+
+
+------
 2018-6-20
 
 biy:
