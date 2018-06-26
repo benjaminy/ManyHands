@@ -17,7 +17,8 @@ async function main() {
     // await test_adding_multiple_particpants();
     await test_simple_messaging();
     await test_simple_two_way_messaging();
-    await test_simple_two_way_messaging();
+    await test_non_trivial_two_way_messaging();
+    await test_more_non_trivial_two_way_messaging()
 }
 main();
 
@@ -82,7 +83,7 @@ async function test_simple_messaging() {
 // It seems fair to assume that you never send a message until you've
 // recieved at least one.
 async function test_simple_two_way_messaging() {
-    named_log("test alice and bob sending each other a few messages");
+    named_log("test alice and bob sending abnd recieving each other a few messages");
 
     let alice = await my_user.user("alice");
     let bob = await my_user.user("bob");
@@ -122,7 +123,7 @@ async function test_simple_two_way_messaging() {
 
 
 async function test_non_trivial_two_way_messaging() {
-    named_log("test alice and bob sending each other a few messages");
+    named_log("test slight asyncrony between alice and bob");
 
     let alice = await my_user.user("alice");
     let bob = await my_user.user("bob");
@@ -152,6 +153,53 @@ async function test_non_trivial_two_way_messaging() {
 
     assert(alices_messages_0[0] === message_1);
     assert(bobs_messages_1[0] === message_2);
+    success();
+}
+
+async function test_more_non_trivial_two_way_messaging() {
+    named_log("test a bit more asyncrony between alice and bob");
+
+    let alice = await my_user.user("alice");
+    let bob = await my_user.user("bob");
+
+    await messaging.start_conversation([alice, bob]);
+
+    let message_0 = "foo";
+    let message_1 = "bar";
+    let message_2 = "baz";
+    let message_3 = "boop";
+    let message_4 = "bop";
+    let message_5 = "zip";
+    let message_6 = "zop";
+
+    await messaging.send(alice, bob, message_0);
+
+    let bobs_messages_0 = await messaging.recieve_all(bob, alice);
+
+    await messaging.send(bob, alice, message_1);
+    await messaging.send(alice, bob, message_2);
+    await messaging.send(bob, alice, message_3);
+    await messaging.send(alice, bob, message_4);
+
+
+    let alices_messages_0 = await messaging.recieve_all(alice, bob);
+    let bobs_messages_1 = await messaging.recieve_all(bob, alice);
+
+    await messaging.send(alice, bob, message_5);
+    await messaging.send(alice, bob, message_6);
+
+    let bobs_messages_2 = await messaging.recieve_all(bob, alice);
+
+    assert(bobs_messages_0[0] === message_0);
+
+    assert(alices_messages_0[0] === message_1);
+    assert(alices_messages_0[1] === message_3);
+
+    assert(bobs_messages_1[0] === message_2);
+    assert(bobs_messages_1[1] === message_4);
+
+    assert(bobs_messages_2[0] === message_5);
+    assert(bobs_messages_2[1] === message_6);
     success();
 }
 
