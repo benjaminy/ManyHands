@@ -54,6 +54,15 @@ async function main()
     const k_exp_kdf_ig = await WCS.exportKey( "jwk", k_kdf_ig );
     const k_exp_kdf_gi = await WCS.exportKey( "jwk", k_kdf_gi );
 
+    const k_gen_aes_cbc = await WCS.generateKey(
+        { name: "AES-CBC", length: 256 }, true, [ "encrypt", "decrypt" ] );
+    const k_gen_hmac = await WCS.generateKey(
+        { name: "HMAC", hash: { name: "SHA-256" }, length: 256 },
+        true, [ "sign", "verify" ] );
+
+    const k_exp_aes_cbc = await WCS.exportKey( "jwk", k_gen_aes_cbc );
+    const k_exp_hmac = await WCS.exportKey( "jwk", k_gen_hmac );
+
     console.log( "GEN DSA",     k_gen_dsa );
     console.log( "GEN DH",      k_gen_dh );
     console.log( "EXP DSA PUB", k_exp_dsa_pub );
@@ -66,6 +75,8 @@ async function main()
     console.log( "IMP DH PRI",  k_imp_dh_pri );
     console.log( "KDF IG",      k_exp_kdf_ig );
     console.log( "KDF GI",      k_exp_kdf_gi );
+    console.log( "EXP AES-CBC", k_exp_aes_cbc );
+    console.log( "EXP HMAC",    k_exp_hmac );
 }
 
 main();
