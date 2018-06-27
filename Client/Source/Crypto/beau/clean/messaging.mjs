@@ -91,10 +91,21 @@ export async function recieve_all(recipient, sender_name) {
     let output = [];
 
     while (recipient.conversations[sender_name].recieve_queue.length > 0) {
-        let current_message = recipient.conversations[sender_name].recieve_queue.shift()
-        let plain_text = await double_ratchet.ratchet_decrypt(recipient.conversations[sender_name], current_message);
+        let plain_text = await recieve_message(recipient, sender_name);
         output.push(plain_text)
     }
 
     return output;
+}
+
+export async function recieve_message(recipient, sender_name) {
+    assert(typeof recipient.name === "string");
+    assert(typeof sender_name === "string");
+    assert(recipient.conversations[sender_name].recieve_queue.length > 0);
+
+    let current_message = recipient.conversations[sender_name].recieve_queue.shift();
+    let plain_text = await double_ratchet.ratchet_decrypt(recipient.conversations[sender_name], current_message);
+
+    return plain_text;
+
 }
