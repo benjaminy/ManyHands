@@ -30,16 +30,14 @@ async function test_send_with_public_key() {
 
     let bobs_keypair = await my_crypto.generate_dh_key();
 
-    await my_user.init_sender(alice, shared_secret, bobs_keypair.publicKey);
-    await my_user.init_reciever(bob, shared_secret, bobs_keypair);
+    await my_user.init_conversation(alice, bob, shared_secret, bobs_keypair);
 
     let send_buffer = await double_ratchet.ratchet_encrypt(
-        alice, initial_message
+        alice.conversations.bob, initial_message
     );
     let decrypted_message = await double_ratchet.ratchet_decrypt(
-        bob, send_buffer
+        bob.conversations.alice, send_buffer
     );
-
 
     assert(initial_message === decrypted_message);
     success();
@@ -58,20 +56,19 @@ async function test_multiple_sends() {
 
     let bobs_keypair = await my_crypto.generate_dh_key();
 
-    await my_user.init_sender(alice, shared_secret, bobs_keypair.publicKey);
-    await my_user.init_reciever(bob, shared_secret, bobs_keypair);
+    await my_user.init_conversation(alice, bob, shared_secret, bobs_keypair);
 
     let send_buffer_one = await double_ratchet.ratchet_encrypt(
-        alice, message_one
+        alice.conversations.bob, message_one
     );
     let send_buffer_two = await double_ratchet.ratchet_encrypt(
-        alice, message_two
+        alice.conversations.bob, message_two
     );
     let decrypted_message_one = await double_ratchet.ratchet_decrypt(
-        bob, send_buffer_one
+        bob.conversations.alice, send_buffer_one
     );
     let decrypted_message_two = await double_ratchet.ratchet_decrypt(
-        bob, send_buffer_two
+        bob.conversations.alice, send_buffer_two
     );
 
     assert(message_one === decrypted_message_one);

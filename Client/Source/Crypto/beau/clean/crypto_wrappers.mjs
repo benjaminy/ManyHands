@@ -9,6 +9,7 @@ const Encoder = new TextEncoder.TextEncoder();
 const Decoder = new TextEncoder.TextDecoder('utf-8');
 
 let IV_VAL = new Uint32Array([ 4183535103, 1663654904, 3786963079, 1962665393 ]).buffer;
+let IV_ROOT_VAL = new Uint32Array([ 4183535103, 1663654904, 3786963079, 1962665393 ]).buffer;
 
 export async function form_message_buffer(secret_key, header, message_text) {
     assert(new DataView(secret_key).byteLength === 32);
@@ -50,6 +51,7 @@ export async function parse_message_buffer(input_buffer) {
     let cipher_text = input_typed_array.slice((36 + header_length), input_length).buffer
     // let plain_text = await decrypt_text(secret_key, cipher_text);
 
+    // TODO: js convention no quotations on keys
     return {
         "signature": signature,
         "signed_data": signed_data,
@@ -152,7 +154,7 @@ export async function root_kdf_step(root_key, ratchet_seed) {
     );
 
     let output = await CS.deriveBits(
-        { "name": "PBKDF2", salt: IV_VAL, iterations: 1000, hash: {name: "SHA-1"} },
+        { "name": "PBKDF2", salt: IV_ROOT_VAL, iterations: 2, hash: {name: "SHA-1"} },
          kdf_key, 256
     );
 
@@ -168,7 +170,7 @@ export async function chain_kdf_step(chain_key) {
     );
 
     let output = await CS.deriveBits(
-        { "name": "PBKDF2", salt: IV_VAL, iterations: 1000, hash: {name: "SHA-1"} },
+        { "name": "PBKDF2", salt: IV_VAL, iterations: 2, hash: {name: "SHA-1"} },
          kdf_key, 256
     );
 
