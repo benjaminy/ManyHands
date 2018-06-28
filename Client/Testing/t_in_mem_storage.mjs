@@ -8,20 +8,23 @@ import * as SW from "../Source/Storage/wrappers";
 import * as CB from "../Source/Crypto/basics";
 const WCS = CB.CS;
 
-const u1 = async function u1( s ) {
+async function just_upload( s ) {
     var resp = await s.upload( { path: "sadf" }, { header_hooks:[], body:new Uint8Array(6) } );
-    console.log( "U1", resp.ok, resp.status, resp.statusText );
-};
+    console.log( "just_upload", resp.ok, resp.status, resp.statusText );
+    assert( resp.ok );
+}
 
-const e1 = async function e1( s ) {
+async function up_down( s ) {
     const j = SW.encodingWrapper( SW.SK_JSON, {}, s );
-    var resp1 = await j.upload( { path: "t2" }, { body: { a: "42", b: 42 } } );
-    var resp2 = await j.download( { path: "t2" }, {} );
-    var yelp = await resp2.json();
-    console.log( "E1", resp2.ok, resp2.status, resp2.statusText, yelp );
-};
+    const obj_orig = { a: "42", b: 42 };
+    var resp_u = await j.upload( { path: "t2" }, { body: obj_orig } );
+    var resp_d = await j.download( { path: "t2" }, {} );
+    var obj_down = await resp_d.json();
+    console.log( "up_down", resp_d.ok, resp_d.status, resp_d.statusText, obj_down );
+    assert( JSON.stringify( obj_orig ) === JSON.stringify( obj_down ) );
+}
 
-const c1 = async function c1( s ) {
+async function up_down_crypto( s ) {
     async function generateKeyIV() {
         const k = await WCS.generateKey(
             { name: "AES-CBC", length:256 }, true, [ "encrypt", "decrypt" ] );
@@ -45,14 +48,18 @@ const c1 = async function c1( s ) {
                   { encrypt: encrypt,
                     decrypt: decrypt },
                   s ) ) );
-    var resp1 = await j.upload( { path: "tx2" }, { body: { a: "42", b: 42, c: [ 7, 8 ] } } );
-    console.log( "C1", resp1.ok, resp1.status, resp1.statusText, resp1.file_ptr.iv, resp1.file_ptr.key );
-    const fp = Object.assign( { path: "tx2" }, resp1.file_ptr );
-    var resp2 = await j.download( fp, {} );
-    console.log( "C1b", resp1.ok, resp1.status, resp1.statusText, await resp2.json() );
-};
+    const obj_orig = { a: "42", b: 42, c: [ 7, 8 ] };
+    var resp_u = await j.upload( { path: "tx2" }, { body: obj_orig } );
+    const fp_u = resp_u.file_ptr;
+    console.log( "up_down_cryptoA", resp_u.ok, resp_u.status, resp_u.statusText, fp_u.iv, fp_u.key );
+    const fp = Object.assign( { path: "tx2" }, resp_u.file_ptr );
+    var resp_d = await j.download( fp, {} );
+    var obj_down = await resp_d.json();
+    console.log( "up_down_cryptoB", resp_d.ok, resp_d.status, resp_d.statusText, obj_down );
+    assert( JSON.stringify( obj_orig ) === JSON.stringify( obj_down ) );
+}
 
-const v1 = async function v1( s ) {
+async function up_down_crypto_verify( s ) {
     async function generateStuff() {
         const kc = await WCS.generateKey(
             { name: "AES-CBC", length:256 }, true, [ "encrypt", "decrypt" ] );
@@ -60,6 +67,12 @@ const v1 = async function v1( s ) {
         const ks = await WCS.generateKey(
             { name: "HMAC", hash:"SHA-256" }, true, [ "sign", "verify" ] );
         return { keyC:kc, iv:iv, keyS:ks };
+    }
+    async function fpToPlainData( fp )
+    {
+        return { keyC: await WCS.exportKey( "jwk", fp.keyC ),
+                 iv  : fp.iv,
+                 keyS: await WCS.exportKey( "jwk", fp.keyS ) };
     }
     function encrypt( data, file_ptr ) {
         return WCS.encrypt( { name: "AES-CBC", iv:file_ptr.iv }, file_ptr.keyC, data );
@@ -73,34 +86,32 @@ const v1 = async function v1( s ) {
     function verify( signature, data, file_ptr ) {
         return WCS.verify( { name: "HMAC" }, file_ptr.keyS, signature, data );
     }
-    const j =
-      SW.encodingWrapper(
-          SW.SK_JSON, {},
-          SW.filePtrGenWrapper(
-              { param_name: "stuff",
-                stuff_generator: generateStuff },
-              SW.confidentialityWrapper(
-                  { encrypt: encrypt,
-                    decrypt: decrypt },
-                  SW.authenticationWrapper(
-                      { tag_bytes: 32,
-                        sign: sign,
-                        verify: verify },
-                      s ) ) ) );
 
-    var resp1 = await j.upload( { path: "tx2" }, { body: { a: "42", b: 42, c: [ 7, 8 ], d:"quick brown" } } );
-    console.log( "V1", resp1.ok, resp1.status, resp1.statusText, resp1.file_ptr.iv, resp1.file_ptr.key );
-    const fp = Object.assign( { path: "tx2" }, resp1.file_ptr );
-    var resp2 = await j.download( fp, {} );
-    console.log( "V1b", resp1.ok, resp1.status, resp1.statusText, await resp2.json() );
+    const j = SW.authedPrivateJsonWrapper(
+        { param_name: "stuff",
+          stuff_generator: generateStuff,
+          encrypt: encrypt,
+          decrypt: decrypt,
+          tag_bytes: 32,
+          sign: sign,
+          verify: verify },
+        s);
+
+    const obj_orig = { a: "42", b: 42, c: [ 7, 8 ], d:"quick brown" };
+    const resp_u = await j.upload( { path: "tx2" }, { body: obj_orig } );
+    console.log( "V1", resp_u.ok, resp_u.status, resp_u.statusText, resp_u.file_ptr.iv, resp_u.file_ptr.key );
+    const resp_d = await j.download( resp_u.file_ptr, {} );
+    const obj_down = await resp_d.json();
+    console.log( "V1b", resp_d.ok, resp_d.status, resp_d.statusText, obj_down );
+    assert( JSON.stringify( obj_orig ) === JSON.stringify( obj_down ) );
 }
 
 async function main() {
     const s = SM( { path_prefix: [ "alice", "home" ] } );
-    await u1( s );
-    await e1( s );
-    await c1( s );
-    await v1( s );
+    await just_upload( s );
+    await up_down( s );
+    await up_down_crypto( s );
+    await up_down_crypto_verify( s );
     console.log( "VICTORY" );
 }
 

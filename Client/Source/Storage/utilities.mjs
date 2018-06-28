@@ -31,26 +31,10 @@ export function overwriteHeader( headers, header_name, header_value )
 {
     if( headers.has( header_name ) )
     {
-        L.warn( "Overwriting", header_name, headers.get( header_name ) );
+        L.warn( "Overwriting header", header_name,
+                "WAS:", headers.get( header_name ),
+                "NOW:", header_value );
         headers.delete( header_name );
     }
     headers.set( header_name, header_value );
 }
-
-export function encode_path( ...path_parts )
-{
-    assert( path_parts.every( ( p ) => ( typeof( p ) === "string" || Array.isArray( p ) ) ) );
-
-    var path = [];
-
-    for( const part of path_parts )
-    {
-        if( typeof( part ) === "string" )
-            path.push( part )
-        else
-            path = path.concat( part );
-    }
-
-    return path.map( encodeURIComponent ).join( "/" );
-}
-
