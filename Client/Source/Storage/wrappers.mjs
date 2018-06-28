@@ -185,9 +185,9 @@ export function authenticationWrapper( options, storage )
         }
         // 'else': response looks ok so far
         const tag_plus_body = new Uint8Array( await response.arrayBuffer() );
-        /* TODO: is copying the byte arrays necessary? */
-        const tag  = tag_plus_body.subarray( 0, tag_bytes );
-        const body = tag_plus_body.subarray( tag_bytes );
+        /* TODO: WTF about needing to make new byte arrays? */
+        const tag  = new Uint8Array( tag_plus_body.subarray( 0, tag_bytes ) );
+        const body = new Uint8Array( tag_plus_body.subarray( tag_bytes ) );
         const verified = await verify( tag, body, file_ptr );
         if( !verified )
         {

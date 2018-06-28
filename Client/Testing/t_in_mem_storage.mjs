@@ -80,11 +80,20 @@ async function up_down_crypto_verify( s ) {
     function decrypt( data, file_ptr ) {
         return WCS.decrypt( { name: "AES-CBC", iv:file_ptr.iv }, file_ptr.keyC, data );
     }
-    function sign( data, file_ptr ) {
-        return WCS.sign( { name: "HMAC" }, file_ptr.keyS, data );
+    async function sign( data, file_ptr ) {
+        const signature = await WCS.sign( { name: "HMAC" }, file_ptr.keyS, data );
+        console.log( "SIGN", ( await WCS.exportKey( "jwk", file_ptr.keyS ) ).k,
+                     ( new Uint8Array( data ) ).join(),
+                     ( new Uint8Array( signature ) ).join() );
+        return signature;
     }
-    function verify( signature, data, file_ptr ) {
-        return WCS.verify( { name: "HMAC" }, file_ptr.keyS, signature, data );
+    async function verify( signature, data, file_ptr ) {
+        const verif = await WCS.verify( { name: "HMAC" }, file_ptr.keyS, signature, data );
+        console.log( "VERF", ( await WCS.exportKey( "jwk", file_ptr.keyS ) ).k,
+                     ( new Uint8Array( data ) ).join(),
+                     ( new Uint8Array( signature ) ).join(),
+                     verif );
+        return verif;
     }
 
     const j = SW.authedPrivateJsonWrapper(

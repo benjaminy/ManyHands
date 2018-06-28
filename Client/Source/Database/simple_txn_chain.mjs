@@ -23,45 +23,38 @@ export function newDB( storage, options )
 {
     assert( DC.kinds.has( kind ) );
     const db = {};
-    db.txn_root       = null;
+    db.root_ptr       = null;
     db.next_entity_id = 0;
 
 
     return db;
 }
 
-export async function open( storage, root_ptr )
-{
-    const db = {};
-    db.storage = storage;
-    db.root_ptr = root_ptr;
-    db.txn_chain = fullRead( db, root_ptr );
-}
-
-async function fullRead( db, file_ptr )
-{
-    const txn_serialized = await db.storage.download( file_ptr, {} );
-    var next_ptr = null;
-    var next = null;
-    if( txn_serialized.next )
-    {
-        next_ptr = db.storage.fpFromPlainData( txn_serialized.next );
-        next = fullRead( db, next_ptr );
-    }
-    const txn = {};
-    txn.orig = deserializeTxn( txn_serialized );
-}
-
-export async function huh( user, storage, root_ptr )
-{
-    const root_storage = 42;
-    const resp = storage.download( root_ptr);
-}
-
 export const initializeStorage = async function createDB( db )
 {
     
 };
+
+export async function open( storage, root_ptr )
+{
+    const db = {};
+    db.storage  = storage;
+    db.root_ptr = root_ptr;
+    db.txns     = fullRead( db, root_ptr );
+}
+
+async function fullRead( db, file_ptr )
+{
+    const txn = await db.storage.download( file_ptr, {} );
+    if( txn.next_ptr )
+    {
+        txn.next_ptr = db.storage.fpFromPlainData( txn.next_ptr );
+        txn.next = fullRead( db, txn.next_ptr );
+    }
+
+    /* TODO More stuff */
+    return txn;
+}
 
 export function addTxn( db, txn )
 {
@@ -80,12 +73,17 @@ export async function commitAddedTxns( db )
     }
 }
 
-export async function pushCommittedTxns( db )
+export async function submitCommittedTxns( db )
 {
     async function helper( txn )
     {
         if( !txn )
-            return db.root_file_ptr;
+            return [ null, null ];
+        if( txn.next_ptr )
+            return [ db.root_ptr, txn ];
+        const [ next_ptr, next ] = helper( txn.next );
+        const txn_uploaded = Object.assign( {}, txn, {} );
+        const resp = db.storage.upload( {}, {} );
     }
     prev_file_ptr = null;
     //for( const txn of db. )
