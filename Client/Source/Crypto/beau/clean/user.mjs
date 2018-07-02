@@ -66,7 +66,7 @@ export async function init_conversation_keys(shared_secret) {
     let conversation = {}
     conversation.root_key = shared_secret;
 
-    conversation.send_key = null;
+    conversation.send_key = {publicKey: null, privateKey: null};
     conversation.recieve_key = null;
     conversation.new_send_key = true;
 

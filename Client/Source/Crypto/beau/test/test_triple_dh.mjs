@@ -26,7 +26,7 @@ async function first_tipdif() {
     let bob = await user.new_user("bob");
 
     let sender_dh_out = await diffie.sender_triple_diffie_hellman(
-        alice.priv.init_keys, bob.pub.init_keys
+        alice.priv, bob.pub
     );
 
     assert(new DataView(sender_dh_out.shared_secret).byteLength === 128);
@@ -35,7 +35,7 @@ async function first_tipdif() {
 
 
     let reciever_dh_out = await diffie.reciever_triple_diffie_hellman(
-        alice.pub.init_keys.id_dh, sender_dh_out.ephemeral_public_key, bob.priv.init_keys
+        alice.pub.id_dh, sender_dh_out.ephemeral_public_key, bob.priv
     );
 
     assert(reciever_dh_out.buffer === sender_dh_out.shared_secret.buffer);

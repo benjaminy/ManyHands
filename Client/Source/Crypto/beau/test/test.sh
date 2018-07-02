@@ -1,8 +1,11 @@
 #!/bin/bash
-
-file=0
-for file in $(ls)
+file=0;
+for file in ./*
 do
-  echo "*****************$FILE*****************";
-  nodef "$FILE";
+  echo ""
+  echo "*****************$file*****************";
+  echo ""
+  echo ""
+
+  nodef "$file";
 done

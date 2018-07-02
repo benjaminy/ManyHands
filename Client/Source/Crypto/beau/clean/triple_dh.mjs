@@ -71,7 +71,7 @@ export async function reciever_triple_diffie_hellman(sender_id_dh, ephemeral_pub
 
 export async function core_triple_diffie_hellman(...keypairs) {
 
-    const secrets = await Promise.all(kepairs.map(crypto.derive_dh));
+    const secrets = await Promise.all(keypairs.map(crypto.derive_dh));
 
     let shared_secret = await crypto.combine_buffers(secrets);
     return shared_secret;

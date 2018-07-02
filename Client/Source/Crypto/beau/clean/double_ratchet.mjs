@@ -26,10 +26,10 @@ export async function ratchet_encrypt(sender_conversation, header, plain_text) {
 export async function sender_ratchet_step(sender_conversation) {
     const send_key = await crypto.generate_dh_key();
 
-    let send_ratchet_seed = await crypto.derive_dh(
-        sender_conversation.recieve_key,
-        send_key.privateKey
-    );
+    let send_ratchet_seed = await crypto.derive_dh({
+        publicKey: sender_conversation.recieve_key,
+        privateKey: send_key.privateKey
+    });
 
     let send_root_step = await crypto.root_kdf_step(
         sender_conversation.root_key,
@@ -67,10 +67,10 @@ export async function ratchet_decrypt(reciever_conversation, message_header, mes
 }
 
 export async function reciever_ratchet_step(reciever_conversation) {
-    const receive_ratchet_seed = await crypto.derive_dh(
-        reciever_conversation.recieve_key,
-        reciever_conversation.send_key.privateKey
-    );
+    const receive_ratchet_seed = await crypto.derive_dh({
+        publicKey: reciever_conversation.recieve_key,
+        privateKey: reciever_conversation.send_key.privateKey
+    });
 
     const recieve_root_step = await crypto.root_kdf_step(
         reciever_conversation.root_key,
@@ -79,7 +79,7 @@ export async function reciever_ratchet_step(reciever_conversation) {
 
     return {
         root_key: recieve_root_step.root_key,
-        recieve_chain_key: recieve_root_step.chain_key
-        new_send_key: true;
+        recieve_chain_key: recieve_root_step.chain_key,
+        new_send_key: true
     }
 }

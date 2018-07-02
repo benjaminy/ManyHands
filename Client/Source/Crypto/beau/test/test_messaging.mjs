@@ -31,7 +31,6 @@ async function test_parse_form_message() {
 
     const text = "the lazy brown fox jumps over the log";
     const text_buffer = crypto.encode_string(text);
-
     const message_buffer = await messaging.form_message_buffer(header, text_buffer);
 
     const parsed_message = await messaging.parse_message_buffer(message_buffer);

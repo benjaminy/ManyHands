@@ -25,6 +25,7 @@ export async function sign_key(dsa_private_key, key_to_sign) {
         dsa_private_key, data_to_sign
     );
 
+
     return signature;
 }
 
@@ -123,6 +124,8 @@ export async function sign(secret_key, data_to_sign) {
         { name: "HMAC" }, sign_key, data_to_sign
     );
 
+    console.log("******************************Signature length******************************");
+    console.log(new DataView(signature).byteLength);
     return signature;
 }
 
@@ -190,7 +193,7 @@ export async function generate_dh_key() {
 
 export async function derive_dh(keypair) {
     const public_key = keypair.publicKey;
-    const private_key = keypair.publicKey;
+    const private_key = keypair.privateKey;
 
     assert(public_key.algorithm.name === 'ECDH');
     assert(public_key.type === 'public');
@@ -217,6 +220,10 @@ export async function import_dh_key(key_object) {
     );
 
     return imported_key;
+}
+
+export async function random_secret() {
+    return await WC.getRandomValues(new Uint8Array(32)).buffer
 }
 
 export function encode_string(text) {

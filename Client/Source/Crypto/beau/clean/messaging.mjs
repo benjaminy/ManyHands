@@ -5,6 +5,8 @@ import * as diffie from "./triple_dh"
 
 import assert from "assert";
 
+const groups = {};
+
 export async function send(sender, reciever_pub, message) {
     const message_header = {};
     message_header.sender_uid = sender.pub.uid;
@@ -23,9 +25,7 @@ export async function send(sender, reciever_pub, message) {
         sender.priv.conversations[reciever_pub.uid], message_header, message
     );
 
-    const export_buffer = await form_message_buffer(
-        sender.priv.id_dsa, ratchet_out.header, ratchet_out.cipher_text
-    );
+    const export_buffer = await form_message_buffer(ratchet_out.header, ratchet_out.cipher_text);
 
     reciever_pub.inbox.push(export_buffer);
 }
@@ -58,9 +58,14 @@ export async function recieve_message(reciever) {
     return plain_text;
 }
 
+export function create_new_group(name, group_members_pub) {
+    groups[name] = [];
+    for (let i = 0; i < group_members.length; i++) {
+        groups[name].push(group_members_pub.uid);
+    };
+}
 
-
-export async function form_message_buffer(id_dsa, header, message_buffer) {
+export async function form_message_buffer(header, message_buffer) {
     const message_header = Object.assign(header);
 
     if (header.ephemeral_public_key !== undefined) {
@@ -82,6 +87,8 @@ export async function form_message_buffer(id_dsa, header, message_buffer) {
     const export_buffer = crypto.combine_buffers(
         [header_byte_size_buffer, header_buffer, message_buffer]
     )
+
+    // const signature = await crytpo.sign(id_dsa, export_buffer);
 
     return export_buffer;
 }
