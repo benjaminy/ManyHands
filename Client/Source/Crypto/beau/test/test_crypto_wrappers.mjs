@@ -10,6 +10,7 @@ const Encoder = new TextEncoder.TextEncoder();
 const Decoder = new TextEncoder.TextDecoder('utf-8');
 
 async function main() {
+    await test_sign_verify_key();
     await test_form_and_parse_message();
     await test_form_and_parse_message_with_empty_header();
     await test_form_parse_header();
@@ -22,6 +23,25 @@ async function main() {
     await test_export_import_dh_public_key();
 }
 main();
+
+async function test_sign_verify_key() {
+    named_log("testing signing and verifying a key using a dsa public key");
+
+    let identity_dh = await my_crypto.generate_dh_key();
+    let identity_dsa = await my_crypto.generate_dsa_key(identity_dh);
+
+    let prekey = await my_crypto.generate_dh_key();
+
+    let key_signature = await my_crypto.sign_key(prekey.publicKey, identity_dsa.privateKey);
+    let key_verification = await my_crypto.verify_key_signature(
+        key_signature,
+        prekey.publicKey,
+        identity_dsa.publicKey
+    )
+
+    assert(key_verification);
+    success();
+}
 
 async function test_form_and_parse_message() {
     named_log("test forming and parsing a complete message");
