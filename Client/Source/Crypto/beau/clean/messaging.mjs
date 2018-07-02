@@ -14,7 +14,6 @@ const WC = new WebCrypto();
 const CS = WC.subtle;
 
 export async function send(sender, reciever_pub, message) {
-    console.log("********SEND********");
     const message_header = {};
     message_header.sender_uid = sender.pub.uid;
 
@@ -42,8 +41,6 @@ export async function send(sender, reciever_pub, message) {
 }
 
 export async function recieve_message(reciever) {
-    console.log("********RECIEVE********");
-
     const message_buffer = reciever.pub.inbox.shift();
     const parsed_message = await parse_message_buffer(message_buffer);
 
