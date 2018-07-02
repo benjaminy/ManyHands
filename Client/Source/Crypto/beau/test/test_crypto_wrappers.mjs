@@ -1,5 +1,5 @@
 import assert from "assert";
-import * as my_crypto from "../clean/crypto_wrappers";
+import * as crypto from "../clean/crypto_wrappers";
 
 import WebCrypto from "node-webcrypto-ossl";
 const WC = new WebCrypto();
@@ -23,13 +23,13 @@ main();
 async function test_sign_verify_key() {
     named_log("testing signing and verifying a key using a dsa public key");
 
-    let identity_dh = await my_crypto.generate_dh_key();
-    let identity_dsa = await my_crypto.generate_dsa_key(identity_dh);
+    let identity_dh = await crypto.generate_dh_key();
+    let identity_dsa = await crypto.derive_dsa_key(identity_dh);
 
-    let prekey = await my_crypto.generate_dh_key();
+    let prekey = await crypto.generate_dh_key();
 
-    let key_signature = await my_crypto.sign_key(identity_dsa.privateKey, prekey.publicKey);
-    let key_verification = await my_crypto.verify_key_signature(
+    let key_signature = await crypto.sign_key(identity_dsa.privateKey, prekey.publicKey);
+    let key_verification = await crypto.verify_key_signature(
         identity_dsa.publicKey,
         prekey.publicKey,
         key_signature
@@ -42,11 +42,11 @@ async function test_sign_verify_key() {
 async function test_encrypt_decrypt() {
     named_log("test encrypting and decrypting a message");
 
-    let shared_secret = await my_crypto.random_secret();
+    let shared_secret = await crypto.random_secret();
     let initial_message = "I'm running away to the circus mom!";
 
-    let cipher_text = await my_crypto.encrypt_text(shared_secret, initial_message);
-    let decryption = await my_crypto.decrypt_text(shared_secret, cipher_text);
+    let cipher_text = await crypto.encrypt_text(shared_secret, initial_message);
+    let decryption = await crypto.decrypt_text(shared_secret, cipher_text);
     assert(initial_message === decryption);
     success();
 }
@@ -54,13 +54,13 @@ async function test_encrypt_decrypt() {
 async function test_sign_verify() {
     named_log("test signing and verifying a message");
 
-    let shared_secret = await my_crypto.random_secret();
+    let shared_secret = await crypto.random_secret();
     let initial_message = "I'm running away to the circus mom!";
 
-    let initial_message_buffer = my_crypto.encode_string(initial_message);
+    let initial_message_buffer = crypto.encode_string(initial_message);
 
-    let signature = await my_crypto.sign(shared_secret, initial_message_buffer);
-    let verification = await my_crypto.verify(shared_secret, signature, initial_message_buffer);
+    let signature = await crypto.sign(shared_secret, initial_message_buffer);
+    let verification = await crypto.verify(shared_secret, signature, initial_message_buffer);
     assert(verification);
     success();
 }
@@ -69,8 +69,8 @@ async function test_encode_decode_string() {
     named_log("test encoding and decoding a string");
     let string_to_encode = "Foo Bar Baz";
 
-    let encoded_string = my_crypto.encode_string(string_to_encode);
-    let decoded_string = my_crypto.decode_string(encoded_string);
+    let encoded_string = crypto.encode_string(string_to_encode);
+    let decoded_string = crypto.decode_string(encoded_string);
 
 
     assert(string_to_encode === decoded_string);
@@ -85,8 +85,8 @@ async function test_encode_decode_object() {
         "carreer": "winner"
     };
 
-    let encoded_object = my_crypto.encode_object(my_object);
-    let decoded_object = my_crypto.decode_object(encoded_object);
+    let encoded_object = crypto.encode_object(my_object);
+    let decoded_object = crypto.decode_object(encoded_object);
     assert(decoded_object.pet === my_object.pet);
     assert(decoded_object.age === my_object.age);
     assert(decoded_object.carreer === my_object.carreer);
@@ -95,11 +95,11 @@ async function test_encode_decode_object() {
 
 async function test_export_import_dh_public_key() {
     named_log("test import and export a public key");
-    let dh_keypair = await my_crypto.generate_dh_key();
+    let dh_keypair = await crypto.generate_dh_key();
     let public_key = dh_keypair.publicKey;
 
-    let key_object = await my_crypto.export_dh_key(public_key);
-    let imported_key = await my_crypto.import_dh_key(key_object);
+    let key_object = await crypto.export_dh_key(public_key);
+    let imported_key = await crypto.import_dh_key(key_object);
 
     let re_exported = await CS.exportKey("jwk", imported_key);
 
@@ -116,11 +116,11 @@ async function test_combine_buffers() {
     let string_one = "the lazy brown fox";
     let string_two = " jumps over the log";
 
-    let buffer_one = my_crypto.encode_string(string_one);
-    let buffer_two = my_crypto.encode_string(string_two);
+    let buffer_one = crypto.encode_string(string_one);
+    let buffer_two = crypto.encode_string(string_two);
 
-    let combined_buffers = my_crypto.combine_buffers([buffer_one, buffer_two]);
-    let decoded_combined_buffers = my_crypto.decode_string(combined_buffers)
+    let combined_buffers = crypto.combine_buffers([buffer_one, buffer_two]);
+    let decoded_combined_buffers = crypto.decode_string(combined_buffers)
 
     assert((string_one + string_two) === decoded_combined_buffers);
     success();

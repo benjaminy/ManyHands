@@ -21,17 +21,17 @@ async function test_init_id_keys() {
 
     const bob = await user.new_user("bob");
 
-    assert(bob.pub.init_keys.id_dh.type === "public");
-    assert(bob.pub.init_keys.id_dsa.type === "public");
+    assert(bob.pub.id_dh.type === "public");
+    assert(bob.pub.id_dsa.type === "public");
 
-    assert(bob.priv.init_keys.id_dh.type === "private");
-    assert(bob.priv.init_keys.id_dsa.type === "private");
+    assert(bob.priv.id_dh.type === "private");
+    assert(bob.priv.id_dsa.type === "private");
 
-    assert(bob.pub.init_keys.id_dh.algorithm.name === "ECDH");
-    assert(bob.pub.init_keys.id_dsa.algorithm.name === "ECDSA");
+    assert(bob.pub.id_dh.algorithm.name === "ECDH");
+    assert(bob.pub.id_dsa.algorithm.name === "ECDSA");
 
-    assert(bob.priv.init_keys.id_dh.algorithm.name === "ECDH");
-    assert(bob.priv.init_keys.id_dsa.algorithm.name === "ECDSA");
+    assert(bob.priv.id_dh.algorithm.name === "ECDH");
+    assert(bob.priv.id_dsa.algorithm.name === "ECDSA");
 
     success();
 
@@ -41,18 +41,18 @@ async function test_init_signed_prekey() {
     named_log("testing the creation of the signed prekey");
     const bob = await user.new_user();
 
-    assert(bob.pub.init_keys.prekey.type === "public");
-    assert(bob.pub.init_keys.prekey.algorithm.name === "ECDH");
+    assert(bob.pub.prekey.type === "public");
+    assert(bob.pub.prekey.algorithm.name === "ECDH");
 
-    assert(bob.priv.init_keys.prekey.type === "private");
-    assert(bob.priv.init_keys.prekey.algorithm.name === "ECDH");
+    assert(bob.priv.prekey.type === "private");
+    assert(bob.priv.prekey.algorithm.name === "ECDH");
 
-    assert(new DataView(bob.pub.init_keys.prekey_signature).byteLength > 0);
+    assert(new DataView(bob.pub.prekey_signature).byteLength > 0);
 
     const key_verification = await crypto.verify_key_signature(
-        bob.pub.init_keys.id_dsa,
-        bob.pub.init_keys.prekey,
-        bob.pub.init_keys.prekey_signature
+        bob.pub.id_dsa,
+        bob.pub.prekey,
+        bob.pub.prekey_signature
     );
 
     assert(key_verification);
@@ -65,18 +65,18 @@ async function test_init_one_time_prekeys() {
     named_log("testing the creation of the one time prekey arrays");
     const bob = await user.new_user("bob");
 
-    assert(Array.isArray(bob.pub.init_keys.otpks));
-    assert(bob.pub.init_keys.otpks.length > 0);
+    assert(Array.isArray(bob.pub.otpks));
+    assert(bob.pub.otpks.length > 0);
 
-    assert(Array.isArray(bob.priv.init_keys.otpks));
-    assert(bob.priv.init_keys.otpks.length > 0);
+    assert(Array.isArray(bob.priv.otpks));
+    assert(bob.priv.otpks.length > 0);
 
-    for (let i = 0; i < bob.pub.init_keys.otpks; i++) {
-        assert(bob.pub.init_keys.otpks[i].type === "public");
-        assert(bob.priv.init_keys.otpks[i].type === "private");
+    for (let i = 0; i < bob.pub.otpks; i++) {
+        assert(bob.pub.otpks[i].type === "public");
+        assert(bob.priv.otpks[i].type === "private");
 
-        assert(bob.pub.init_keys.otpks[i].algorithm.name === "ECDH");
-        assert(bob.priv.init_keys.otpks[i].algorithm.name === "ECDH");
+        assert(bob.pub.otpks[i].algorithm.name === "ECDH");
+        assert(bob.priv.otpks[i].algorithm.name === "ECDH");
     }
 
     success();

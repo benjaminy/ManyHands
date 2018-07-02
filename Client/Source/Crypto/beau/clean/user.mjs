@@ -1,11 +1,8 @@
 import * as crypto from "./crypto_wrappers";
 
 import assert from "assert";
-import  WebCrypto from "node-webcrypto-ossl";
-import TextEncoder from "text-encoding";
 
-const WC = new WebCrypto();
-const CS = WC.subtle;
+const DEFAULT_PREKEY_NUM = 10;
 
 export async function new_user(name) {
     const u = {};
@@ -13,8 +10,8 @@ export async function new_user(name) {
     u.priv = {};
 
     const init_keys = await generate_init_keys();
-    u.pub.init_keys = init_keys.pub;
-    u.priv.init_keys = init_keys.priv;
+    u.pub = Object.assign(u.pub, init_keys.pub);
+    u.priv = Object.assign(u.priv, init_keys.priv);
 
     u.pub.inbox = [];
     u.priv.conversations = {};
@@ -27,7 +24,7 @@ export async function generate_init_keys() {
     const priv = {};
 
     const id_dh = await crypto.generate_dh_key();
-    const id_dsa = await crypto.generate_dsa_key(id_dh);
+    const id_dsa = await crypto.derive_dsa_key(id_dh);
 
     pub.id_dh = id_dh.publicKey;
     pub.id_dsa = id_dsa.publicKey;
@@ -45,9 +42,8 @@ export async function generate_init_keys() {
 
     pub.otpks = [];
     priv.otpks = [];
-    const number_of_one_time_prekeys = 10;
 
-    for (let i = 0; i < number_of_one_time_prekeys; i++) {
+    for (let i = 0; i < DEFAULT_PREKEY_NUM; i++) {
         const new_prekey = await crypto.generate_dh_key();
         pub.otpks.push(new_prekey.publicKey);
         priv.otpks.push(new_prekey.privateKey);
@@ -56,13 +52,21 @@ export async function generate_init_keys() {
     return {pub: pub, priv: priv};
 }
 
+
+/*
+In init_conversation_keys(), both the send chain and the recieve chain are
+initialized to the same value. This is done because init conversation is
+called by both senders and recievers. Senders will eventually reinitialize their
+recieve chain, and recievers will evetually reinitialize their send chain.
+
+*/
 export async function init_conversation_keys(shared_secret) {
     assert(new DataView(shared_secret).byteLength > 0);
 
     let conversation = {}
     conversation.root_key = shared_secret;
 
-    conversation.send_key = await crypto.generate_dh_key();
+    conversation.send_key = null;
     conversation.recieve_key = null;
     conversation.new_send_key = true;
 
