@@ -11,10 +11,6 @@ const Decoder = new TextEncoder.TextDecoder('utf-8');
 
 async function main() {
     await test_sign_verify_key();
-    await test_form_and_parse_message();
-    await test_form_and_parse_message_with_empty_header();
-    await test_form_parse_header();
-    await test_form_parse_empty_header();
     await test_encrypt_decrypt();
     await test_sign_verify();
     await test_encode_decode_string();
@@ -32,84 +28,14 @@ async function test_sign_verify_key() {
 
     let prekey = await my_crypto.generate_dh_key();
 
-    let key_signature = await my_crypto.sign_key(prekey.publicKey, identity_dsa.privateKey);
+    let key_signature = await my_crypto.sign_key(identity_dsa.privateKey, prekey.publicKey);
     let key_verification = await my_crypto.verify_key_signature(
-        key_signature,
+        identity_dsa.publicKey,
         prekey.publicKey,
-        identity_dsa.publicKey
-    )
+        key_signature
+    );
 
     assert(key_verification);
-    success();
-}
-
-async function test_form_and_parse_message() {
-    named_log("test forming and parsing a complete message");
-
-    let shared_secret = await my_crypto.random_secret();
-    let initial_message = "I'm running away to the circus mom!";
-    let initial_header = { "last_name": "ever", "first_name": "greatest" }
-
-    let message_buffer = await my_crypto.form_message_buffer(
-        shared_secret, initial_header, initial_message
-    );
-    let parsed_messaage = await my_crypto.parse_message_buffer(message_buffer);
-
-    await my_crypto.verify(shared_secret, parsed_messaage.signature, parsed_messaage.signed_data);
-    let decrypted_message = await my_crypto.decrypt_text(shared_secret, parsed_messaage.cipher_text);
-
-    assert(decrypted_message === initial_message);
-    assert(parsed_messaage.header.last_name === initial_header.last_name);
-    assert(parsed_messaage.header.first_name === initial_header.first_name);
-    success();
-}
-
-// TODO: consider adding in the form header function
-async function test_form_and_parse_message_with_empty_header() {
-    named_log("test forming and parsing a complete message");
-
-    let shared_secret = await my_crypto.random_secret();
-    let initial_message = "I'm running away to the circus mom!";
-    let initial_header = {};
-
-    let message_buffer = await my_crypto.form_message_buffer(
-        shared_secret, initial_header, initial_message
-    );
-    let parsed_messaage = await my_crypto.parse_message_buffer(message_buffer);
-
-    await my_crypto.verify(shared_secret, parsed_messaage.signature, parsed_messaage.signed_data);
-    let decrypted_message = await my_crypto.decrypt_text(shared_secret, parsed_messaage.cipher_text);
-
-    assert(decrypted_message === initial_message);
-    assert(Object.keys(parsed_messaage.header).length === 0);
-    success();
-}
-
-async function test_form_parse_header() {
-    named_log("test forming and parsing a header object");
-
-    let public_key = await my_crypto.generate_dh_key();
-    public_key = public_key.publicKey;
-    let header_object = await my_crypto.form_header(public_key);
-    let parsed_header = await my_crypto.parse_header(header_object);
-
-    let exported_initial_key = await my_crypto.export_dh_key(public_key);
-    let exported_parsed_key = await my_crypto.export_dh_key(parsed_header.public_key);
-
-    assert(exported_initial_key.kty === exported_parsed_key.kty);
-    assert(exported_initial_key.crv === exported_parsed_key.crv);
-    assert(exported_initial_key.x === exported_parsed_key.x);
-    assert(exported_initial_key.y === exported_parsed_key.y);
-    success();
-}
-
-async function test_form_parse_empty_header() {
-    named_log("testing forming and parsing a header without a public key");
-
-    let header_object = await my_crypto.form_header();
-    let parsed_header = await my_crypto.parse_header(header_object);
-
-    assert(parsed_header.public_key === null);
     success();
 }
 

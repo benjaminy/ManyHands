@@ -17,6 +17,7 @@ async function main() {
     await test_single_message_send_recieve();
     await test_back_and_forth_send_and_recieve();
     await test_asyncronous_sending();
+    await test_sending_and_recieving_from_multiple_people();
 }
 main();
 
@@ -318,10 +319,10 @@ async function test_sending_and_recieving_from_multiple_people() {
     b2a.push(messages[4]);
     b2a.push(messages[5]);
 
-    await messaging.send(carol, alice.pub, messages[5]);
-    await messaging.send(carol, alice.pub, messages[6])
-    c2a.push(messages[5]);
+    await messaging.send(carol, alice.pub, messages[6]);
+    await messaging.send(carol, alice.pub, messages[7])
     c2a.push(messages[6]);
+    c2a.push(messages[7]);
 
 
     const message_4 = await messaging.recieve_message(alice);
@@ -329,10 +330,10 @@ async function test_sending_and_recieving_from_multiple_people() {
     assert(message_4 === b2a.shift());
     assert(message_5 === b2a.shift());
 
-    const message_5 = await messaging.recieve_message(alice);
     const message_6 = await messaging.recieve_message(alice);
-    assert(message_5 === c2a.shift());
+    const message_7 = await messaging.recieve_message(alice);
     assert(message_6 === c2a.shift());
+    assert(message_7 === c2a.shift());
 
     success();
 }

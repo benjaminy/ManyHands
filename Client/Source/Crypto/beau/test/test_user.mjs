@@ -97,7 +97,7 @@ async function test_creating_new_conversations() {
     const bob = await user.new_user("bob");
     const alice = await user.new_user("alice");
 
-    const shared_secret = WC.getRandomValues(new Uint8Array(32));
+    const shared_secret = WC.getRandomValues(new Uint8Array(32)).buffer;
 
     bob.priv.conversations.alice = await user.init_conversation_keys(shared_secret);
     alice.priv.conversations.bob = await user.init_conversation_keys(shared_secret);

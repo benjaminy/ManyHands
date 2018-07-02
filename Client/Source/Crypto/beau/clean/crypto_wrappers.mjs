@@ -77,69 +77,6 @@ export async function generate_dsa_key(dh_keypair) {
     return { publicKey: dsa_public_key, privateKey: dsa_private_key}
 }
 
-export async function form_message_buffer(secret_key, header, message_text) {
-    assert(new DataView(secret_key).byteLength === 32);
-    assert(typeof message_text === "string");
-    assert(typeof header === "object");
-
-    let encryption = await encrypt_text(secret_key, message_text);
-
-    let header_buffer = encode_object(header);
-    let header_length = new DataView(header_buffer).byteLength;
-    let header_length_buffer = new Uint32Array([header_length]).buffer;
-
-
-    let data_to_sign = combine_buffers([header_length_buffer, header_buffer, encryption]);
-    let signature = await sign(secret_key, data_to_sign);
-
-    let output_buffer = combine_buffers([signature, data_to_sign]);
-
-    return output_buffer;
-}
-
-
-export async function parse_message_buffer(input_buffer) {
-// export async function parse_message_buffer(secret_key, input_buffer) {
-    // assert(new DataView(secret_key).byteLength === 32);
-    assert(new DataView(input_buffer).byteLength >= 36);
-
-    let input_typed_array = new Uint8Array(input_buffer);
-    let input_length = input_typed_array.length;
-
-    let signature = input_typed_array.slice(0, 32).buffer
-    let signed_data = input_typed_array.slice(32, input_length).buffer
-    // await verify(secret_key, signature, signed_data);
-
-    let header_length = new Uint32Array(input_typed_array.slice(32, 36))[0];
-    let header_buffer = input_typed_array.slice(36, (36 + header_length)).buffer;
-    let header = decode_object(header_buffer);
-
-    let cipher_text = input_typed_array.slice((36 + header_length), input_length).buffer
-    // let plain_text = await decrypt_text(secret_key, cipher_text);
-
-    // TODO: js convention no quotations on keys
-    return {
-        "signature": signature,
-        "signed_data": signed_data,
-        "header": header,
-        "cipher_text": cipher_text
-    }
-}
-
-export async function add_public_key_to_header(header, public_key) {
-    if (public_key !== undefined) {
-        header.public_key = await export_dh_key(public_key);
-    }
-}
-
-export async function parse_header(header) {
-    let public_key = null;
-    if (header.public_key) {
-        public_key = await import_dh_key(header.public_key);
-    }
-    return { "public_key": public_key }
-}
-
 export async function encrypt_text(secret_key, plain_text) {
     assert(typeof plain_text === "string");
     assert(new DataView(secret_key).byteLength === 32);
