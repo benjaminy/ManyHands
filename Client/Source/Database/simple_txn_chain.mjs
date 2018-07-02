@@ -23,70 +23,11 @@ export function newDB( storage, options )
 {
     assert( DC.kinds.has( kind ) );
     const db = {};
-    db.txn_root       = null;
+    db.root_ptr       = null;
     db.next_entity_id = 0;
 
-    function generateSignKey() {
-        return WCS.generateKey(
-            { name: "HMAC", hash:"SHA-256" }, true, [ "sign", "verify" ] );
-    }
-    function sign( data, file_ptr ) {
-        return WCS.sign( { name: "HMAC" }, file_ptr.keyS, data );
-    }
-    function verify( signature, data, file_ptr ) {
-        return WCS.verify( { name: "HMAC" }, file_ptr.keyS, signature, data );
-    }
-
-    const rand_name_signed_storage =
-        SW.filePtrGenWrapper(
-            { param_name: "keyS",
-              keyS_generator: generateSignKey },
-            SW.authenticationWrapper(
-                { tag_bytes: 32,
-                  sign: sign,
-                  verify: verify },
-                SW.randomNameWrapper( storage ) ) );
-
-    if( kind === DC.KIND_PRIVATE || kind === DC.KIND_TEAM )
-    {
-        function generateCryptKey() {
-            return WCS.generateKey(
-                { name: "AES-CBC", length:256 }, true, [ "encrypt", "decrypt" ] );
-        }
-        function generateIV() {
-            return Promise.resolve( new Uint8Array( 16 ) );
-        }
-        function encrypt( data, file_ptr ) {
-            return WCS.encrypt( { name: "AES-CBC", iv:file_ptr.iv }, file_ptr.keyC, data );
-        }
-        function decrypt( data, file_ptr ) {
-            return WCS.decrypt( { name: "AES-CBC", iv:file_ptr.iv }, file_ptr.keyC, data );
-        }
-        var bloop_storage =
-            SW.filePtrGenWrapper(
-                { param_name: "keyC",
-                  keyC_generator: generateCryptKey },
-                SW.filePtrGenWrapper(
-                    { param_name: "iv",
-                      iv_generator: generateIV },
-                    SW.confidentialityWrapper(
-                        { encrypt: encrypt,
-                          decrypt: decrypt },
-                        rand_name_signed_storage ) ) );
-    }
-    else
-    {
-        var bloop_storage = rand_name_signed_storage;
-    }
-    db.storage = SW.encodingWrapper( SW.SK_JSON, {}, bloop_storage );
 
     return db;
-}
-
-export async function huh( user, storage, root_ptr )
-{
-    const root_storage = 42;
-    const resp = storage.download( root_ptr);
 }
 
 export const initializeStorage = async function createDB( db )
@@ -94,10 +35,26 @@ export const initializeStorage = async function createDB( db )
     
 };
 
-export const fullRead = async function fullRead( db )
+export async function open( storage, root_ptr )
 {
-    txn = await db.storage.download( db.head, {} );
-};
+    const db = {};
+    db.storage  = storage;
+    db.root_ptr = root_ptr;
+    db.txns     = fullRead( db, root_ptr );
+}
+
+async function fullRead( db, file_ptr )
+{
+    const txn = await db.storage.download( file_ptr, {} );
+    if( txn.next_ptr )
+    {
+        txn.next_ptr = db.storage.fpFromPlainData( txn.next_ptr );
+        txn.next = fullRead( db, txn.next_ptr );
+    }
+
+    /* TODO More stuff */
+    return txn;
+}
 
 export function addTxn( db, txn )
 {
@@ -116,12 +73,17 @@ export async function commitAddedTxns( db )
     }
 }
 
-export async function pushCommittedTxns( db )
+export async function submitCommittedTxns( db )
 {
     async function helper( txn )
     {
         if( !txn )
-            return db.root_file_ptr;
+            return [ null, null ];
+        if( txn.next_ptr )
+            return [ db.root_ptr, txn ];
+        const [ next_ptr, next ] = helper( txn.next );
+        const txn_uploaded = Object.assign( {}, txn, {} );
+        const resp = db.storage.upload( {}, {} );
     }
     prev_file_ptr = null;
     //for( const txn of db. )
