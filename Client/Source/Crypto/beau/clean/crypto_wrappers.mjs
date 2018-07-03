@@ -78,6 +78,21 @@ export async function derive_dsa_key(dh_keypair) {
     return { publicKey: dsa_public_key, privateKey: dsa_private_key}
 }
 
+export async function encrypt_buffer(secret_key, buffer) {
+    assert(new DataView(secret_key).byteLength === 32);
+    assert(new DataView(buffer).byteLength > 0);
+
+    const cbc_key = await CS.importKey(
+        "raw", secret_key, { name: "AES-CBC" }, false, ["encrypt", "decrypt"]
+    );
+
+    const message_encryption = await CS.encrypt(
+        { name: "AES-CBC", iv: IV_VAL }, cbc_key, buffer
+    );
+
+    return message_encryption;
+}
+
 export async function encrypt_text(secret_key, plain_text) {
     assert(typeof plain_text === "string");
     assert(new DataView(secret_key).byteLength === 32);
@@ -112,38 +127,37 @@ export async function decrypt_text(secret_key, cipher_text) {
     return decryption_text;
 }
 
-export async function sign(secret_key, data_to_sign) {
-    assert(new DataView(secret_key).byteLength === 32);
+export async function sign(dsa_private_key, data_to_sign) {
     assert(new DataView(data_to_sign).byteLength > 0);
-
-    const sign_key = await CS.importKey(
-        "raw", secret_key, { name: "HMAC", hash: {name: "SHA-256"} }, false, ["sign", "verify"]
-    );
+    assert(dsa_private_key.algorithm.name === "ECDSA");
+    assert(dsa_private_key.type === "private");
 
     const signature = await CS.sign(
-        { name: "HMAC" }, sign_key, data_to_sign
+        { name: "ECDSA", hash: {name: "SHA-256"} },
+        dsa_private_key, data_to_sign
     );
 
-    console.log("******************************Signature length******************************");
-    console.log(new DataView(signature).byteLength);
+
     return signature;
 }
 
-export async function verify(secret_key, signature, signed_data) {
-    assert(new DataView(secret_key).byteLength === 32);
+export async function verify(dsa_public_key, signature, signed_data) {
+    assert(dsa_public_key.type = "public");
+    assert(dsa_public_key.algorithm.name = "ECDSA");
+    assert(new DataView(signature).byteLength > 0);
     assert(new DataView(signed_data).byteLength > 0);
-    assert(new DataView(signature).byteLength === 32);
 
-    const sign_key = await CS.importKey(
-        "raw", secret_key, { name: "HMAC", hash: {name: "SHA-256"} }, false, ["sign", "verify"]
+    assert(dsa_public_key.algorithm.name === "ECDSA");
+    assert(dsa_public_key.type === "public");
+
+    const verify = await CS.verify(
+        { name: "ECDSA", hash: {name: "SHA-256"} },
+        dsa_public_key, signature, signed_data
     );
 
-    const verification = await CS.verify(
-        { name: "HMAC" }, sign_key, signature, signed_data
-    );
+    assert(verify);
 
-    assert(verification);
-    return verification;
+    return verify;
 }
 
 export async function root_kdf_step(root_key, ratchet_seed) {
@@ -181,7 +195,6 @@ export async function chain_kdf_step(chain_key) {
     return {chain_key: output, message_key: output};
 }
 
-
 export async function generate_dh_key() {
     const keypair = await CS.generateKey(
         { name: "ECDH", namedCurve: "P-256"},
@@ -209,6 +222,11 @@ export async function derive_dh(keypair) {
 }
 
 export async function export_dh_key(key) {
+    assert("usages" in key);
+    assert("extractable" in key);
+    assert("type" in key);
+    assert("algorithm" in key);
+
     const key_object = await CS.exportKey( "jwk", key );
     return key_object;
 }
@@ -217,6 +235,20 @@ export async function import_dh_key(key_object) {
     const imported_key = await CS.importKey(
         "jwk", key_object, { name: "ECDH", namedCurve: "P-256" },
         true, ["deriveKey", "deriveBits"]
+    );
+
+    return imported_key;
+}
+
+export async function export_dsa_key(key) {
+    const key_object = await CS.exportKey( "jwk", key );
+    return key_object;
+}
+
+export async function import_dsa_key(key_object) {
+    const imported_key = await CS.importKey(
+        "jwk", key_object, { name: "ECDSA", namedCurve: "P-256" },
+        true, ["verify"]
     );
 
     return imported_key;
@@ -245,6 +277,7 @@ export function encode_object(input_object) {
 
 export function decode_object(input_buffer) {
     const object_string = decode_string(input_buffer);
+
     const output_object = JSON.parse(object_string);
     return output_object;
 }

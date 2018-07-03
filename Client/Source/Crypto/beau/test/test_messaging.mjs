@@ -12,8 +12,6 @@ const Encoder = new TextEncoder.TextEncoder();
 const Decoder = new TextEncoder.TextDecoder('utf-8');
 
 async function main() {
-    await test_parse_form_message();
-    await test_parse_form_message_with_empty_header()
     await test_single_message_send_recieve();
     await test_back_and_forth_send_and_recieve();
     await test_asyncronous_sending();
@@ -21,50 +19,6 @@ async function main() {
 }
 main();
 
-
-async function test_parse_form_message() {
-    named_log("testing forming and parsing a message buffer");
-    const header = {};
-    header.name = "Beau";
-    header.occupation = "student";
-    header.age = 20;
-
-    const text = "the lazy brown fox jumps over the log";
-    const text_buffer = crypto.encode_string(text);
-    const message_buffer = await messaging.form_message_buffer(header, text_buffer);
-
-    const parsed_message = await messaging.parse_message_buffer(message_buffer);
-
-    assert(parsed_message.header.name === header.name);
-    assert(parsed_message.header.occupation === header.occupation);
-    assert(parsed_message.header.age === header.age);
-
-    const message = crypto.decode_string(parsed_message.message_buffer);
-    assert(message === text);
-
-    success();
-
-}
-
-async function test_parse_form_message_with_empty_header() {
-    named_log("testing creating a message buffer with an empty header object");
-
-    const header = {};
-
-    const text = "the lazy brown fox jumps over the log";
-    const text_buffer = crypto.encode_string(text);
-
-    const message_buffer = await messaging.form_message_buffer(header, text_buffer);
-
-    const parsed_message = await messaging.parse_message_buffer(message_buffer);
-
-    assert(Object.keys(parsed_message.header).length === 0);
-
-    const message = crypto.decode_string(parsed_message.message_buffer);
-    assert(message === text);
-
-    success();
-}
 async function test_single_message_send_recieve() {
     named_log("testing sending a single message from alice to bob");
     const bob = await user.new_user("bob");
@@ -77,6 +31,8 @@ async function test_single_message_send_recieve() {
     for (let i = 0; i < 20; i++) {
         messages.push(Math.random().toString());
     }
+
+    messages = ["The lazy brown fox jumps over the lazy logs"];
 
     await messaging.send(alice, bob.pub, messages[0]);
     a2b.push(messages[0]);

@@ -54,13 +54,15 @@ async function test_encrypt_decrypt() {
 async function test_sign_verify() {
     named_log("test signing and verifying a message");
 
-    let shared_secret = await crypto.random_secret();
+    let dh_key = await crypto.generate_dh_key();
+    let dsa_key = await crypto.derive_dsa_key(dh_key);
+
     let initial_message = "I'm running away to the circus mom!";
 
     let initial_message_buffer = crypto.encode_string(initial_message);
 
-    let signature = await crypto.sign(shared_secret, initial_message_buffer);
-    let verification = await crypto.verify(shared_secret, signature, initial_message_buffer);
+    let signature = await crypto.sign(dsa_key.privateKey, initial_message_buffer);
+    let verification = await crypto.verify(dsa_key.publicKey, signature, initial_message_buffer);
     assert(verification);
     success();
 }

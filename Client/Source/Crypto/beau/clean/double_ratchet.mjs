@@ -2,9 +2,9 @@ import * as crypto from "../clean/crypto_wrappers";
 
 import assert from "assert";
 
-export async function ratchet_encrypt(sender_conversation, header, plain_text) {
+export async function ratchet_encrypt(sender_conversation, header, message_buffer) {
     assert(sender_conversation.root_key !== undefined);
-    assert(typeof plain_text === "string");
+    assert(new DataView(message_buffer).byteLength > 0);
 
     const message_header = Object.assign({}, header);
 
@@ -18,7 +18,7 @@ export async function ratchet_encrypt(sender_conversation, header, plain_text) {
     const chain_kdf = await crypto.chain_kdf_step(sender_conversation.send_chain_key);
     sender_conversation.send_chain_key = chain_kdf.chain_key;
 
-    const cipher_text = await crypto.encrypt_text(sender_conversation.send_chain_key, plain_text);
+    const cipher_text = await crypto.encrypt_buffer(sender_conversation.send_chain_key, message_buffer);
 
     return {cipher_text: cipher_text, header: message_header};
 }
