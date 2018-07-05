@@ -110,6 +110,21 @@ export async function encrypt_text(secret_key, plain_text) {
     return message_encryption;
 }
 
+export async function decrypt(secret_key, cipher_text) {
+    assert(new DataView(secret_key).byteLength === 32);
+    assert(new DataView(cipher_text).byteLength > 0);
+
+    const cbc_key = await CS.importKey(
+        "raw", secret_key, { name: "AES-CBC" }, false, ["encrypt", "decrypt"]
+    );
+
+    const decryption_buffer = await CS.decrypt(
+        { name: "AES-CBC", iv: IV_VAL }, cbc_key, cipher_text
+    );
+
+    return decryption_buffer;
+}
+
 
 export async function decrypt_text(secret_key, cipher_text) {
     assert(new DataView(secret_key).byteLength === 32);

@@ -60,10 +60,9 @@ export async function ratchet_decrypt(reciever_conversation, message_header, mes
     let chain_kdf = await crypto.chain_kdf_step(reciever_conversation.recieve_chain_key);
 
     reciever_conversation.recieve_chain_key = chain_kdf.chain_key;
+    let decryption = await crypto.decrypt(chain_kdf.message_key, message_buffer);
 
-    let plain_text = await crypto.decrypt_text(chain_kdf.message_key, message_buffer);
-
-    return plain_text;
+    return decryption;
 }
 
 export async function reciever_ratchet_step(reciever_conversation) {

@@ -7,43 +7,59 @@ import assert from "assert";
 
 const groups = {};
 
-export async function send(sender, reciever_pub, message) {
-    const message_header = {};
-    const group_id = "surfer brah club"
-
-    message_header.sender_uid = sender.pub.uid;
-    message_header.group_id = group_id;
-
-    const message_key = await crypto.random_secret();
-    const cipher_text = await crypto.encrypt_text(message_key, message);
-
-    if (!(reciever_pub.uid in sender.priv.conversations)) {
-        const diffie_out = await diffie.sender_triple_diffie_hellman(sender.priv, reciever_pub);
-
-        message_header.ephemeral_public_key = diffie_out.ephemeral_public_key;
-        message_header.sender_id_dh = sender.pub.id_dh;
-
-        sender.priv.conversations[reciever_pub.uid] = await user.init_conversation_keys(diffie_out.shared_secret);
-        sender.priv.conversations[reciever_pub.uid].recieve_key = reciever_pub.prekey;
-    }
-
-    message_header.sender_id_dsa = sender.pub.id_dsa;
-
-    const message_buffer = await crypto.encode_string(message);
-
-    const ratchet_out = await dr.ratchet_encrypt(
-        sender.priv.conversations[reciever_pub.uid], message_header, message_buffer
-    );
-
-    const export_buffer = await new_form_message_buffer(sender.priv.id_dsa, ratchet_out.header, ratchet_out.cipher_text);
-
-    reciever_pub.inbox.push(export_buffer);
+export function create_new_group(name, group_members_pub) {
+    groups[name] = [];
+    for (let i = 0; i < group_members_pub.length; i++) {
+        groups[name].push(group_members_pub[i]);
+    };
 }
 
-export async function recieve_message(reciever) {
-    const message_buffer = reciever.pub.inbox.shift();
-    const parsed_message = await new_parse_message_buffer(message_buffer);
+export async function send_group_message(sender, group_name, message) {
+    const base_message_header = {};
 
+    base_message_header.sender_uid = sender.pub.uid;
+    base_message_header.group_name = group_name;
+
+    // cipher text is encrypted with message key
+    const message_key = await crypto.random_secret();
+    const cipher_text = await crypto.encrypt_text(message_key, message);
+    // const cipher_text = await crypto.encode_string(message);
+
+    for (let i = 0; i < groups[group_name].length; i++) {
+        const group_member_pub = groups[group_name][i].pub
+
+        if (group_member_pub.uid != sender.pub.uid) {
+            const message_header = Object.assign({}, base_message_header);
+
+            // initialing a conversation if one doesn't already exist and doing diffie hellman
+            if (!(group_member_pub.uid in sender.priv.conversations)) {
+                const diffie_out = await diffie.sender_triple_diffie_hellman(sender.priv, group_member_pub);
+
+                message_header.ephemeral_public_key = diffie_out.ephemeral_public_key;
+                message_header.sender_id_dh = sender.pub.id_dh;
+
+                sender.priv.conversations[group_member_pub.uid] = await user.init_conversation_keys(diffie_out.shared_secret);
+                sender.priv.conversations[group_member_pub.uid].recieve_key = group_member_pub.prekey;
+            }
+
+            message_header.sender_id_dsa = sender.pub.id_dsa;
+
+            const ratchet_out = await dr.ratchet_encrypt(
+                sender.priv.conversations[group_member_pub.uid], message_header, message_key
+            );
+
+            const export_buffer = await group_form_message_buffer(
+                sender.priv.id_dsa, ratchet_out.header, ratchet_out.cipher_text, cipher_text
+            );
+
+            group_member_pub.inbox.push(export_buffer);
+        }
+    }
+}
+
+export async function recieve_group_message(reciever) {
+    const message_buffer = reciever.pub.inbox.shift();
+    const parsed_message = await group_parse_message_buffer(message_buffer);
 
     const sender_uid = parsed_message.header.sender_uid;
 
@@ -62,21 +78,16 @@ export async function recieve_message(reciever) {
         reciever.priv.conversations[sender_uid] = conv;
     }
 
-    let plain_text = await dr.ratchet_decrypt(
-        reciever.priv.conversations[sender_uid], parsed_message.header, parsed_message.message_buffer
+    const message_key = await dr.ratchet_decrypt(
+        reciever.priv.conversations[sender_uid], parsed_message.header, parsed_message.message_key
     );
+
+    const plain_text = await crypto.decrypt_text(message_key, parsed_message.message_buffer)
 
     return plain_text;
 }
 
-export function create_new_group(name, group_members_pub) {
-    groups[name] = [];
-    for (let i = 0; i < group_members.length; i++) {
-        groups[name].push(group_members_pub.uid);
-    };
-}
-
-export async function new_form_message_buffer(private_dsa_key, header, message_buffer) {
+export async function group_form_message_buffer(private_dsa_key, header, message_key, message_buffer) {
     const message_header = Object.assign({}, header);
 
     if ("ephemeral_public_key" in header) {
@@ -100,7 +111,7 @@ export async function new_form_message_buffer(private_dsa_key, header, message_b
     const header_byte_size_buffer = new Uint32Array([header_size]).buffer;
 
     const data_to_sign = crypto.combine_buffers(
-        [header_byte_size_buffer, header_buffer, message_buffer]
+        [header_byte_size_buffer, header_buffer, message_key, message_buffer]
     )
 
     const signature = await crypto.sign(private_dsa_key, data_to_sign);
@@ -109,7 +120,7 @@ export async function new_form_message_buffer(private_dsa_key, header, message_b
     return export_buffer;
 }
 
-export async function new_parse_message_buffer(message_buffer) {
+export async function group_parse_message_buffer(message_buffer) {
     let message_byte_array = new Uint8Array(message_buffer);
     const signature = message_byte_array.slice(0, 64).buffer;
 
@@ -138,8 +149,9 @@ export async function new_parse_message_buffer(message_buffer) {
 
     await crypto.verify(header.sender_id_dsa, signature, message_byte_array.buffer);
 
-    const text_buffer = message_byte_array.slice((header_byte_size + 4), message_byte_array.length).buffer;
+    const key_buffer = message_byte_array.slice((header_byte_size + 4), (header_byte_size + 4 + 48)).buffer;
+    const text_buffer = message_byte_array.slice((header_byte_size + 4 + 48), message_byte_array.length).buffer;
 
 
-    return {header: header, message_buffer: text_buffer};
+    return {header: header, message_key: key_buffer, message_buffer: text_buffer};
 }
