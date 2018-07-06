@@ -40,7 +40,7 @@ export async function getAttribute( db, identName ) {
 
 /* Input: an array of txn statements
  * Output: either throw an exception, or return an array of datoms */
-export async function processTxn( db, txn )
+export async function processTxn( db, stmts )
 {
     /* assert( typeof( db )  == database ) */
     /* assert( typeof( txn ) == array of statements ) */
