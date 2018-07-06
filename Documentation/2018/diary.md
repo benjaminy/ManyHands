@@ -1,4 +1,14 @@
 ------
+2018-6-29
+
+biy. A little more thinking about the flow of data in UWS.
+When a user has a transaction for a team, they upload it in their team area, encrypted and signed with a randomly generated key.
+I don't think this transaction really needs to link to anything, because of the next step:
+Then the user uploads messages to all the teammates with the key.
+Those messages go in some kind of outbox with a logical chain per user.
+One challenge that arrises with this plan is reusing the same key for multiple messages; we'll cross that bridge later.
+
+------
 2018-6-26
 
 bwc. When trying to to use a variable that is a string to create a new key in an object, you need to use the [] notation instead of dot notation
