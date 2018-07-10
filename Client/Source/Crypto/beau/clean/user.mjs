@@ -13,7 +13,9 @@ export async function new_user(name) {
     u.pub = Object.assign(u.pub, init_keys.pub);
     u.priv = Object.assign(u.priv, init_keys.priv);
 
-    u.pub.inbox = [];
+    u.pub.user_outboxes = {}
+    u.pub.group_outboxes = {}
+    u.pub.groups = [];
     u.priv.conversations = {};
 
     return u;
