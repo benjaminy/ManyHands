@@ -13,18 +13,13 @@ import * as DC from "./common";
 import * as DT from "./transaction";
 
 
-/* There are two slightly different versions of transaction objects: in-memory vs stored
+/*
+ * Txn object:
  * Both versions have the following:
  * - txn_stmts: The raw pre-txn processing source
  * - datoms: The result of txn processing; null if the txn failed
+ * - prev : a pointer to the previous committed transaction (in-mem vs stored different)
  * - DB meta-data : ??? next entity ID ??? etc ???
- *
- * The in-memory version has:
- * - prev : a pointer to the previous committed transaction
- * - file_ptr : a pointer to the uploaded copy of the txn (only if uploaded)
- *
- * The stored version has:
- * - prev_ptr : a pointer to the uploaded copy of the previous txn
  */
 
 /* This is kind of like a class, but we can't use classes, because async. */
@@ -34,13 +29,8 @@ const dbMethods =
     {
         var entity_id_info = db.entity_id_info;
         const txn = { stmts: stmts, prev: db.txns };
-        try {
-            [ txn.datoms, entity_id_info ] = await processTxn( db, stmts );
-        }
-        catch( err ) {
-            // TODO: check err
-            console.log( "ERROR. Txn commit", err );
-        }
+        /* Might throw error: */
+        [ txn.datoms, entity_id_info ] = await DT.processTxn( db, stmts );
         return Object.assign( {}, db, { txns: txn, entity_id_info: entity_id_info } );
     }
     ,
