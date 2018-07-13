@@ -39,6 +39,7 @@ export async function send_group_message(sender, group_name, message) {
                 message_header.sender_id_dh = sender.pub.id_dh;
 
                 sender.priv.conversations[group_member_pub.uid] = await user.init_conversation_keys(diffie_out.shared_secret);
+                // SETTING RECIEVE KEY
                 sender.priv.conversations[group_member_pub.uid].recieve_key = group_member_pub.prekey;
             }
 

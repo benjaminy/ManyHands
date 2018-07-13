@@ -3,6 +3,7 @@ import * as crypto from "../clean/crypto_wrappers";
 import assert from "assert";
 
 export async function sender_triple_diffie_hellman(sender_init_keys, reciever_init_keys) {
+
     assert(sender_init_keys.id_dh.type === "private");
     assert(sender_init_keys.id_dsa.type === "private");
 
@@ -70,7 +71,6 @@ export async function reciever_triple_diffie_hellman(sender_id_dh, ephemeral_pub
 }
 
 export async function core_triple_diffie_hellman(...keypairs) {
-
     const secrets = await Promise.all(keypairs.map(crypto.derive_dh));
 
     let shared_secret = await crypto.combine_buffers(secrets);
