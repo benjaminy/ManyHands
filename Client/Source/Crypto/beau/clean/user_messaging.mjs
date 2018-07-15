@@ -7,12 +7,12 @@ import assert from "assert";
 
 const groups = {};
 
-export async function create_user_message(sender_conversation, message_buffer) {
+export async function create_user_message(sender_conversation, message_header, message_buffer) {
     assert(new DataView(sender_conversation.root_key).byteLength > 0);
     assert(new DataView(message_buffer).byteLength > 0);
 
     // lets call ratchet encrypt and see what happens.
-    const ratchet_out = await dr.ratchet_encrypt(sender_conversation, {}, message_buffer)
+    const ratchet_out = await dr.ratchet_encrypt(sender_conversation, message_header, message_buffer)
 
     const export_buffer = await form_sender_buffer(ratchet_out.header, ratchet_out.cipher_text);
     return export_buffer;
@@ -43,7 +43,7 @@ export async function parse_user_message(reciever_conversation, message_buffer) 
     const cipher_text = parsed_buffer.cipher_text;
     const dr_out = await dr.ratchet_decrypt(reciever_conversation, message_header, cipher_text);
 
-    return dr_out;
+    return {header: message_header, message: dr_out};
 }
 
 export async function parse_message_buffer(message_buffer) {

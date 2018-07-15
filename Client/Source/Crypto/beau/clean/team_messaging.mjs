@@ -103,21 +103,24 @@ export async function create_new_team(group_name, group_members) {
 }
 
 export async function upload_team_message(sender, group_name, message_to_send) {
-    const buffer_to_send = await crypto.encode_string(message_to_send);
+    const random_key = await crypto.random_secret();
 
-    sender.pub.teams[group_name].outbox.push(buffer_to_send);
+    const cipher_text = await crypto.encrypt_text(random_key, message_to_send);
+
+    sender.pub.teams[group_name].outbox.push(cipher_text);
+    const current_message_index = sender.pub.teams[group_name].outbox.length - 1;
 
     const team_members = sender.priv.teams[group_name].members;
 
     for (let i = 0; i < team_members.length; i++) {
         const current_group_member_name = team_members[i].uid;
-        const random_key = await crypto.random_secret();
         const sender_conversation = sender.priv.users[group_name][current_group_member_name].conversation
-        console.log("first number of random key from send");
-        console.log(new Uint8Array(random_key)[0]);
-        const garbage_message = await user_messaging.create_user_message(sender_conversation, random_key);
 
-        sender.pub.users[group_name][current_group_member_name].outbox.push(garbage_message);
+        const user_message = await user_messaging.create_user_message(
+            sender_conversation, {message_index: current_message_index}, random_key
+        );
+
+        sender.pub.users[group_name][current_group_member_name].outbox.push(user_message);
     }
 }
 
@@ -130,16 +133,23 @@ export async function download_team_messages(reciever, group_name) {
 
         // loop for each message from a team member
         const new_messages = sender_pub.users[group_name][reciever.pub.uid].outbox;
-        console.log("length of new messages array in reciever");
-        console.log(new_messages.length);
+
         for (let j = 0; j < new_messages.length; j++) {
             const current_message = new_messages.shift();
-            const message = await user_messaging.parse_user_message(
+            const parsed_message = await user_messaging.parse_user_message(
                 reciever.priv.users[group_name][sender_pub.uid].conversation, current_message
             );
 
-            console.log("first number of random key from recieve");
-            console.log(new Uint8Array(message)[0]);
+            const message_header = parsed_message.header;
+            const encryption_key = parsed_message.message;
+
+            const index_of_group_message = message_header.message_index;
+
+            const group_message = sender_pub.teams[group_name].outbox[index_of_group_message];
+
+            const plain_text = await crypto.decrypt_text(encryption_key, group_message);
+
+            reciever.priv.teams[group_name].log.push(plain_text);
 
         }
     }

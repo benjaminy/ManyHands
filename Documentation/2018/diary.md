@@ -1,4 +1,10 @@
 ------
+2018-7-15
+
+bwc. In order to send asyncronous messages. the test case must be organized with a sort of initialization phase. In this phase, an initial sender and reciever relationship needs to be established.
+This is no different than the situation from 2 way sending. but it is still important to note... I think it can lead to quite strange situations with many receivers.
+
+------
 2018-6-29
 
 biy. A little more thinking about the flow of data in UWS.
