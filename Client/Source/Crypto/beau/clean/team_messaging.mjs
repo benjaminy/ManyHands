@@ -28,8 +28,12 @@ export async function create_new_team(group_name, group_members) {
 
         priv1.teams[group_name] = {};
         priv1.teams[group_name].timestamp = {};
+        priv1.teams[group_name].timestamp[pub1.uid] = 0;
+
+        priv1.teams[group_name].counter = 0;
         priv1.teams[group_name].members = [];
         priv1.teams[group_name].log = [];
+
 
         pub1.users[group_name] = {};
         // priv1.users[group_name] = {};
@@ -40,6 +44,8 @@ export async function create_new_team(group_name, group_members) {
                 const other_member = group_members[j]
                 const pub2 = other_member.pub;
                 const priv2 = other_member.priv;
+
+                priv1.teams[group_name].timestamp[pub2.uid] = 0;
 
                 pub1.users[group_name][pub2.uid] = {};
                 pub1.users[group_name][pub2.uid].outbox = [];
@@ -103,9 +109,23 @@ export async function create_new_team(group_name, group_members) {
 }
 
 export async function upload_team_message(sender, group_name, message_to_send) {
+    // Increment counter
+    sender.priv.teams[group_name].timestamp[sender.pub.uid] += 1;
+
+    const message_timestamp = Object.assign({}, sender.priv.teams[group_name].timestamp);
+
+    const timestamp_buffer = await crypto.encode_object(message_timestamp);
+    const timestamp_size = new Uint32Array([new DataView(timestamp_buffer).byteLength]).buffer;
+
+    const message_buffer = await crypto.encode_string(message_to_send);
+
+    const message_to_encrypt = await crypto.combine_buffers(
+        [timestamp_size, timestamp_buffer, message_buffer]
+    );
+
     const random_key = await crypto.random_secret();
 
-    const cipher_text = await crypto.encrypt_text(random_key, message_to_send);
+    const cipher_text = await crypto.encrypt_buffer(random_key, message_to_encrypt);
 
     sender.pub.teams[group_name].outbox.push(cipher_text);
     const current_message_index = sender.pub.teams[group_name].outbox.length - 1;
@@ -125,6 +145,9 @@ export async function upload_team_message(sender, group_name, message_to_send) {
 }
 
 export async function download_team_messages(reciever, group_name) {
+    const reciever_timestamp = reciever.priv.teams[group_name].timestamp;
+    reciever_timestamp[reciever.pub.uid] += 1;
+
     const team_members = reciever.priv.teams[group_name].members;
 
     // loop for each team member
@@ -147,9 +170,31 @@ export async function download_team_messages(reciever, group_name) {
 
             const group_message = sender_pub.teams[group_name].outbox[index_of_group_message];
 
-            const plain_text = await crypto.decrypt_text(encryption_key, group_message);
+            const decrypted_buffer = await crypto.decrypt(encryption_key, group_message);
+            const typed_array = new Uint8Array(decrypted_buffer);
+            const timestamp_size = new Uint32Array(typed_array.slice(0, 4).buffer)[0];
 
-            reciever.priv.teams[group_name].log.push(plain_text);
+            const timestamp_buffer = typed_array.slice(4, (timestamp_size + 4)).buffer;
+
+            const timestamp = await crypto.decode_object(timestamp_buffer);
+
+            const message_buffer = typed_array.slice((timestamp_size + 4), typed_array.length);
+            const message = await crypto.decode_string(message_buffer);
+
+
+            // When trying to sort through the keys, take list of uid and the keys, and just go
+            // through one by one, and take the max. between the two objects.
+
+            for (let k = 0; k < team_members.length; k++) {
+                const curr_member_uid = team_members[k].uid;
+
+                if (timestamp[curr_member_uid] > reciever_timestamp[curr_member_uid]) {
+                    reciever_timestamp[curr_member_uid] = timestamp[curr_member_uid];
+                }
+
+            }
+
+            reciever.priv.teams[group_name].log.push(message);
 
         }
     }

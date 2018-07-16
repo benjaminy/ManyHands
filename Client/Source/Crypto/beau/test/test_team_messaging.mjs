@@ -46,7 +46,6 @@ async function test_creating_a_group() {
     assert(carol.priv.users.g1.alice.conversation);
     assert(carol.priv.users.g1.bob.conversation);
 
-
     assert(alice.priv.teams.g1.members[0].uid === "bob");
     assert(alice.priv.teams.g1.members[1].uid === "carol");
 
@@ -75,6 +74,20 @@ async function test_sending_single_message_to_group() {
 
     assert(bob.priv.teams.g1.log[0] === "the lazy brown fox jumps over the log");
     assert(carol.priv.teams.g1.log[0] === "the lazy brown fox jumps over the log");
+
+    assert(alice.priv.teams.g1.timestamp.alice == 1);
+    assert(alice.priv.teams.g1.timestamp.bob == 0);
+    assert(alice.priv.teams.g1.timestamp.carol == 0);
+
+    assert(bob.priv.teams.g1.timestamp.alice == 1);
+    assert(bob.priv.teams.g1.timestamp.bob == 1);
+    assert(bob.priv.teams.g1.timestamp.carol == 0);
+
+    assert(carol.priv.teams.g1.timestamp.alice == 1);
+    assert(carol.priv.teams.g1.timestamp.bob == 0);
+    assert(carol.priv.teams.g1.timestamp.carol == 1);
+
+
 
     success();
 }
@@ -131,8 +144,15 @@ async function test_sending_messages_back_and_forth() {
 
     await team_messaging.download_team_messages(alice, "g1");
     await team_messaging.download_team_messages(alice, "g1");
+    
     assert(alice.priv.teams.g1.log[2] === b2a[2]);
     assert(alice.priv.teams.g1.log[3] === b2a[3]);
+
+    assert(alice.priv.teams.g1.timestamp.alice == 8);
+    assert(alice.priv.teams.g1.timestamp.bob == 8);
+
+    assert(bob.priv.teams.g1.timestamp.alice == 6);
+    assert(bob.priv.teams.g1.timestamp.bob == 8);
 
     success();
 }
