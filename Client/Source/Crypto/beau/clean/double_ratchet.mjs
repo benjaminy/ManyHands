@@ -66,6 +66,8 @@ export async function ratchet_decrypt(reciever_conversation, message_header, mes
 }
 
 export async function reciever_ratchet_step(reciever_conversation) {
+    reciever_conversation.recieve_key.usages = ['deriveKey', 'deriveBits'];
+
     const receive_ratchet_seed = await crypto.derive_dh({
         publicKey: reciever_conversation.recieve_key,
         privateKey: reciever_conversation.send_key.privateKey
