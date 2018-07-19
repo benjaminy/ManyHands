@@ -3,6 +3,8 @@ import * as crypto from "./crypto_wrappers"
 import * as user from "./user"
 import * as user_messaging from "./user_messaging"
 import * as diffie from "./triple_dh"
+import SM from "../../../Storage/in_memory";
+import * as SW from "../../../Storage/wrappers";
 
 import assert from "assert";
 
@@ -10,6 +12,24 @@ const groups = {};
 
 export async function create_new_team(group_name, group_members) {
     const new_group = {};
+    const s = SM();
+    const storage = SW.randomNameWrapper(null, s);
+
+    const new_buffer = await crypto.encode_string("The lazy brown fox jumps over the log");
+
+    /*
+    body field of options_u object holds the buffer to upload.
+    */
+    const upload_response = await storage.upload({path: ["beau", "super_secret_stuff"]}, {header_hooks: [], body: new_buffer});
+    if (!upload_response.ok) {
+        throw new Error("upload didn't work");
+    }
+
+
+    const download_response = await storage.download(upload_response.file_ptr, {});
+
+    const data = await download_response.arrayBuffer();
+    console.log(await crypto.decode_string(data));
 
     new_group[group_name] = [];
 
@@ -127,7 +147,13 @@ export async function upload_team_message(sender, group_name, message_to_send) {
 
     const cipher_text = await crypto.encrypt_buffer(random_key, message_to_encrypt);
 
+
+
+    // THIS WILL BE WHERE THE UPLOAD MESSAGE HAPPENS!!!!!!!
+    // WHERE THE UPLOAD FILE HAPPENS RATHER
     sender.pub.teams[group_name].outbox.push(cipher_text);
+
+
     const current_message_index = sender.pub.teams[group_name].outbox.length - 1;
 
     const team_members = sender.priv.teams[group_name].members;
@@ -168,6 +194,7 @@ export async function download_team_messages(reciever, group_name) {
 
             const index_of_group_message = message_header.message_index;
 
+            // This line will have to be converted to a download file line.
             const group_message = sender_pub.teams[group_name].outbox[index_of_group_message];
 
             const decrypted_buffer = await crypto.decrypt(encryption_key, group_message);

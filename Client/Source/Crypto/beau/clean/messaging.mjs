@@ -2,12 +2,16 @@ import * as dr from "./double_ratchet"
 import * as crypto from "./crypto_wrappers"
 import * as user from "./user"
 import * as diffie from "./triple_dh"
+import storage from "../../../../Storage/in_memory";
 
 import assert from "assert";
 
 const groups = {};
 
 export function create_new_group(name, group_members_pub) {
+    // The storage location needs to be initialized here
+    console.log("I hope we are here!");
+    const s = storage();
     groups[name] = [];
     for (let i = 0; i < group_members_pub.length; i++) {
         groups[name].push(group_members_pub[i]);
@@ -23,7 +27,6 @@ export async function send_group_message(sender, group_name, message) {
     // cipher text is encrypted with message key
     const message_key = await crypto.random_secret();
     const cipher_text = await crypto.encrypt_text(message_key, message);
-    // const cipher_text = await crypto.encode_string(message);
 
     for (let i = 0; i < groups[group_name].length; i++) {
         const group_member_pub = groups[group_name][i].pub
@@ -53,6 +56,7 @@ export async function send_group_message(sender, group_name, message) {
                 sender.priv.id_dsa, ratchet_out.header, ratchet_out.cipher_text, cipher_text
             );
 
+            // THIS IS WHERE I WILL TRY TO UPLOAD THE FILES TO THE SIMPLE CLOUD SERVER
             group_member_pub.inbox.push(export_buffer);
         }
     }

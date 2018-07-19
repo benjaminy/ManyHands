@@ -144,7 +144,7 @@ async function test_sending_messages_back_and_forth() {
 
     await team_messaging.download_team_messages(alice, "g1");
     await team_messaging.download_team_messages(alice, "g1");
-    
+
     assert(alice.priv.teams.g1.log[2] === b2a[2]);
     assert(alice.priv.teams.g1.log[3] === b2a[3]);
 
@@ -256,9 +256,6 @@ async function test_3_way_sending_and_recieving() {
     assert(carol.priv.teams.g1.log[0] === a2c[0]);
     assert(carol.priv.teams.g1.log[1] === a2c[1]);
 
-
-
-
     await team_messaging.upload_team_message(bob, "g1", messages[2]);
     await team_messaging.upload_team_message(bob, "g1", messages[3]);
     b2a.push(messages[2]);
@@ -275,9 +272,6 @@ async function test_3_way_sending_and_recieving() {
     await team_messaging.download_team_messages(carol, "g1");
     assert(carol.priv.teams.g1.log[2] === b2c[0]);
     assert(carol.priv.teams.g1.log[3] === b2c[1]);
-
-
-
 
     await team_messaging.upload_team_message(carol, "g1", messages[4]);
     await team_messaging.upload_team_message(carol, "g1", messages[5]);
