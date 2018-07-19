@@ -15,11 +15,9 @@ import * as SW from "../Source/Storage/wrappers";
 async function main()
 {
     const raw_storage = SM( { path_prefix: [ "bob", "misc" ] } );
-    const storage = 
-    const db = DB.newDB( s );
-// //     const storage = MS.init( { path_prefix: [ "alice", "DB2" ] } );
-// //     const db = DB.newDB( storage, {} );
-
+    const storage = SW.authedPrivateWrapper( {}, raw_storage );
+    const db = DB.newDB( storage );
+    console.log( db );
 // //     ageAttr = DA.makeAttribute(
 // //         ":age", DA.vtypeLong, DA.cardinalityOne,
 // //         "doc doc doc" );
@@ -34,4 +32,4 @@ async function main()
 
 main();
 
-console.log( "Reaching end of t_transaction_01.mjs" );
+console.log( "Reached end of t_transaction_01.mjs" );
