@@ -3,6 +3,7 @@ import assert from "assert";
 import WebCrypto from "node-webcrypto-ossl";
 const WC = new WebCrypto();
 const CS = WC.subtle;
+import * as suite from "./crypto_suite";
 
 import TextEncoder from "text-encoding";
 const Encoder = new TextEncoder.TextEncoder();
@@ -17,10 +18,10 @@ export async function sign_key(dsa_private_key, key_to_sign) {
     assert(dsa_private_key.algorithm.name === "ECDSA");
     assert(dsa_private_key.type === "private");
 
-    const exported_prekey = await CS.exportKey("jwk", key_to_sign);
+    const exported_prekey = await suite.export_key("jwk", key_to_sign);
     const data_to_sign = encode_object(exported_prekey);
 
-    const signature = await CS.sign(
+    const signature = await suite.sign(
         { name: "ECDSA", hash: {name: "SHA-256"} },
         dsa_private_key, data_to_sign
     );
@@ -37,11 +38,11 @@ export async function verify_key_signature(dsa_public_key, signed_key, signature
     assert(dsa_public_key.algorithm.name === "ECDSA");
     assert(dsa_public_key.type === "public");
 
-    const exported_prekey = await CS.exportKey("jwk", signed_key);
+    const exported_prekey = await suite.export_key("jwk", signed_key);
     const data_to_sign = encode_object(exported_prekey);
 
 
-    const verify = await CS.verify(
+    const verify = await suite.verify(
         { name: "ECDSA", hash: {name: "SHA-256"} },
         dsa_public_key, signature, data_to_sign
     );
@@ -55,20 +56,20 @@ export async function derive_dsa_key(dh_keypair) {
     assert(dh_keypair.privateKey.algorithm.name === "ECDH");
     assert(dh_keypair.privateKey.type === "private");
 
-    const exported_dh_private_key = await CS.exportKey( "jwk", dh_keypair.privateKey );
-    const exported_dh_public_key = await CS.exportKey( "jwk", dh_keypair.publicKey);
+    const exported_dh_private_key = await suite.export_key( "jwk", dh_keypair.privateKey );
+    const exported_dh_public_key = await suite.export_key( "jwk", dh_keypair.publicKey);
 
     delete exported_dh_private_key.key_ops;
     delete exported_dh_public_key.key_ops;
 
-    const dsa_private_key = await CS.importKey(
+    const dsa_private_key = await suite.import_key(
         "jwk",
         exported_dh_private_key,
         { name: "ECDSA", namedCurve: "P-256" },
         true, ["sign"]
     );
 
-    const dsa_public_key = await CS.importKey(
+    const dsa_public_key = await suite.import_key(
         "jwk",
         exported_dh_public_key,
         { name: "ECDSA", namedCurve: "P-256" },
@@ -82,11 +83,11 @@ export async function encrypt_buffer(secret_key, buffer) {
     assert(new DataView(secret_key).byteLength === 32);
     assert(new DataView(buffer).byteLength > 0);
 
-    const cbc_key = await CS.importKey(
+    const cbc_key = await suite.import_key(
         "raw", secret_key, { name: "AES-CBC" }, false, ["encrypt", "decrypt"]
     );
 
-    const message_encryption = await CS.encrypt(
+    const message_encryption = await suite.encrypt(
         { name: "AES-CBC", iv: IV_VAL }, cbc_key, buffer
     );
 
@@ -99,11 +100,11 @@ export async function encrypt_text(secret_key, plain_text) {
 
     const text_buffer = encode_string(plain_text);
 
-    const cbc_key = await CS.importKey(
+    const cbc_key = await suite.import_key(
         "raw", secret_key, { name: "AES-CBC" }, false, ["encrypt", "decrypt"]
     );
 
-    const message_encryption = await CS.encrypt(
+    const message_encryption = await suite.encrypt(
         { name: "AES-CBC", iv: IV_VAL }, cbc_key, text_buffer
     );
 
@@ -114,11 +115,11 @@ export async function decrypt(secret_key, cipher_text) {
     assert(new DataView(secret_key).byteLength === 32);
     assert(new DataView(cipher_text).byteLength > 0);
 
-    const cbc_key = await CS.importKey(
+    const cbc_key = await suite.import_key(
         "raw", secret_key, { name: "AES-CBC" }, false, ["encrypt", "decrypt"]
     );
 
-    const decryption_buffer = await CS.decrypt(
+    const decryption_buffer = await suite.decrypt(
         { name: "AES-CBC", iv: IV_VAL }, cbc_key, cipher_text
     );
 
@@ -130,11 +131,11 @@ export async function decrypt_text(secret_key, cipher_text) {
     assert(new DataView(secret_key).byteLength === 32);
     assert(new DataView(cipher_text).byteLength > 0);
 
-    const cbc_key = await CS.importKey(
+    const cbc_key = await suite.import_key(
         "raw", secret_key, { name: "AES-CBC" }, false, ["encrypt", "decrypt"]
     );
 
-    const decryption_buffer = await CS.decrypt(
+    const decryption_buffer = await suite.decrypt(
         { name: "AES-CBC", iv: IV_VAL }, cbc_key, cipher_text
     );
 
@@ -147,7 +148,7 @@ export async function sign(dsa_private_key, data_to_sign) {
     assert(dsa_private_key.algorithm.name === "ECDSA");
     assert(dsa_private_key.type === "private");
 
-    const signature = await CS.sign(
+    const signature = await suite.sign(
         { name: "ECDSA", hash: {name: "SHA-256"} },
         dsa_private_key, data_to_sign
     );
@@ -165,7 +166,7 @@ export async function verify(dsa_public_key, signature, signed_data) {
     assert(dsa_public_key.algorithm.name === "ECDSA");
     assert(dsa_public_key.type === "public");
 
-    const verify = await CS.verify(
+    const verify = await suite.verify(
         { name: "ECDSA", hash: {name: "SHA-256"} },
         dsa_public_key, signature, signed_data
     );
@@ -181,11 +182,11 @@ export async function root_kdf_step(root_key, ratchet_seed) {
 
     const kdf_input = combine_buffers([root_key, ratchet_seed]);
 
-    const kdf_key = await CS.importKey(
+    const kdf_key = await suite.import_key(
         "raw", kdf_input, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
     );
 
-    const output = await CS.deriveBits(
+    const output = await suite.derive_bits(
         { "name": "PBKDF2", salt: IV_ROOT_VAL, iterations: 2, hash: {name: "SHA-1"} },
          kdf_key, 256
     );
@@ -198,11 +199,11 @@ export async function chain_kdf_step(chain_key) {
 
     assert(new DataView(chain_key).byteLength >= 32);
 
-    const kdf_key = await CS.importKey(
+    const kdf_key = await suite.import_key(
         "raw", chain_key, { name: "PBKDF2" }, false, ["deriveKey", "deriveBits"]
     );
 
-    const output = await CS.deriveBits(
+    const output = await suite.derive_bits(
         { "name": "PBKDF2", salt: IV_VAL, iterations: 2, hash: {name: "SHA-1"} },
          kdf_key, 256
     );
@@ -211,7 +212,7 @@ export async function chain_kdf_step(chain_key) {
 }
 
 export async function generate_dh_key() {
-    const keypair = await CS.generateKey(
+    const keypair = await suite.generate_key(
         { name: "ECDH", namedCurve: "P-256"},
         true, ["deriveKey", "deriveBits"]
     );
@@ -228,7 +229,7 @@ export async function derive_dh(keypair) {
     assert(private_key.algorithm.name === 'ECDH');
     assert(private_key.type === 'private');
 
-    const secret = await CS.deriveBits(
+    const secret = await suite.derive_bits(
         { name: "ECDH", namedCurve: "P-256", public: public_key },
         private_key, 256
     );
@@ -242,12 +243,12 @@ export async function export_dh_key(key) {
     assert("type" in key);
     assert("algorithm" in key);
 
-    const key_object = await CS.exportKey( "jwk", key );
+    const key_object = await suite.export_key( "jwk", key );
     return key_object;
 }
 
 export async function import_dh_key(key_object) {
-    const imported_key = await CS.importKey(
+    const imported_key = await suite.import_key(
         "jwk", key_object, { name: "ECDH", namedCurve: "P-256" },
         true, ["deriveKey", "deriveBits"]
     );
@@ -256,12 +257,12 @@ export async function import_dh_key(key_object) {
 }
 
 export async function export_dsa_key(key) {
-    const key_object = await CS.exportKey( "jwk", key );
+    const key_object = await suite.export_key( "jwk", key );
     return key_object;
 }
 
 export async function import_dsa_key(key_object) {
-    const imported_key = await CS.importKey(
+    const imported_key = await suite.import_key(
         "jwk", key_object, { name: "ECDSA", namedCurve: "P-256" },
         true, ["verify"]
     );
