@@ -8,12 +8,14 @@ import * as DT from "../Source/Database/transaction";
 import * as DB from "../Source/Database/simple_txn_chain";
 import * as DC from "../Source/Database/common";
 import SM      from "../Source/Storage/in_memory";
+import * as SW from "../Source/Storage/wrappers";
 
 // // [ DT.addK, "bob", ":age", 42 ]
 
 async function main()
 {
-    const s = SM( { path_prefix: [ "bob", "misc" ] } );
+    const raw_storage = SM( { path_prefix: [ "bob", "misc" ] } );
+    const storage = 
     const db = DB.newDB( s );
 // //     const storage = MS.init( { path_prefix: [ "alice", "DB2" ] } );
 // //     const db = DB.newDB( storage, {} );

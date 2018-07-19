@@ -14,9 +14,13 @@
         "hi-base32": "^0.3.0",
         "isomorphic-fetch": "^2.2.1",
         "node-webcrypto-ossl": "^1.0.32",
+        "path-browserify": "^1.0.0",
         "text-encoder": "0.0.3",
-        "text-encoding": "^0.6.4"
+        "text-encoding": "^0.6.4",
+        "transit-js": "^0.8.861"
     },
-    "devDependencies": {},
+    "devDependencies": {
+        "eslint": "^4.19.1"
+    },
     "scripts": {}
 }
