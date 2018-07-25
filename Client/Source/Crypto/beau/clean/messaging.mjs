@@ -2,7 +2,7 @@ import * as dr from "./double_ratchet"
 import * as crypto from "./crypto_wrappers"
 import * as user from "./user"
 import * as diffie from "./triple_dh"
-import storage from "../../../../Storage/in_memory";
+import storage from "../../../Storage/in_memory";
 
 import assert from "assert";
 
