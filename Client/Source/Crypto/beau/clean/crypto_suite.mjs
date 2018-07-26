@@ -47,3 +47,8 @@ export async function decrypt(algorithm_info, key, cipher_text) {
 
     return decryption;
 }
+
+export async function digest(hash_function_obj, incoming_buffer) {
+    const hash_buffer = await CS.digest(hash_function_obj, incoming_buffer);
+    return hash_buffer;
+}

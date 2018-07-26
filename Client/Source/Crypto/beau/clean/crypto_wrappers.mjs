@@ -298,6 +298,11 @@ export function decode_object(input_buffer) {
     return output_object;
 }
 
+export async function digest(incoming_buffer) {
+    const hash_buffer = await suite.digest({name: "SHA-256"}, incoming_buffer);
+    return hash_buffer;
+}
+
 export function combine_buffers(buffer_array) {
     assert(Array.isArray(buffer_array));
     let total_number_of_bytes = 0;

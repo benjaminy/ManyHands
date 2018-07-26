@@ -26,13 +26,12 @@ export async function create_new_team(group_name, group_members) {
         throw new Error("upload didn't work");
     }
 
-
     const download_response = await storage.download(upload_response.file_ptr, {});
     if (!download_response.ok) {
         throw new Error("the download didnt work!");
     }
     const data = await download_response.arrayBuffer();
-    // console.log("decoded download:", await crypto.decode_string(data));
+    console.log("decoded download:", await crypto.decode_string(data));
 
     new_group[group_name] = [];
 
@@ -134,7 +133,6 @@ export async function upload_team_message(sender, group_name, message_to_send) {
     sender.priv.teams[group_name].timestamp[sender.pub.uid] += 1;
 
     const message_timestamp = Object.assign({}, sender.priv.teams[group_name].timestamp);
-    console.log("Message time stamp from upload", message_timestamp);
 
     const timestamp_buffer = await crypto.encode_object(message_timestamp);
     const timestamp_size = new Uint32Array([new DataView(timestamp_buffer).byteLength]).buffer;
@@ -206,8 +204,6 @@ export async function download_team_messages(reciever, group_name) {
 
             const timestamp = await crypto.decode_object(timestamp_buffer);
 
-            console.log("timestamp from recieve", timestamp);
-
             const message_buffer = typed_array.slice((timestamp_size + 4), typed_array.length);
             const message = await crypto.decode_string(message_buffer);
 
@@ -220,7 +216,7 @@ export async function download_team_messages(reciever, group_name) {
 
             }
 
-            reciever.priv.teams[group_name].log.push(message);
+            reciever.priv.teams[group_name].log.push({timestamp: timestamp, message: message});
         }
     }
 }

@@ -10,6 +10,10 @@ import assert from "assert";
 
 const groups = {};
 
+export async function compare_timestamps(ts1, ts2) {
+
+}
+
 export async function compare(ts1, ts2) {
     var equality = 0;
     for (var user in ts1) {
@@ -29,6 +33,21 @@ export async function compare(ts1, ts2) {
             }
             equality = -1;
         }
+    }
+
+    // arbitrary case for concurrent edits
+    if (equality === 0) {
+        const ts1_buffer = await crypto.encode_object(ts1);
+        const ts1_hash = await crypto.digest(ts1_buffer);
+        const ts1_hash_string = await crypto.decode_string(ts1_hash);
+
+        const ts2_buffer = await crypto.encode_object(ts2);
+        const ts2_hash = await crypto.digest(ts2_buffer);
+        const ts2_hash_string = await crypto.decode_string(ts2_hash);
+
+        if (ts1_hash_string < ts2_hash_string) equality = -1;
+        if (ts1_hash_string > ts2_hash_string) equality = 1;
+        if (ts1_hash_string === ts2_hash_string) equality = 0;
     }
 
     return equality;

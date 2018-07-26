@@ -5,7 +5,7 @@ import * as timestamp from "../clean/timestamp_comparison"
 
 async function main() {
     await test_simple_2_user_concurrent();
-    await test_2_user_concurrent();
+    await test_2_user_identical();
     await test_many_user_concurrent();
     await test_many_user_concurrent();
     await test_greater_than_with_2_mismatched_users();
@@ -31,11 +31,11 @@ export async function test_simple_2_user_concurrent() {
     success();
 }
 
-export async function test_2_user_concurrent() {
-    named_log("testing findng if two timestamps are concurrent when mismatched");
+export async function test_2_user_identical() {
+    named_log("testing findng if two identicial timestamps are concurrent when mismatched");
     const ts1 = {
-        "Alice": 1,
-        "Bob": 0
+        "Alice": 0,
+        "Bob": 1
     }
 
     const ts2 = {
@@ -63,7 +63,7 @@ export async function test_many_user_concurrent() {
     }
 
     const comparison = await timestamp.compare(ts1, ts2);
-    assert(comparison === 0);
+    assert(comparison != 0);
     success();
 }
 
