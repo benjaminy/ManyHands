@@ -2,7 +2,7 @@ import * as dr from "./double_ratchet";
 import * as crypto from "./crypto_wrappers";
 import * as user from "./user";
 import * as user_messaging from "./user_messaging";
-import * as timestamp from "./timestamp_comparison";
+import * as timestamp_comparison from "./timestamp_comparison";
 import * as diffie from "./triple_dh";
 import SM from "../../../Storage/in_memory";
 import * as SW from "../../../Storage/wrappers";
@@ -11,27 +11,41 @@ import assert from "assert";
 
 const groups = {};
 
+let storage = {};
+
 export async function create_new_team(group_name, group_members) {
     const new_group = {};
+
     const s = SM();
-    const storage = SW.randomNameWrapper(null, s);
+    storage = SW.randomNameWrapper(null, s);
 
     const new_buffer = await crypto.encode_string("The lazy brown fox jumps over the log");
 
     /*
     body field of options_u object holds the buffer to upload.
     */
-    const upload_response = await storage.upload({path: ["beau", "super_secret_stuff"]}, {header_hooks: [], body: new_buffer});
-    if (!upload_response.ok) {
-        throw new Error("upload didn't work");
-    }
+    /*
+    calling upload on the storage object created above with random name wrapper
+    call upload with an object specifyin the path, the header hooks, and the body.
+    */
+    // const upload_response = await storage.upload(
+    //     {path: ["beau", "super_secret_stuff"]}, {header_hooks: [], body: new_buffer}
+    // );
+    // // Checking that the upload response was ok.
+    // if (!upload_response.ok) {
+    //     throw new Error("upload didn't work");
+    // }
 
-    const download_response = await storage.download(upload_response.file_ptr, {});
-    if (!download_response.ok) {
-        throw new Error("the download didnt work!");
-    }
-    const data = await download_response.arrayBuffer();
-    console.log("decoded download:", await crypto.decode_string(data));
+    // has the path as an array as well as the name of the file that was made.
+    // console.log("The file pointer from uploading the message", upload_response.file_ptr);
+
+    // Download gets called with the file pointer object... not sure what the other thing is
+    // const download_response = await storage.download(upload_response.file_ptr, {});
+    // if (!download_response.ok) {
+    //     throw new Error("the download didnt work!");
+    // }
+    // const data = await download_response.arrayBuffer();
+    // console.log("decoded download!!!!!!!!:", await crypto.decode_string(data));
 
     new_group[group_name] = [];
 
@@ -147,10 +161,20 @@ export async function upload_team_message(sender, group_name, message_to_send) {
 
     const cipher_text = await crypto.encrypt_buffer(random_key, message_to_encrypt);
 
+    // UPLOADING TEAM MESSAGE
+    let new_buffer = await crypto.encode_string("The lazy brown fox jumps over the log");
+    let upload_response = await storage.upload(
+        {path: [sender.pub.uid, group_name]}, {header_hooks: [], body: new_buffer}
+    );
+    if (!upload_response.ok) {
+        throw new Error("upload didn't work");
+    }
 
+    // console.log("file pointer from upload", upload_response.file_ptr);
 
-    // THIS WILL BE WHERE THE UPLOAD MESSAGE HAPPENS!!!!!!!
-    // WHERE THE UPLOAD FILE HAPPENS RATHER
+    // const download_response = await storage.download(upload_response.file_ptr, {});
+    let download_pointer = {path: [ [sender.pub.uid, group_name], upload_response.file_ptr.path[1] ] };
+
     sender.pub.teams[group_name].outbox.push(cipher_text);
 
     const current_message_index = sender.pub.teams[group_name].outbox.length - 1;
@@ -162,7 +186,9 @@ export async function upload_team_message(sender, group_name, message_to_send) {
         const sender_conversation = sender.priv.users[group_name][current_group_member_name].conversation
 
         const user_message = await user_messaging.create_user_message(
-            sender_conversation, {message_index: current_message_index}, random_key
+            sender_conversation,
+            {message_index: current_message_index, new_pointer: download_pointer},
+            random_key
         );
 
         sender.pub.users[group_name][current_group_member_name].outbox.push(user_message);
@@ -189,12 +215,22 @@ export async function download_team_messages(reciever, group_name) {
             );
 
             const message_header = parsed_message.header;
+            console.log("Message header from download", message_header.new_pointer);
             const encryption_key = parsed_message.message;
 
             const index_of_group_message = message_header.message_index;
 
             // This line will have to be converted to a download file line.
             const group_message = sender_pub.teams[group_name].outbox[index_of_group_message];
+
+            // This the downloading of the not real message
+            let download_response = await storage.download(message_header.new_pointer, {});
+
+            if (!download_response.ok) {
+                throw new Error("the download didnt work!");
+            }
+            let data = await download_response.arrayBuffer();
+            console.log("decoded download from recieving end:", await crypto.decode_string(data));
 
             const decrypted_buffer = await crypto.decrypt(encryption_key, group_message);
             const typed_array = new Uint8Array(decrypted_buffer);
@@ -217,6 +253,8 @@ export async function download_team_messages(reciever, group_name) {
             }
 
             reciever.priv.teams[group_name].log.push({timestamp: timestamp, message: message});
+            reciever.priv.teams[group_name].log.sort((a, b) => {timestamp_comparison.compare(a.timestamp, b.timestamp)})
+
         }
     }
 }

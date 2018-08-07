@@ -290,8 +290,6 @@ async function test_3_way_sending_and_recieving() {
     assert(alice.priv.teams.g1.log[2].message === c2a[0]);
     assert(alice.priv.teams.g1.log[3].message === c2a[1]);
 
-    console.log(alice.priv.teams.g1.log);
-
     success();
 }
 
