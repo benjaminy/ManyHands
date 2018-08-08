@@ -14,6 +14,10 @@ const fs           = require( "fs" );
 const path         = require( "path" );
 const mkdirp       = require( "async-mkdirp" );
 const nodeCleanup  = require( "node-cleanup" );
+
+const DEFAULT_PORT = 8080;
+const DEFAULT_DIR  = ".";
+
 const opt          = require( "node-getopt" ).create( [
     [ "P", "port=PORT",      "Port to server on; default is "+DEFAULT_PORT ],
     [ "D", "dir=DIR",        "Root directory to serve from; default is "+DEFAULT_DIR ],
@@ -26,8 +30,6 @@ const fs_unlink    = U.promisify( fs.unlink );
 
 /* Constants and Globals */
 
-const DEFAULT_PORT = 8080;
-const DEFAULT_DIR  = ".";
 
 const LONGPOLL_DATA_FILE = "pastRequestedFiles.json";
 const LONGPOLL_TIMEOUT = 4000;
@@ -352,7 +354,9 @@ function main()
         LongPollReq.pastRequestedFiles = JSON.parse(json);
     }
 
-    var protocol = "HTTP", var options = {};
+    var protocol = "HTTP";
+    var options = {};
+
     if( "cert" in opt.options && "key" in opt.options )
     {
         options = {

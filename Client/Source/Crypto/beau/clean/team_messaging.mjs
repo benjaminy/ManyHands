@@ -5,6 +5,8 @@ import * as user_messaging from "./user_messaging";
 import * as timestamp_comparison from "./timestamp_comparison";
 import * as diffie from "./triple_dh";
 import SM from "../../../Storage/in_memory";
+import SC from "../../../Storage/simple_cloud_client";
+
 import * as SW from "../../../Storage/wrappers";
 
 import assert from "assert";
@@ -14,15 +16,17 @@ const groups = {};
 let storage = {};
 
 // const mode = "in memory upload";
-const mode = "array upload";
+const mode = {
+    sorting: false,
+    upload: "in-mem" /* "array", "in-mem"*/
+};
 
 export async function create_new_team(group_name, group_members) {
     const new_group = {};
 
-    const s = SM();
+    // const s = SM();
+    const s = SC("beau");
     storage = SW.randomNameWrapper(null, s);
-
-    const new_buffer = await crypto.encode_string("The lazy brown fox jumps over the log");
 
     /*
     body field of options_u object holds the buffer to upload.
@@ -167,7 +171,7 @@ export async function upload_team_message(sender, group_name, message_to_send) {
     let current_message_index = null;
     let download_pointer = {};
 
-    if (mode === "in memory upload") {
+    if (mode.upload === "in-mem") {
         // UPLOADING TEAM MESSAGE
         let upload_response = await storage.upload(
             {path: [sender.pub.uid, group_name]}, {header_hooks: [], body: cipher_text}
@@ -178,7 +182,7 @@ export async function upload_team_message(sender, group_name, message_to_send) {
 
         download_pointer = {path: [ [sender.pub.uid, group_name], upload_response.file_ptr.path[1] ] };
     }
-    else if (mode === "array upload") {
+    else if (mode.upload === "array") {
         sender.pub.teams[group_name].outbox.push(cipher_text);
         current_message_index = sender.pub.teams[group_name].outbox.length - 1;
     }
@@ -190,14 +194,14 @@ export async function upload_team_message(sender, group_name, message_to_send) {
         const sender_conversation = sender.priv.users[group_name][current_group_member_name].conversation
 
         let user_message = {};
-        if (mode === "in memory upload") {
+        if (mode.upload === "in-mem") {
             user_message = await user_messaging.create_user_message(
                 sender_conversation,
                 {file_pointer: download_pointer},
                 random_key
             );
         }
-        else if (mode === "array upload") {
+        else if (mode.upload === "array") {
             user_message = await user_messaging.create_user_message(
                 sender_conversation,
                 {message_index: current_message_index},
@@ -232,7 +236,7 @@ export async function download_team_messages(reciever, group_name) {
             const encryption_key = parsed_message.message;
 
             let decrypted_buffer = null;
-            if (mode === "in memory upload") {
+            if (mode.upload === "in-mem") {
                 // This the downloading of the not real message
                 let download_response = await storage.download(message_header.file_pointer, {});
 
@@ -244,12 +248,11 @@ export async function download_team_messages(reciever, group_name) {
                 decrypted_buffer = await crypto.decrypt(encryption_key, downloaded_data);
 
             }
-            else if (mode === "array upload") {
+            else if (mode.upload === "array") {
                 const index_of_group_message = message_header.message_index;
                 const group_message = sender_pub.teams[group_name].outbox[index_of_group_message];
                 decrypted_buffer = await crypto.decrypt(encryption_key, group_message);
             }
-
 
             // THESE ARE THE TWO LINES FOR DOWNLOADING THE OTHER TYPE OF MESSAGE.
             const typed_array = new Uint8Array(decrypted_buffer);
@@ -268,12 +271,12 @@ export async function download_team_messages(reciever, group_name) {
                 if (timestamp[curr_member_uid] > reciever_timestamp[curr_member_uid]) {
                     reciever_timestamp[curr_member_uid] = timestamp[curr_member_uid];
                 }
-
             }
 
             reciever.priv.teams[group_name].log.push({timestamp: timestamp, message: message});
-            reciever.priv.teams[group_name].log.sort((a, b) => {timestamp_comparison.compare(a.timestamp, b.timestamp)})
-
+            if (mode.sorting) {
+                reciever.priv.teams[group_name].log.sort((a, b) => {timestamp_comparison.compare(a.timestamp, b.timestamp)})
+            }
         }
     }
 }
