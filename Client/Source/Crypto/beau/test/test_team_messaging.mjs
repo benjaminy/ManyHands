@@ -7,6 +7,7 @@ async function main() {
     await test_creating_a_group();
     await test_sending_single_message_to_group();
     await test_sending_messages_back_and_forth();
+    await test_sending_messages_with_single_recieves();
     await test_async_sending_and_recieving();
     await test_3_way_sending_and_recieving();
 }
@@ -87,8 +88,6 @@ async function test_sending_single_message_to_group() {
     assert(carol.priv.teams.g1.timestamp.bob == 0);
     assert(carol.priv.teams.g1.timestamp.carol == 1);
 
-
-
     success();
 }
 
@@ -113,7 +112,6 @@ async function test_sending_messages_back_and_forth() {
     a2b.push(messages[1]);
 
     await team_messaging.download_team_messages(bob, "g1");
-    await team_messaging.download_team_messages(bob, "g1");
     assert(bob.priv.teams.g1.log[0].message === a2b[0]);
     assert(bob.priv.teams.g1.log[1].message === a2b[1]);
 
@@ -122,7 +120,6 @@ async function test_sending_messages_back_and_forth() {
     b2a.push(messages[2]);
     b2a.push(messages[3]);
 
-    await team_messaging.download_team_messages(alice, "g1");
     await team_messaging.download_team_messages(alice, "g1");
     assert(alice.priv.teams.g1.log[0].message === b2a[0]);
     assert(alice.priv.teams.g1.log[1].message === b2a[1]);
@@ -133,7 +130,6 @@ async function test_sending_messages_back_and_forth() {
     a2b.push(messages[5]);
 
     await team_messaging.download_team_messages(bob, "g1");
-    await team_messaging.download_team_messages(bob, "g1");
     assert(bob.priv.teams.g1.log[2].message === a2b[2]);
     assert(bob.priv.teams.g1.log[3].message === a2b[3]);
 
@@ -143,8 +139,6 @@ async function test_sending_messages_back_and_forth() {
     b2a.push(messages[7]);
 
     await team_messaging.download_team_messages(alice, "g1");
-    await team_messaging.download_team_messages(alice, "g1");
-
     assert(alice.priv.teams.g1.log[2].message === b2a[2]);
     assert(alice.priv.teams.g1.log[3].message === b2a[3]);
 
@@ -156,6 +150,73 @@ async function test_sending_messages_back_and_forth() {
 
     success();
 }
+
+
+async function test_sending_messages_with_single_recieves() {
+    named_log("testing sending messages and recieving using the single user download");
+
+    const alice = await user.new_user("alice");
+    const bob = await user.new_user("bob");
+    const new_group = await team_messaging.create_new_team("g1", [alice, bob]);
+
+    const a2b = [];
+    const b2a = [];
+
+    let messages = [];
+    for (let i = 0; i < 20; i++) {
+        messages.push(Math.random().toString());
+    }
+
+    const mode = {
+        sorting: false,
+        upload: "in-mem" /* "array", "in-mem"*/
+    };
+
+    await team_messaging.upload_team_message(alice, "g1", messages[0]);
+    await team_messaging.upload_team_message(alice, "g1", messages[1]);
+    a2b.push(messages[0]);
+    a2b.push(messages[1]);
+
+    await team_messaging.user_download("g1", bob, alice.pub, mode)
+    assert(bob.priv.teams.g1.log[0].message === a2b[0]);
+    assert(bob.priv.teams.g1.log[1].message === a2b[1]);
+
+    await team_messaging.upload_team_message(bob, "g1", messages[2]);
+    await team_messaging.upload_team_message(bob, "g1", messages[3]);
+    b2a.push(messages[2]);
+    b2a.push(messages[3]);
+
+    await team_messaging.user_download("g1", alice, bob.pub, mode)
+    assert(alice.priv.teams.g1.log[0].message === b2a[0]);
+    assert(alice.priv.teams.g1.log[1].message === b2a[1]);
+
+    await team_messaging.upload_team_message(alice, "g1", messages[4]);
+    await team_messaging.upload_team_message(alice, "g1", messages[5]);
+    a2b.push(messages[4]);
+    a2b.push(messages[5]);
+
+    await team_messaging.user_download("g1", bob, alice.pub, mode)
+    assert(bob.priv.teams.g1.log[2].message === a2b[2]);
+    assert(bob.priv.teams.g1.log[3].message === a2b[3]);
+
+    await team_messaging.upload_team_message(bob, "g1", messages[6]);
+    await team_messaging.upload_team_message(bob, "g1", messages[7]);
+    b2a.push(messages[6]);
+    b2a.push(messages[7]);
+
+    await team_messaging.user_download("g1", alice, bob.pub, mode)
+    assert(alice.priv.teams.g1.log[2].message === b2a[2]);
+    assert(alice.priv.teams.g1.log[3].message === b2a[3]);
+
+    assert(alice.priv.teams.g1.timestamp.alice == 8);
+    assert(alice.priv.teams.g1.timestamp.bob == 8);
+
+    assert(bob.priv.teams.g1.timestamp.alice == 6);
+    assert(bob.priv.teams.g1.timestamp.bob == 8);
+
+    success();
+}
+
 
 async function test_async_sending_and_recieving() {
     named_log("testing async sending and recieving in group");
@@ -178,7 +239,6 @@ async function test_async_sending_and_recieving() {
     a2b.push(messages[1]);
 
     await team_messaging.download_team_messages(bob, "g1");
-    await team_messaging.download_team_messages(bob, "g1");
     assert(bob.priv.teams.g1.log[0].message === a2b[0]);
     assert(bob.priv.teams.g1.log[1].message === a2b[1]);
 
@@ -193,11 +253,9 @@ async function test_async_sending_and_recieving() {
     a2b.push(messages[5]);
 
     await team_messaging.download_team_messages(bob, "g1");
-    await team_messaging.download_team_messages(bob, "g1");
     assert(bob.priv.teams.g1.log[2].message === a2b[2]);
     assert(bob.priv.teams.g1.log[3].message === a2b[3]);
 
-    await team_messaging.download_team_messages(alice, "g1");
     await team_messaging.download_team_messages(alice, "g1");
     assert(alice.priv.teams.g1.log[0].message === b2a[0]);
     assert(alice.priv.teams.g1.log[1].message === b2a[1]);
@@ -209,7 +267,6 @@ async function test_async_sending_and_recieving() {
     b2a.push(messages[7]);
 
 
-    await team_messaging.download_team_messages(alice, "g1");
     await team_messaging.download_team_messages(alice, "g1");
     assert(alice.priv.teams.g1.log[2].message === b2a[2]);
     assert(alice.priv.teams.g1.log[3].message === b2a[3]);
