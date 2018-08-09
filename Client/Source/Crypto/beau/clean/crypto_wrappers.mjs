@@ -1,9 +1,12 @@
 import assert from "assert";
-
 import WebCrypto from "node-webcrypto-ossl";
+
 const WC = new WebCrypto();
 const CS = WC.subtle;
-import * as suite from "./crypto_suite";
+
+
+// import * as suite from "./crypto_suite";
+import * as suite from "./non_crypto_suite";
 
 import TextEncoder from "text-encoding";
 const Encoder = new TextEncoder.TextEncoder();

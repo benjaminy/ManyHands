@@ -7,19 +7,20 @@ import fs from "fs";
 
 async function main() {
     let mode = {};
+    const crypto_bool = false;
 
-    mode = {sorting: false, upload: "array"};
+    mode = {sorting: false, upload: "array", crypto: crypto_bool};
     await test_small_message_size(mode);
 
-
-    mode = {sorting: true, upload: "array"};
+    mode = {sorting: true, upload: "array", crypto: crypto_bool};
     await test_small_message_size(mode);
 
-    mode = {sorting: false, upload: "in-mem"};
+    mode = {sorting: false, upload: "in-mem", crypto: crypto_bool};
     await test_small_message_size(mode);
 
-    mode = {sorting: true, upload: "in-mem"};
+    mode = {sorting: true, upload: "in-mem", crypto: crypto_bool};
     await test_small_message_size(mode);
+
 }
 main();
 
@@ -86,48 +87,96 @@ async function test_small_message_size(mode) {
     process.stdout.write("\n\n")
 
 
-    if (mode.upload === "array") {
-        if (mode.sorting) {
-            fs.writeFile("./results/time_array_sorting", JSON.stringify(time), (err) => {
-                if (err) throw err;
-                console.log('runtimes written');
-            });
-            fs.writeFile("./results/nano_array_sorting", JSON.stringify(nanoseconds), (err) => {
-                if (err) throw err;
-                console.log('nanoseconds written');
-            });
+    if (mode.crypto) {
+        if (mode.upload === "array") {
+            if (mode.sorting) {
+                fs.writeFile("./results_with_crypto/time_array_sorting", JSON.stringify(time), (err) => {
+                    if (err) throw err;
+                    console.log('runtimes written');
+                });
+                fs.writeFile("./results_with_crypto/nano_array_sorting", JSON.stringify(nanoseconds), (err) => {
+                    if (err) throw err;
+                    console.log('nanoseconds written');
+                });
+            }
+            else if (!(mode.sorting)) {
+                fs.writeFile("./results_with_crypto/time_array_no_sorting", JSON.stringify(time), (err) => {
+                    if (err) throw err;
+                    console.log('runtimes written');
+                });
+                fs.writeFile("./results_with_crypto/nano_array_no_sorting", JSON.stringify(nanoseconds), (err) => {
+                    if (err) throw err;
+                    console.log('nanoseconds written');
+                });
+            }
         }
-        else if (!(mode.sorting)) {
-            fs.writeFile("./results/time_array_no_sorting", JSON.stringify(time), (err) => {
-                if (err) throw err;
-                console.log('runtimes written');
-            });
-            fs.writeFile("./results/nano_array_no_sorting", JSON.stringify(nanoseconds), (err) => {
-                if (err) throw err;
-                console.log('nanoseconds written');
-            });
+        else if (mode.upload === "in-mem") {
+            if (mode.sorting) {
+                fs.writeFile("./results_with_crypto/time_mem_sorting", JSON.stringify(time), (err) => {
+                    if (err) throw err;
+                    console.log('runtimes written');
+                });
+                fs.writeFile("./results_with_crypto/nano_mem_sorting", JSON.stringify(nanoseconds), (err) => {
+                    if (err) throw err;
+                    console.log('nanoseconds written');
+                });
+            }
+            else if (!(mode.sorting)) {
+                fs.writeFile("./results_with_crypto/time_mem_no_sorting", JSON.stringify(time), (err) => {
+                    if (err) throw err;
+                    console.log('runtimes written');
+                });
+                fs.writeFile("./results_with_crypto/nano_mem_no_sorting", JSON.stringify(nanoseconds), (err) => {
+                    if (err) throw err;
+                    console.log('nanoseconds written');
+                });
+            }
         }
     }
-    else if (mode.upload === "in-mem") {
-        if (mode.sorting) {
-            fs.writeFile("./results/time_mem_sorting", JSON.stringify(time), (err) => {
-                if (err) throw err;
-                console.log('runtimes written');
-            });
-            fs.writeFile("./results/nano_mem_sorting", JSON.stringify(nanoseconds), (err) => {
-                if (err) throw err;
-                console.log('nanoseconds written');
-            });
+    else if (!(mode.crypto)) {
+        if (mode.upload === "array") {
+            if (mode.sorting) {
+                fs.writeFile("./results_without_crypto/time_array_sorting", JSON.stringify(time), (err) => {
+                    if (err) throw err;
+                    console.log('runtimes written');
+                });
+                fs.writeFile("./results_without_crypto/nano_array_sorting", JSON.stringify(nanoseconds), (err) => {
+                    if (err) throw err;
+                    console.log('nanoseconds written');
+                });
+            }
+            else if (!(mode.sorting)) {
+                fs.writeFile("./results_without_crypto/time_array_no_sorting", JSON.stringify(time), (err) => {
+                    if (err) throw err;
+                    console.log('runtimes written');
+                });
+                fs.writeFile("./results_without_crypto/nano_array_no_sorting", JSON.stringify(nanoseconds), (err) => {
+                    if (err) throw err;
+                    console.log('nanoseconds written');
+                });
+            }
         }
-        else if (!(mode.sorting)) {
-            fs.writeFile("./results/time_mem_no_sorting", JSON.stringify(time), (err) => {
-                if (err) throw err;
-                console.log('runtimes written');
-            });
-            fs.writeFile("./results/nano_mem_no_sorting", JSON.stringify(nanoseconds), (err) => {
-                if (err) throw err;
-                console.log('nanoseconds written');
-            });
+        else if (mode.upload === "in-mem") {
+            if (mode.sorting) {
+                fs.writeFile("./results_without_crypto/time_mem_sorting", JSON.stringify(time), (err) => {
+                    if (err) throw err;
+                    console.log('runtimes written');
+                });
+                fs.writeFile("./results_without_crypto/nano_mem_sorting", JSON.stringify(nanoseconds), (err) => {
+                    if (err) throw err;
+                    console.log('nanoseconds written');
+                });
+            }
+            else if (!(mode.sorting)) {
+                fs.writeFile("./results_without_crypto/time_mem_no_sorting", JSON.stringify(time), (err) => {
+                    if (err) throw err;
+                    console.log('runtimes written');
+                });
+                fs.writeFile("./results_without_crypto/nano_mem_no_sorting", JSON.stringify(nanoseconds), (err) => {
+                    if (err) throw err;
+                    console.log('nanoseconds written');
+                });
+            }
         }
     }
 }
