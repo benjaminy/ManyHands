@@ -1,15 +1,20 @@
 ManyHands
 =========
 
-#### Chore management for teams
+Many hands is an application implementation of the United We Stand (UWS) protocol. This protocol outlines an encrypted and server-less model for shared document editing.
 
-> ManyHands doesn't exist yet in any substantial sense (as of late
-> 2013), but I'm writing down the idea in hope of getting to work on it
-> some day.
+A server-less shared document editing protocol can be used for a variety of different applications like shared calendars, collaborative spreadsheets, or chore management applications (like many hands itself).
 
-ManyHands will be a simple web app that helps small teams (families,
-sports teams, social clubs, bands, ...) managed shared chores.  It's a
-sort of shared to-do, reminder kind of thing.
+#### Motivation for the UWS protocol
+
+Over the course of the past decade, the privacy and security of online communication have become a paramount concern. This increasing importance can is perhaps most clearly seen in the rapidly developing field of secure messaging applications like Signal, WhatsApp, and many others. These secure chatting applications have provided a secure mode for individuals to chat with lessened fear that a malicious third party is listening in to their messages.
+
+The UWS protocol aims to utilize the same messaging protocols that are used in these messaging applications to create a secure and robust system for sending edits to a shared document.
+
+Furthermore, by removing a central server from the protocols’ model, the system as a whole can be more resilient to 3rd party efforts to limit users access to the system using blocking.
+
+#### ManyHands chore management for teams
+ManyHands is an example application of the many possible systems that could be built which implement the UWS protocol.
 
 ### Many Hands in 100 words
 
