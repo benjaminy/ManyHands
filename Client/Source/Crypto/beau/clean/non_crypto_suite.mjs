@@ -15,18 +15,22 @@ export async function import_key(key_data_type, key_object, algorithm_name, expo
 }
 
 export async function sign(meta_info, signing_key, data_to_sign) {
-    const signature = await CS.sign(meta_info, signing_key, data_to_sign);
-    return signature;
+    const return_val = await WC.getRandomValues(new Uint8Array(32)).buffer;
+    return return_val;
 }
 
 export async function verify(meta_info, sign_public_key, signature, signed_data) {
-    const verify = await CS.verify( meta_info, sign_public_key, signature, signed_data);
-    return verify;
+    return true
 }
 
+//PROBLEM CHILD
 export async function derive_bits(derivation_object, key, bit_length) {
-    const output = await CS.deriveBits(derivation_object, key, bit_length);
-    return output;
+    const return_val = await WC.getRandomValues(new Uint8Array(
+        [ 161, 118, 128, 90, 43, 179, 86, 211, 246, 129, 176, 44, 65, 204, 82, 126,
+        161, 118, 128, 90, 43, 179, 86, 211, 246, 129, 176, 44, 65, 204, 82, 126]
+    )).buffer;
+
+    return return_val;
 }
 
 export async function generate_key(key_meta_info, exportable, key_ops) {
@@ -36,16 +40,11 @@ export async function generate_key(key_meta_info, exportable, key_ops) {
 }
 
 export async function encrypt(algorithm_info, key, buffer) {
-    const encryption = await CS.encrypt(algorithm_info, key, buffer);
-    return encryption;
+    return buffer
 }
 
 export async function decrypt(algorithm_info, key, cipher_text) {
-    const decryption = await CS.decrypt(
-        algorithm_info, key, cipher_text
-    );
-
-    return decryption;
+    return cipher_text
 }
 
 export async function digest(hash_function_obj, incoming_buffer) {

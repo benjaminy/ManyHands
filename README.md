@@ -1,15 +1,20 @@
 ManyHands
 =========
 
-#### Chore management for teams
+Many hands is an application implementation of the **United We Stand (UWS)** protocol. This protocol outlines an encrypted and server-less model for shared document editing.
 
-> ManyHands doesn't exist yet in any substantial sense (as of late
-> 2013), but I'm writing down the idea in hope of getting to work on it
-> some day.
+A server-less shared document editing protocol can be used for a variety of different applications like shared calendars, collaborative spreadsheets, or chore management applications (like many hands itself).
 
-ManyHands will be a simple web app that helps small teams (families,
-sports teams, social clubs, bands, ...) managed shared chores.  It's a
-sort of shared to-do, reminder kind of thing.
+#### Motivation for the UWS protocol
+
+Over the course of the past decade, the privacy and security of online communication have become a paramount concern. This increasing importance can is perhaps most clearly seen in the rapidly developing field of secure messaging applications like Signal, WhatsApp, and many others. These secure chatting applications have provided a secure mode for individuals to chat with lessened fear that a malicious third party is listening in to their messages.
+
+The UWS protocol aims to utilize the same messaging protocols that are used in these messaging applications to create a secure and robust system for sending edits to a shared document.
+
+Furthermore, by removing a central server from the protocols’ model, the system as a whole can be more resilient to 3rd party efforts to limit users access to the system using blocking.
+
+#### ManyHands chore management for teams
+ManyHands is an example application of the many possible systems that could be built which implement the UWS protocol.
 
 ### Many Hands in 100 words
 
@@ -61,41 +66,3 @@ going to the gym or practicing an instrument.  Knowing that friends and
 family will see whether you clicked the button or not might provide just
 the right size of nudge to get people to do things they might otherwise
 let slide.
-
-### Emphatic non-goal: chore-doing enforcement
-
-We assume that everyone on the team is basically committed to the
-harmonious functioning of the group.  It is _not_ a goal for the system
-that it verifies that someone did what they claim to have done.
-
-## Technical Ideas
-
-Here are the ideas we've had for implementing ManyHands so far.
-
-There are two non-trivial technical issues with implementing ManyHands:
-
-* Shared "document" management
-* Storage/authentication/etc
-
-### Shared "document" management
-
-Ideally ManyHands will work on all kinds of devices so that people can
-check off a task will minimal effort.  (Mobile phones seem like a
-particularly attractive platform.)  It should definitely work offline
-seamlessly, which creates a concurrent versioning problem.
-
-The initial idea is to use version control software, like git, to take
-care of all the low-level versioning stuff.  There can still be issues
-with people concurrently making inconsistent changes (like adding and
-deleting tasks), but those issues should be manageable.
-
-There is a JavaScript git implementation that might prove useful:
-
-https://github.com/creationix/js-git
-
-### Storage/authentication/etc
-
-Where should a team's tasks be stored?  We are not particularly
-interested in doing the hosting ourselves.  Ideally there would be a
-bunch of good options.  Maybe Dropbox?  How should authentication be
-done?

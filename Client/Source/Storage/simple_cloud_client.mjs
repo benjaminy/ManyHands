@@ -38,7 +38,7 @@ export default function init( user, options )
 
     const host = protocol_hostname + ":" + DEFAULT_SERVER_PORT + "/";
 
-    const upload = A( function* upload( path, options )
+    const upload = async function upload( path, options )
     {
         // XXX content, content_type, headersHook
         assert( M.isPath( path ) );
@@ -66,9 +66,9 @@ export default function init( user, options )
         const response = await fetch( p, fetch_options );
         A.log( "upload Response", response.status, response.statusText );
         return response;
-    } );
+    };
 
-    const download = A( function* download( path, options )
+    const download = async function download( path, options )
     {
         assert( M.isPath( path ) );
 
@@ -90,7 +90,7 @@ export default function init( user, options )
         }
 
         return r;
-    } );
+    };
 
     return { upload: upload, download: download };
 }

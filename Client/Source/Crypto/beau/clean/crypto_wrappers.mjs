@@ -1,9 +1,12 @@
 import assert from "assert";
-
 import WebCrypto from "node-webcrypto-ossl";
+
 const WC = new WebCrypto();
 const CS = WC.subtle;
-import * as suite from "./crypto_suite";
+
+
+// import * as suite from "./crypto_suite";
+import * as suite from "./non_crypto_suite";
 
 import TextEncoder from "text-encoding";
 const Encoder = new TextEncoder.TextEncoder();
@@ -296,6 +299,11 @@ export function decode_object(input_buffer) {
 
     const output_object = JSON.parse(object_string);
     return output_object;
+}
+
+export async function digest(incoming_buffer) {
+    const hash_buffer = await suite.digest({name: "SHA-256"}, incoming_buffer);
+    return hash_buffer;
 }
 
 export function combine_buffers(buffer_array) {
