@@ -36,7 +36,7 @@ There are trade-offs between security/privacy and convenience/usability.
 Clever engineering can sometimes bring benefits in one dimension with little loss in the other, but it is unlikely that it is possible to achieve maximal security and convenience in the same system.
 
 Our intuition for navigating these trade-offs in UWS involves recognizing the spectrum of attacks from mass surveillance and scattershot scripted attacks at one end to advanced and individually/organizationally targeted security and privacy attacks at the other.
-We intend to provide strong protection against untargeted attacks, but where there is tension between convenience and protection from targeted attacks, we prefer not to compromise on convenience.
+We intend to provide strong protection against untargeted attacks and surveillance, but where there is tension between convenience and protection from targeted attacks, we prefer not to compromise on convenience.
 This is related to our primary motivation of creating a CE framework that can compete with conventional centralized systems in terms of usability.
 In other words, our goal is to build a system that provides good privacy protection to many people, rather than iron-clad protection to the few who are willing to compromise in other areas.
 
@@ -122,6 +122,12 @@ Team size scalability is perhaps the most important weakness of UWS in its curre
 The edit ordering protocol uses vector clock timestamps, so edit size scales linearly with team size.
 Also by default there is no hierarchical struture to teams, so everyone needs to monitor every other teammate's storage locaction for updates.
 
+It is likely that these scalability limitations can be improved, but for a minute we want to focus on the merits of small teams.
+The per-team overheads in UWS are high enough that it is better for teams that have some real-world persistence.
+(For counter-example, not chatting among a collection of people who happen to be going out some evening.)
+
+dunbar number
+
 \subsubsection{Storage}
 
 By default every teammate keeps a complete copy of the team's database in their storage location.
@@ -168,16 +174,3 @@ consequences?
 As mentioned above, Bayou splits each client's edit chain 
 
 \end{document}
-
-tracking number
-
-110516049
-
-sharon
-
-200lb
-499 6285 vince
-
-Carl Brown
-Jeff Mcall
-Drew Hutchinson
