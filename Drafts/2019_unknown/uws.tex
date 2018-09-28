@@ -1,16 +1,16 @@
 \documentclass{article}
 
 \begin{document}
-\title{Privacy-Preserving Collaborative Editing for the Masses}
+\title{Privacy-Protecting Collaborative Editing for the Masses}
 \author{Benjamin Ylvisaker}
 
 \maketitle
 
 \section{Introduction}
 
-Collaborative editing applications are useful tools for helping teams work and socialize together.
+Collaborative editing applications help teams work and socialize together.
 Popular examples include Google Docs, Evernote, Etherpad, Slack and Trello.
-In all widely used collaborative editing (CE) applications, a central service integrates all teammates' edits into a consistent database/document and stores that database.
+In all widely used collaborative editing (CE) applications, a central service integrates teammates' edits into a consistent database/document and stores that database.
 In many cases this service is run by the same organization that develops the application.
 If a team has concerns (even mild ones) about protecting their data from exposure or tampering, this architecture is extremely problematic.
 The team's data is vulnerable to mishandling and attacks from the provider themselves, rogue employees, malicious hackers, governments/courts, etc.
@@ -21,6 +21,7 @@ CE is similar to messaging, but with two additional challenges:
 \item The data is persistent.
   Edits in CE systems are simlar to messages in messaging systems, but basic functionality requires that ``old'' edits be accessible to clients in an efficiently queryable format.
 \item Edits from teammates need to be integrated into a consistent document{\slash}database.
+  In messaging applications, it is typically not a big problem if users see messages in slightly different orders.
   Concurrent (potentially conflicting) edits are a challenge that needs to be addressed in some way.
 \end{enumerate}
 
@@ -38,7 +39,7 @@ Clever engineering can sometimes bring benefits in one dimension with little los
 Our intuition for navigating these trade-offs in UWS involves recognizing the spectrum of attacks from mass surveillance and scattershot scripted attacks at one end to advanced and individually/organizationally targeted security and privacy attacks at the other.
 We intend to provide strong protection against untargeted attacks and surveillance, but where there is tension between convenience and protection from targeted attacks, we prefer not to compromise on convenience.
 This is related to our primary motivation of creating a CE framework that can compete with conventional centralized systems in terms of usability.
-In other words, our goal is to build a system that provides good privacy protection to many people, rather than iron-clad protection to the few who are willing to compromise in other areas.
+In other words, our goal is to build a system that provides good privacy protection to many people, rather than iron-clad protection to the few who are willing to compromise in convenience or cost.
 
 In addition to these security-convenience trade-offs, economic questions play an important role.
 In particular, many providers of conventional CE applications derive profit from users' data.
@@ -54,11 +55,12 @@ One important hole in the economic story that we leave for cleverer minds is fun
 
 \begin{itemize}
 \item Teammates cannot be assumed to be online simultaneously.
-  Therefore, some kind of server is necessary, but servers are dangerous, so their role should be minimized.
+  Therefore, servers of some kind are necessary to deliver edits from user to user, but servers are dangerous, so their role should be minimized.
 \item Smooth offline operation is necessary.
+\item Multiple simultaneous ``connections'' from a single user is necessary.
 \item ``Remote access'' (better jargon for this?)
 \item Low latency is good, but moderate or high latency is tolerable for some applications.
-\item Scalability is good, but ...
+\item Scalability is good, but many real teams are small to medium-sized, and bigger teams often have some natural internal structure
 \end{itemize}
 
 \subsection{Servers}
@@ -66,7 +68,7 @@ One important hole in the economic story that we leave for cleverer minds is fun
 Purely peer-to-peer systems (like PeerPad) cannot match the usability of conventional CE systems, because they rely on teammates being simultaneously online.
 (P2P systems do not need to rely on \emph{all} teammates being online simultaneously, but rather propagate edits from user to user.)
 We consider requiring such live P2P connections to be an unacceptable usability downgrade relative to centralized CE, especially for users with highly intermittent internet connections.
-Even users with more consistent connections may prefer to not have a CE client constantly scanning for connections to teammates (for example, in some battery-powered scenarios).
+Even users with more consistent connections may not want a CE client constantly scanning for connections to teammates (for example, in battery-powered scenarios).
 
 On the other hand, servers present security and privacy risks.
 For example, attackers can monitor server communications to gather metadata about team communications, and censors can block servers more easily than they can block purely P2P communications.
@@ -75,8 +77,8 @@ Furthermore, assuming any kind of server in a system raises questions about who 
 In UWS we find a compromise on the server issue by assuming that every user has a passive cloud storage location of some kind.
 For many users, this will be an account with commodity services like Dropbox, Google Drive or Microsoft OneDrive.
 More technically savvy users with stronger privacy concerns can run their own storage server at home or with a lower profile cloud provider.
-In our protocol design we strive to minimize the API and performance expectations of the storage server in order to maximize the flexibility that users have with filling that role.
-The interface is essentially just simple HTTP file upload/download.
+In our protocol design we strive to minimize the API and performance expectations of the storage server in order to maximize the flexibility that users/system designers have with filling that role.
+The interface is essentially just HTTP file upload/download.
 The only slightly exotic support that is expected is something like the HTTP If-Match features.
 
 Details of the storage server API and further server-related mitigations are given below.
@@ -95,6 +97,12 @@ These concurrent edit merging frameworks are useful, but do not themselves provi
 We prefer to base our protocol's core data model on a Bayou-like totally ordered chain of edits/transactions.
 It is conceptually straightforward to build OT or CRDT like data abstractions on top of such a model.
 More details below.
+
+\subsection{Single-User Concurrent Access}
+
+It is common for users to have multiple ``connections'' open to cloud applications (e.g. multiple browser tabs on the same computer or simultaneously using a laptop and a mobile device).
+In systems with active servers, this kind of concurrency is just a special case of concurrent edits from different users.
+However, UWS is built on passive file servers, so extra care must be taken to prevent concurrent sessions from a single user clobbering each other's edits.
 
 \subsection{Remote Access}
 
@@ -133,6 +141,7 @@ dunbar number
 By default every teammate keeps a complete copy of the team's database in their storage location.
 So the aggregate storage requirements grow linearly with team size.
 
+It would be relatively easy to reduce this duplication as long as users trust that their teammates will not delete their part of the shared DB.
 
 \section{Concurrent Edits}
 
@@ -172,5 +181,11 @@ consequences?
 \subsubsection{How Tentative is Tentative?}
 
 As mentioned above, Bayou splits each client's edit chain 
+
+\subsubsection{Datomic Querying}
+
+\section{Storage}
+
+
 
 \end{document}
