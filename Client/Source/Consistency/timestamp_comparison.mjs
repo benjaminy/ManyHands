@@ -1,14 +1,4 @@
-import * as dr from "./double_ratchet"
-import * as crypto from "./crypto_wrappers"
-import * as user from "./user"
-import * as user_messaging from "./user_messaging"
-import * as diffie from "./triple_dh"
-import SM from "../../../Storage/in_memory";
-import * as SW from "../../../Storage/wrappers";
-
 import assert from "assert";
-
-const groups = {};
 
 export function compare(ts1, ts2) {
     var equality = 0;

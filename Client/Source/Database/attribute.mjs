@@ -158,6 +158,15 @@ export function normalizeValue( attribute, value )
     return v;
 }
 
+export initializeBuiltInAttrs()
+{
+}
+
+export function isBuiltInAttr( thing )
+{
+    
+}
+
 export function makeAddTxnStmt( attr )
 {
     const txn = {};

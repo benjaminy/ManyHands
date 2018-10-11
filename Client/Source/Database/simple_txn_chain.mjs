@@ -194,7 +194,7 @@ const fold_txns = fold_txns_newest_first;
  *
  * Returns either an entity object or null.
  */
-export async function getEntityId( db, thing )
+export async function entity( db, thing )
 {
     if( T.isInteger( thing ) )
     {
@@ -213,10 +213,22 @@ export async function getEntityId( db, thing )
     {
         function find_ident( txn )
         {
+            if( txn.failed )
+                return null;
+            for( const [ e, a, v, t, add ] of txn.datoms )
+            {
+                const ae = entity( db, a );
+                if( thing === ae.get( DA.identK ) )
+                {
+                    if( add )
+                        earlyExit( new Entity );
+                    else
+                        earlyExit( null );
+                }
+            }
             if( thing in txn.datoms )
             {
                 /* throws: */
-                earlyExit( new Entity );
             }
             return null;
         }
