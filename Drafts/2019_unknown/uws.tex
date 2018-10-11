@@ -296,4 +296,64 @@ We write $e_1{\rightsquigarrow}e_n$ if there exists a path $e_1{\rhd}e_2, e_2{\r
 
 We say $e_1$ happened before $e_2$ ($e_1{\rightarrow}e_2$) if $(e_1 \in \mathsf{Committed} \land e_2 \not\in \mathsf{Committed}) \lor e_1{\rightsquigarrow}e_2 \lor (e_2{\not\rightsquigarrow}e_1 \land \mathsf{TS}(e_1)<\mathsf{TS}(e_2))$
 
+
+
+
+
+
+
+
+
+
+Consistency
+
+In all collaborative editing systems there is the issue of concurrent edits.
+We consider this two mostly independent challenges: conflict handling and edit merging.
+When concurrent edits conflict with each other, we want the system to provide a mechanism for recognizing and helping users resolve the conflicts.
+When concurrent edits do not conflict, we want the system to automatically merge the edits without further user interaction.
+
+We note briefly that the definition of conflicting vs not conflicting should be at the application level, not the system level.
+System-level definitions of conflicts (e.g. modifying the same database location) can be simultaneously too rigid and too loose.
+As an example of being too rigid, in some application states the users might not care which user's write wins.
+On the other hand, a single edit might modify multiple database locations and a conflict rule that focused on individual locations might miss an application-level conflict.
+We suggest that collaborative editing systems should focus on providing flexible interfaces to applications for conflict detection and handling.
+
+There has been a great deal of research and implementation work on concurrent edit merging, especially around the ideas of operational transforms (OT) and conflict-free replicated data types (CRDT).
+These technologies are important, but they do not help in contexts where there are true conflicts and the order of edits is significant from a usability perspective.
+For example, consider a reservation system where it is possible for Alice's reservation to be overridden by Bob's because of a quirk in the consistency protocol, even when Alice's reservation was unambiguously made before Bob's.
+We believe that these kinds of situations are common enough that in addition to merging concurrent edits when possible, CE frameworks should establish as accurate an ordering of edits as is practically possible.
+
+Centralized systems can trivially order edits by the order in which they arrive at the central service.
+A user might get unlucky and find that their edits are slow to arrive at the central service, but that's life on the internet.
+Establishing order in the decentralized context is much harder, as evidenced by the vast amount of research devoted to the topic over decades.
+
+Before explaining the ordering protocol that we use in UWS, we argue against some simpler alternatives.
+
+Perhaps the simplest way to establish order would be to have clients put wall-clock timestamps in every edit that they broadcast.
+We mostly trust clients to not be malicious in UWS, so we cannot immediately reject this idea on security grounds.
+However, wall-clock timestamps are known to be quite problematic for at least two reasons:
+First, a client's clock could be misconfigured, leading to edits that seems to have appeared arbitrarily earlier or later than they actually did.
+This problem would almost certainly be even worse in the context of potentially poorly managed end-user computers than, for example, data centers, where timestamp based protocols are sometimes used.
+Second, an edit could take a long time to make its way from a client to that user's file server.
+Our general system assumption for UWS is that the client computers are much more likely to be flaky or have poor internet connections, whereas we assume the file servers are generally more reliable and performant.
+For these reasons we reject using wall-clock timestamps from client computers in any way.
+
+The next source of ordering data we consider is wall-clock timestamps from the file servers.
+This is a trickier source of data.
+We do not completely trust the file servers, and if these timestamps were used naively, it would be easy for a malicious file server to cause confusion by timestamping files inaccurately or even responding with different timestamps to requests for the same file.
+As described below, UWS \emph{does} use timestamps from the file servers, but we believe that it is important to have additional mechanisms to limit the damage that a misbehaving server can do.
+
+In UWS we limit the reliance on server timestamps with an implementation of the classical causal partial order.
+The simplest way to eastablish an accurate causal order is to send a vector clock timestamp with every edit.
+Unfortunately this strategy severely limits team size scalability, as the amount of metadata sent with \emph{every} edit scales with team size.
+We use a common trick that has the same worst-case scaling as vector clocks, but performs much better in the (common) case where the typical time between concurrent edits is relatively long compared to the typical communication latency.
+
+Each client is responsible for maintaining its own set of most recent edits.
+Newly uploaded edits include this set of most recent edits as the new edit's direct predecessors.
+These direct predecessor sets can be seen as a compressed version of a vector clock, where entries that are implied by chains of predecessors from those named in the edit can be ommitted.
+
+These direct predecessor sets in edits define a causality DAG.
+If there is a path from one edit to another in this DAG, then those edits must be processed in that order.
+If there is no path from one edit to another, those edits are concurrent and they are ordered by file server timestamp.
+
 \end{document}
