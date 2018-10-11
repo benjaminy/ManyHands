@@ -158,6 +158,46 @@ So the aggregate storage requirements grow linearly with team size.
 
 It would be relatively easy to reduce this duplication as long as users trust that their teammates will not delete their part of the shared DB.
 
+\section{Communication and Storage}
+
+The default communication mechanism in UWS is broadcasting messages to teammates by uploading them to a cloud storage location.
+A user can participate in multiple teams, storing different files under different keys, as appropriate.
+
+Communication and storage are
+
+Network server with the following characteristics:
+
+\begin{itemize}
+\item A single user can authenticate in some way and has complete control over their location
+\item Upload and download arbitrary byte vectors to/from a path
+\item A way to atomically upload and check that no file exists at the upload path
+\item A way to atomically upload and check that the currently stored version matches the last version seen by the uploader
+\item Wall-clock timestamps on files
+\end{itemize}
+
+We remind the reader that it's simple for a reason
+
+Tree/DAG
+
+Our consistency protocol uses wall-clock timestamps when edits are judged to be concurrent.
+However, we cannot trust the storage server's timestamp on the files themselves, because a client may be very slow in uploading a chain of files.
+New edits may be stored on the server, but are not effectively available to teammates until the root file is updated.
+In many cases the message file's timestamp and the relevant root file timestamp will be very close to each other.
+However, we consider this very slow client scenario important enough to design a solution for it.
+
+All uploaded files can include a timestamp field (i.e. data placed in the file itself, not the server/file systems file metadata).
+When files are initially uploaded, these timestamp fields are blank
+
+
+
+\subsection{Sharing}
+
+As noted above, a potential problem with basic UWS is that the aggregate storage cost scales linearly with team size (i.e. each teammate stores a complete copy of the team's data).
+Because of the immutable accumulation of edits model of UWS, it is relatively easy for teammates to share the storage cost.
+
+This sharing idea relies on teammates trusting each other to not delete their part of the team's shared data.
+In other words, if a team is sharing the storage cost, it would be easy for a teammate to do a denial of service attack by removing their data.
+
 \section{Concurrent Edits}
 
 There has been a great deal of research on detecting conflicts between and automatically merging concurrent edits.
@@ -216,28 +256,6 @@ So an application might prefer to display data as committed, even if it has only
 (Of course, such an application would need a backup UI/UX in the extremely unlikely event that such data needs to be uncommitted.)
 
 Datomic querying below
-
-\section{Storage}
-
-Network server with the following characteristics:
-
-\begin{itemize}
-\item A single user can authenticate in some way and has complete control over their location
-\item Upload and download arbitrary byte vectors to/from a path
-\item A way to atomically upload and check that no file exists at the upload path
-\item A way to atomically upload and check that the currently stored version matches the last version seen by the uploader
-\item [optional] Wall-clock timestamps on files
-\end{itemize}
-
-We remind the reader that it's simple for a reason
-
-\subsection{Sharing}
-
-As noted above, a potential problem with basic UWS is that the aggregate storage cost scales linearly with team size (i.e. each teammate stores a complete copy of the team's data).
-Because of the immutable accumulation of edits model of UWS, it is relatively easy for teammates to share the storage cost.
-
-This sharing idea relies on teammates trusting each other to not delete their part of the team's shared data.
-In other words, if a team is sharing the storage cost, it would be easy for a teammate to do a denial of service attack by removing their data.
 
 \section{Database}
 
