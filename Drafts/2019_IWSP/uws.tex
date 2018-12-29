@@ -1,0 +1,465 @@
+\documentclass{article}
+
+\usepackage{ wasysym }
+\usepackage{ amssymb }
+
+\begin{document}
+\title{How to Make Secure Collaborative Editing Mainstream: Cloud Storage, Usability and Scalability Tweaks}
+\author{Benjamin Ylvisaker}
+\date{}
+
+\maketitle
+
+\section{Introduction}
+
+Collaborative editing applications help teams work and socialize together; some popular examples: Google Docs, Evernote, Etherpad, Slack, Trello.
+In all widely used collaborative editing (CE) applications, \emph{central services} process and store teammates' edits/transactions.
+In many cases the application developer and service provider are one and the same organization.
+
+This architecture is extremely problematic from a security and privacy perspective; service providers have complete control over teams' data.
+Teams are vulnerable to service provider incentive misalignment, lapses in operational security, and interference from outsiders like governments and courts.
+There is an extensive literature, both scholarly and popular, on risks associated with private data exposure and manipulation.
+In this paper we assume that in many cases people are motivated to protect their teams' data from \emph{all} outsiders.
+
+Previous research projects (e.g. SPORC\cite{TODO}, TRVE Data\cite{TODO}) demonstrated that secure CE is possible.
+However, to the best of our knowledge there is approximately zero mainstream adoption of secure CE applications.
+In contrast, secure \emph{messaging} protocols and applications like OTR, Signal, WhatsApp, Telegram, and iMessages \cite{TODO} are now mainstream.
+The question addressed in this paper is: Why are both secure \emph{messaging} and \emph{insecure} collaborative editing widely used, while secure collaborative editing is barely used at all?\footnotemark{}
+
+\footnotetext{Secure file sharing is a partial counterexample to this blanket comment about secure CE.
+However, file sharing protocols generally make no attempt at fine-grained integration of concurrent edits, an essential feature for many CE applications.}
+
+We believe that a major factor behind this difference is economic.
+Popular secure messaging services use end-to-end encryption (E2EE) protocols to protect users from a variety of attacks, but they rely on central servers to forward messages and facilitate peer-to-peer connections.
+In addition to important security and privacy concerns related to central servers, there is the critical issue of funding the operation and maintenance of these services.
+Deriving profit from users' private data (arguably the most common business strategy on the web today) is obviously not viable.
+Alternative strategies include offering secure messaging to attract and retain users who pay for other goods and services (Facebook, Apple) and a mysterious combination of donations, grants and licensing deals (Open Whisper Systems/Signal).
+
+Compared to messaging, CE carries substantial additional costs for storing teams' documents{\slash}databases and servicing repeated queries for (pieces of) that data.
+We speculate that the relatively weak economic incentive for providing privacy-protecting services has not been strong enough to support secure CE applications.
+Therefore, a potential direction for \emph{economically viable} secure CE is decentralization.
+This strategy puts the storage and computation costs on end users.\footnotemark{}
+
+\footnotetext{Decentralization might solve the problem of funding the operation of CE systems, but it does not address the cost of developing application code.
+Once upon a time, users paid for software; could this happen again?}
+
+Decentralized CE has also been the subject of previous research and deployed systems (e.g. Bayou\cite{TODO}, PeerPad\cite{TODO}).
+We claim that previous decentralized CE systems have all made one or more important usability and/or scalability compromises relative to centralized systems.
+Our goal is to eliminate or mitigate as many of these compromises as possible, since most people in most situations are willing to give up little in exchange for improved data security and privacy.
+In other words, we aim to make a protocol that provides as much security and privacy as is feasible, while remaining competitive with the usability of conventional centralized services.
+
+In particular, our proposed protocol (called United We Stand (UWS)) starts with an interesting security{\slash}usability compromise.
+We assume that all users have a cloud storage location to which they upload their edits, both for their own later retrieval and to broadcast them to their teammates.
+Compared to some secure messaging protocols, where ``old'' messages are assumed to be either deleted or stored on a more physically secure device, this architecture is less secure in the sense that encrypted versions of all the team's data are available to anyone on the Internet.
+
+Nevertheless, we believe that this protocol has the potential to improve the security and privacy for the huge number of teams that currently use conventional centralized CE services.
+In order to achieve this kind of mainstream success, the protocol must provide usability nearly indistinguishable from centralized services.
+We analyze ways in which we believe previous decentralized CE projects have fallen short in this regard and sketch adaptations of existing secure messaging and distributed systems protocols that we believe could provide that level of usability.
+
+\subsection{Security Non-Goals}
+
+The UWS project is focused on protecting teams from untargeted surveillance attacks.
+Two categories of attacks that we are not focused on are targeted attacks from a technically sophisticated adversary and insider attacks from teammates.
+Of course, we aim for UWS to be as resistant to these kinds of attacks as is feasible, but not at the expense of usability.
+
+\section{Centralized/Decentralized Hybrid}
+
+In any networked application there are tensions between security{\slash}privacy and servers playing a role in the application.
+Even systems (like SPORC and Signal) that use E2EE are more vulnerable to some attacks than decentralized systems.
+First, surveillance is easier with central servers than decentralized communication.
+Such surveillance can expose teammate identities and communication patterns, if not the contents of the messages.
+Second, central servers are easier to censors.
+In recent years there have been several examples of governments and{\slash}or courts blocking secure messaging systems (e.g. WhatsApp in Brazil, Telegram in Russia, Signal in several countries).
+Such blocking is feasible because these applications reequire communication with central servers.
+Third, any server designed in to a protocol raises the question of who pays for the operation of that server.
+
+On the other hand, purely decentralized architectures have two critical usability problems compared to conventional CE.
+First, users must be online simultaneously to exchange edits\footnotemark{}.
+While this is acceptable in some contexts, it is problematic for users with intermittent internet connections and/or energy-constrained devices.
+Second, firewalls that block incoming connections can make decentralized communication impossible.
+The STUN{\slash}TURN{\slash}ICE protocols enable peer-to-peer connections through firewalls in some cases, but they do not always work, and in some cases rely on server support (which is exactly what we are trying to avoid).
+
+\footnotetext{This does not mean that \emph{all} teammates need to be online simultaneously.
+Some P2P CE systems pass edits from user to user as particular pairs happen to be online together.}
+
+We reemphasize that while it is possible for users to work around these difficulties, we are aiming for a usability experience nearly indistinguishable from centralized services.
+
+In UWS we compromise on the server issue by assuming that every user has a passive cloud storage location of some kind.
+For many users, this will be an account with commodity services like Dropbox, Google Drive or Microsoft OneDrive.
+More technically savvy users with stronger privacy concerns can run their own storage server at home or with a lower profile cloud provider.
+To be clear, we are \emph{not} saying that all UWS data resides with some particular cloud storage provider, but rather that every user is responsible for providing their own cloud storage location.
+Users can choose where to store their data completely independently of any other user's choice.
+
+In our protocol design we minimize the API complexity and performance expectations of the storage server in order to maximize the flexibility that users/system designers have with filling that role.
+The interface is essentially simple file upload/download.
+The only slightly exotic required feature is some atomic checking by the server on upload (e.g. the HTTP \texttt{If-Match} header features).
+
+\section{Decentralized Systems are Hard}
+
+In this section we cover several features that a CE system must have in order to be competitive with conventional centralized systems.
+
+\subsection{Anywhere, Anytime Availability}
+
+Users should have reasonable remote access to their documents{\slash}database in the sense that they can connect from a new device and have the same usability experience (or nearly so) as from a computer that they use regularly.
+This is an absolutely standard feature for systems like Google Docs or Office 365.
+Purely peer-to-peer systems like PeerPad can never provide this feature, because there is no storage server at all; if none of the peers happens to be available online at a particular time, there is no way to get the team's data.
+
+The storage servers in UWS make this kind of availability feasible.
+In addition to the basic existence of the server, the storage format is also important.
+For example, a simple linear chain of all edits would make querying hopelessly inefficient as the size of the data grows large.
+The storage format in UWS (described below) is a shallow tree that supports efficient query.
+
+\subsection{Concurrent Edit Merging and Conflicts}
+
+Good support for concurrent editing (especially while disconnected) is necessary to match the usability of popular CE systems.
+A system must both automatically merge concurrent edits when feasible and provide for conflict resolution otherwise.
+
+Many recent CE systems have put a lot of focus on automatic merging with some flavor of operational transformations (OT) or conflict-free replicated data types (CRDTs).
+These concurrent edit merging frameworks are useful, but do not themselves provide support for identification and resolution of true conflicts.
+
+We prefer to base our protocol's core data model on a Bayou-like totally ordered chain of edits{\slash}transactions.
+It is conceptually straightforward to build OT or CRDT like data abstractions on top of such a model.
+
+\subsection{Single-User Concurrent Access}
+
+It is common for users to have multiple ``connections'' open to cloud applications (e.g. multiple browser tabs on the same computer or simultaneously using a PC and a mobile device).
+In systems with active servers, this kind of concurrency is just a special case of concurrent edits from different users.
+However, UWS is built on passive file servers, which we do not expect to automatically resolve potential conflicts between concurrent uploads from the same user on different devices.
+Therefore, extra care must be taken to prevent concurrent sessions from a single user clobbering each other's edits.
+
+\subsection{Scalability}
+
+There are several dimensions of scalability that are worth considering.
+
+\subsubsection{Team Size}
+
+Team size scalability is one of the biggest challenges for decentralized CE.
+Many existing distributed consensus and secure group messaging protocols have elements that scale linearly with group size.
+Linear scaling would make any CE system built on such protocols practically unusable at some team size.
+Below we present adaptations of consensus and messaging protocols that, at least in important common cases, allow them to scale sub-linearly with team size.
+
+Another promising direction for team size scalability that we just briefly mention here is thinking of large teams as linked smaller teams.
+There are many examples in the real world of teams with sizes well into the thousands.
+For example consider all the employees of a company or students at a university.
+However, within such organizations there are always smaller structures of one sort or another.
+It might be interesting to think of users only being directly connected to teammates in their smaller groups, and indirectly connected to other members of the larger group through individuals who happen to be in overlapping smaller groups.
+With such an organization, there may be no need for a CE system to scale to very large team sizes.
+
+??? Dunbar number ???
+
+\subsubsection{Storage}
+
+UWS accumulates recent edits in a linear chain.
+However, older edits get compressed into an efficiently queryable tree structure.
+
+By default every teammate keeps a complete copy of the team's database in their storage location.
+So aggregate storage requirements grow linearly with team size; more on this below.
+
+\subsection{Latency}
+
+Obviously, the lower the latency that a system can provide, the better.
+Our current prototype uses cloud storage upload as the only communication medium, which imposes a fairly high minimum latency for communicating edits to teammates (multiple seconds is not uncommon).
+Cloud storage services vary in the facilities they provide for notification of changes.
+In the worst case, clients need to fall back to polling.
+
+\subsubsection{Cloud Storage-P2P Hybrids}
+
+It should be possible to use P2P connections for lower latency when teammates are simultaneously online, but we have not investigated this in any detail yet.
+Other projects have explored P2P-based CE, so the only question is how hard it is to hybridize these kinds of communication{\slash}storage systems with UWS.
+
+\subsubsection{Latency-Tolerant Applications}
+
+Some applications work fine with relatively high latency.
+For example, a shared calendar or reservation system.
+The UWS data consistency protocol is designed to give applications a lot of flexibility with how they treat data ``committedness''.
+One consequence of this design is that it is easy to make highly responsive user interfaces while the protocols run in the background.
+
+\subsection{Team Management}
+
+Central servers can make team management more efficient.
+In particular, when adding a new teammate, servers can reduce the communication overhead.
+For example, the signed prekeys (stored on a central server) in the Signal protocol exist for the single purpose of making it possible to start a new chat with someone and send the first message before the recipient is even aware of the char request.
+UWS does not quite match this level of efficiency in team management, but it is close.
+
+\subsection{Summary of Required Features}
+
+Here we summarize the features that we believe are essential for a CE system to be as usable as conventional centralized systems.
+Decentralization and cryptographic security make achieving these features more challenging.
+
+\begin{itemize}
+\item Users being simultaneously online cannot be a requirement.
+\item No dependence on direct peer-to-peer connections.
+\item Merging of and conflict detection among concurrent edits.
+\item Multiple simultaneous ``connections'' from a single user.
+\item Anywhere, anytime availability.
+\item Low latency.
+\item Database size scalability.
+\item Team size scalability.
+\item Efficient team and team membership management.
+\end{itemize}
+
+\section{Communication and Storage}
+
+% GRIS
+
+The default communication mechanism in UWS is broadcasting messages to teammates by uploading them to a cloud storage location.
+A user can participate in multiple teams, storing different files under different keys, as appropriate.
+
+\subsection{Misbehaving Storage Servers}
+
+The UWS protocol does not trust storage servers to enforce its basic security and privacy properties.
+All files are encrypted (unless they contain only public information) and cryptographically authenticated.
+This means it is infeasible for servers to access teams' confidential data or impersonate teammates.
+
+Storage servers can perform denial of service attacks trivially by deleting data, not responding to requests, or (slightly more subtly) corrupting data.
+Because of the authentication, users can at least be aware of any corruption that occurs.
+If users are concerned about this kind of denial of service attack, they can create backups offline or even run their own storage server.
+
+Timestamps provided by the storage server are used to break ties in the concurrent edit consistency protocol (described below), which means that storage servers can potentially disrupt teams' data consistency.
+Because timestamps are only used in cases where edits are not ordered by causal ordering, which does not rely on servers at all, the degree of inaccuracy that storage servers can introduce this way is limited.
+Servers could also report inconsistent timestamps ...
+
+\subsection{Storage Protocol}
+
+An important feature that UWS requires from the storage subsystem is atomic multi-file uploads.
+This is a feature that we do not want to require natively from storage servers, so we build it up from more primitive pieces.
+First, all files stored for a particular user (including all teams they belong to) are organized as a single tree.
+The root file has a globally known location{\slash}name{\slash}path.
+All other files have randomly generated names; there should never be ``external'' links to these files, they should only be reached by following links starting from the root file.
+Clients modify{\slash}add{\slash}delete files in the style of functional data structures by rebuilding branches of the tree from the modifications up to the root and then performing a single atomic update to the root.
+
+Standard HTTP file servers already support these features with two different flavors of the \texttt{If-Match} header.
+The \texttt{If-None-Match:*} header ensures that names{\slash}paths randomly generated by clients do not accidentally overwrite existing files.
+The \texttt{ETag} and \texttt{If-Match:<etag>} headers ensure that updates to the root file are atomic.
+Mis-implementations of these features (malicious or not) could lead to data corruption that would be tricky to detect; resistance to such an attack is left to future work.
+
+After a root update, some files may not be reachable from the new root; these should be garbage collected.
+Users getting disconnected in the middle of an update or simultaneous updates coming in from concurrent sessions can never corrupt the tree.
+At worst, such problems will lead to a retrying the update and{\slash}or creating garbage files.
+
+\subsection{Timestamps}
+
+Getting accurate timestamps is somewhat tricky.
+We assume that servers assign a reasonably accurate wall-clock timestamp to each file.
+However, files are not visible to teammates immediately after the upload completes.
+After writing a file that contains some edit, a user must rewrite some additional files to complete a new tree, and then finally update the root.
+If a client has a slow connection, there may be nontrivial delays between when a file is written and when a new tree containing that file is visible to teammates.
+
+To address this issue, we consider two kinds of timestamps: server timestamps and link timestamps.
+Server timestamps are assigned by the server (e.g. \texttt{Last-Modified} in HTTP).
+In UWS the only file for which the server timestamp matters is the root.
+Because the UWS data protocol is a tree, each file has a single parent.
+Each parent-child link contains a client-supplied timestamp.
+These link timestamps can be empty{\slash}unknown (for reasons described in the next paragraph).
+A file's effective timestamp is defined to be the first non-empty link timestamp in the path from it back to the root, or the root's server timestamp, if all such link timestamps are empty.
+
+When a new file is added to the tree, its initial link timestamp is empty{\slash}unknown.
+When a client updates a branch in the tree, it may find links from the new branch to older, unmodified parts of the tree.
+If these links have an empty{\slash}unknown timestamp, during the rewriting of the new tree, these links are updated to the effective timestamp of the relevant file.
+
+\subsection{Notification of Changes}
+
+Storing data in the cloud makes it available, but how do users know when they should check for new edits from their teammates?
+This is an important question to which our current prototype has only a partial answer.
+The simplest answer is polling, which has obvious performance problems.
+
+Team size scalability is perhaps the most important weakness of UWS in its current incarnation.
+The edit ordering protocol uses vector clock timestamps, so edit size scales linearly with team size.
+Also by default there is no hierarchical structure to teams, so everyone needs to monitor every other teammate's storage location for updates.
+
+
+
+\subsection{Database Format}
+
+For most of the UWS protocol, the content and format of the edits is irrelevant.
+The only essential feature for building a useful system is that older edits somehow be efficiently queryable.
+The current UWS prototype adopts a very flexible design from the Datomic database.
+Primitive units of data are entity{\slash}attribute{\slash}value{\slash}timestamp tuples.
+These tuples are stored in multiple indexes, sorted in different ways to enable flexible and efficient querying.
+New edits accumulate in a linear chain until some threshold is reached, when a batch of the oldest ones are integrated into the indexes.
+The indexes are stored as wide{\slash}shallow trees.
+
+\subsection{Sharing}
+
+As noted above, in basic UWS each teammate stores a complete copy of the team's data; clearly this means that the aggregate space used scales linearly with team size.
+In some scenarios, users 
+Because of the immutable accumulation of edits model of UWS, it is relatively easy for teammates to share the storage cost.
+
+This sharing idea relies on teammates trusting each other to not delete their part of the team's shared data.
+In other words, if a team is sharing the storage cost, it would be easy for a teammate to do a denial of service attack by removing their data.
+
+
+
+\section{Concurrent Edits}
+
+There has been a great deal of research on conflict detection and automatic merging of concurrent edits.
+The UWS concurrent edit merging algorithm is closely related to the Bayou approach.
+
+\subsection{Bayou}
+
+In Bayou, the basic data model is a linear chain of edits (\emph{Writes} in their jargon).
+Of course, each user has their own perspective on the exact state of ``the'' chain.
+Bayou divides the chain into two sections: tentative and committed.
+New edits are initially considered tentative.
+A consistency protocol determines when edits graduate from tentative to stable{\slash}committed.
+
+The order of stable edits has been agreed upon, and cannot be changed by subsequent messages (unless the protocol is violated).
+Tentative edits might be reordered or superseded by as-yet-unseen edits.
+Client user interfaces are free to incorporate tentative edits, but later messages might cause unexpected changes in application state.
+This flexibility is an important usability advantage of Bayou.
+Application programmers can choose on a case-by-case basis whether tentative state shoud appear in the UI and how users should be notified of changes to such state.
+
+\subsection{Updating Bayou}
+
+UWS refines the Bayou model in a few ways:
+
+\begin{itemize}
+\item Dumber servers
+\item More shades of gray between tentative and committed
+\item More flexible querying of not-yet-stable edits
+\end{itemize}
+
+\subsubsection{Dumber Servers}
+
+The Bayou project did not consider security/privacy as an issue at all; they were simply trying to make a good decentralized concurrent editing system.
+Therefore, the designers did not consider the potential problems of malicious server operators or network monitors.
+As a consequence, they assume servers will play a larger role in merging concurrent edits than we are willing to accept.
+
+consequences?
+
+\subsubsection{How Tentative is Tentative?}
+
+As mentioned above, Bayou splits each client's edit chain into two sections: tentative and committed.
+We believe that it is useful to consider more intermediate degrees of ``committedness''.
+Exactly which levels of committedness are useful will require experimentation with real applications, but UWS currently supports the following levels:
+
+\begin{itemize}
+\item Not yet uploaded
+\item Uploaded, but not confirmed by the server
+\item Upload confirmed, but no acknowledgments from teammates seen
+\item Acknowledged by a minority of teammates
+\item Acknowledged by a majority of teammates (i.e. committed)
+\end{itemize}
+
+We believe acknowledged by a minority of teammates is an especially interesting intermediate state in the following scenario.
+Consider a relatively large team, where many teammates log in to the team relatively infrequently.
+(Perhaps a good example might be scheduling for volunteer docents at a museum.)
+Conventional distributed consensus algorithms demand a majority in order to consider some data committed, because of the possibility that two minority subset of users are isolated from each other.
+While this kind of failure is (of course) possible in UWS, we expect it to be extremely rare.
+So an application might prefer to display data as committed, even if it has only been acknowledged by a minority of teammates.
+(Of course, such an application would need a backup UI/UX in the extremely unlikely event that such data needs to be uncommitted.)
+
+Datomic querying below
+
+\subsection{Merging Concurrent Edits}
+
+
+
+
+\section{Secure Messaging}
+
+To a first approximation, any secure group messaging protocol can be used with with the rest of UWS.
+Where messaging protocols refer to sending messages to other users or a server to be forwarded, in UWS that would be uploading to a particular location in the tree known to that team.
+
+A challenge with many secure group messaging protocols is linear scaling with group size.
+For example, in the group adaptation of Signal, every message is encrypted with a one-time key and that key has to be encrypted with a different conversation key for each teammate.
+At some team size this overhead becomes a usability problem.
+
+It is worth examining why this kind of constant key change is used.
+One major reason is forward secrecy.
+However, given the choice in UWS to store the team's database publicly on the Internet, forward secrecy is mostly irrelevant.
+Forward secrecy is meaningful when an attacker has ``old'' encrypted messages and ``new'' keys.
+In this scenario the attacker cannot access unencrypted messages because users have deleleted the ``old'' keys and either deleted the unencrypted ``old'' messages or stored them in a separate (persumably more secure) location.
+But in UWS the whole world always has access to ``new'' copies of the team's encrypted data.
+
+This observation opens an opportunity to improve the efficiency of the secure messaging part of UWS.
+In particular, users have a single key derivation chain known to all their teammates.
+This means that the cryptographic work needed for normal edit sending{\slash}receiving does not scale with team size at all.
+
+Forward secrecy still has some meaning in UWS the context of teammates leaving a team and expunging old data from the database.
+In both cases, UWS uses a conventional key exchange protocol to seed new broadcast key chains for each user.
+As long as these events happen infrequently enough, even if the key exchange protocol scales linearly with team size its usability impact will be far lower than every message send being slow.
+
+\section{Team Management}
+
+Our goal is to define a total order on edits.
+We use the following raw ingredients:
+
+\begin{itemize}
+\item Each edit is identified by its author's userid and a unique (per-author) serial number provided by the author.
+\item Each edit can name up to one edit per teammate as direct predecessors of that edit.
+  Each edit must name at least one direct predecessor.
+\item Each edit must have a wall-clock timestamp.
+\item Each teammate must broadcast in a reasonably timely manner a vector timestamp that indicates the highest serial number they have seen from each teammate.
+\end{itemize}
+
+At any time a user can compute a committed timestamp by calculating the min of all their teammates individual vector timestamps.
+Any edit that is less than this committed timestamp is considered committed and its order relative to other edits will never change.
+
+We write $e_1{\rhd}e_2$ if $e_1 \in \mathsf{Pred}(e_2)$.
+
+We write $e_1{\rightsquigarrow}e_n$ if there exists a path $e_1{\rhd}e_2, e_2{\rhd}e_3, \ldots, e_{n-1}{\rhd}e_n$
+
+We say $e_1$ happened before $e_2$ ($e_1{\rightarrow}e_2$) if $(e_1 \in \mathsf{Committed} \land e_2 \not\in \mathsf{Committed}) \lor e_1{\rightsquigarrow}e_2 \lor (e_2{\not\rightsquigarrow}e_1 \land \mathsf{TS}(e_1)<\mathsf{TS}(e_2))$
+
+
+
+
+
+
+
+
+
+
+Consistency
+
+In all collaborative editing systems there is the issue of concurrent edits.
+We consider this two mostly independent challenges: conflict handling and edit merging.
+When concurrent edits conflict with each other, we want the system to provide a mechanism for recognizing and helping users resolve the conflicts.
+When concurrent edits do not conflict, we want the system to automatically merge the edits without further user interaction.
+
+We note briefly that the definition of conflicting vs not conflicting should be at the application level, not the system level.
+System-level definitions of conflicts (e.g. modifying the same database location) can be simultaneously too rigid and too loose.
+As an example of being too rigid, in some application states the users might not care which user's write wins.
+On the other hand, a single edit might modify multiple database locations and a conflict rule that focused on individual locations might miss an application-level conflict.
+We suggest that collaborative editing systems should focus on providing flexible interfaces to applications for conflict detection and handling.
+
+There has been a great deal of research and implementation work on concurrent edit merging, especially around the ideas of operational transforms (OT) and conflict-free replicated data types (CRDT).
+These technologies are important, but they do not help in contexts where there are true conflicts and the order of edits is significant from a usability perspective.
+For example, consider a reservation system where it is possible for Alice's reservation to be overridden by Bob's because of a quirk in the consistency protocol, even when Alice's reservation was unambiguously made before Bob's.
+We believe that these kinds of situations are common enough that in addition to merging concurrent edits when possible, CE frameworks should establish as accurate an ordering of edits as is practically possible.
+
+Centralized systems can trivially order edits by the order in which they arrive at the central service.
+A user might get unlucky and find that their edits are slow to arrive at the central service, but that's life on the internet.
+Establishing order in the decentralized context is much harder, as evidenced by the vast amount of research devoted to the topic over decades.
+
+Before explaining the ordering protocol that we use in UWS, we argue against some simpler alternatives.
+
+Perhaps the simplest way to establish order would be to have clients put wall-clock timestamps in every edit that they broadcast.
+We mostly trust clients to not be malicious in UWS, so we cannot immediately reject this idea on security grounds.
+However, wall-clock timestamps are known to be quite problematic for at least two reasons:
+First, a client's clock could be misconfigured, leading to edits that seems to have appeared arbitrarily earlier or later than they actually did.
+This problem would almost certainly be even worse in the context of potentially poorly managed end-user computers than, for example, data centers, where timestamp based protocols are sometimes used.
+Second, an edit could take a long time to make its way from a client to that user's file server.
+Our general system assumption for UWS is that the client computers are much more likely to be flaky or have poor internet connections, whereas we assume the file servers are generally more reliable and performant.
+For these reasons we reject using wall-clock timestamps from client computers in any way.
+
+The next source of ordering data we consider is wall-clock timestamps from the file servers.
+This is a trickier source of data.
+We do not completely trust the file servers, and if these timestamps were used naively, it would be easy for a malicious file server to cause confusion by timestamping files inaccurately or even responding with different timestamps to requests for the same file.
+As described below, UWS \emph{does} use timestamps from the file servers, but we believe that it is important to have additional mechanisms to limit the damage that a misbehaving server can do.
+
+In UWS we limit the reliance on server timestamps with an implementation of the classical causal partial order.
+The simplest way to establish an accurate causal order is to send a vector clock timestamp with every edit.
+Unfortunately this strategy severely limits team size scalability, as the amount of metadata sent with \emph{every} edit scales with team size.
+We use a common trick that has the same worst-case scaling as vector clocks, but performs much better in the (common) case where the typical time between concurrent edits is relatively long compared to the typical communication latency.
+
+Each client is responsible for maintaining its own set of most recent edits.
+Newly uploaded edits include this set of most recent edits as the new edit's direct predecessors.
+These direct predecessor sets can be seen as a compressed version of a vector clock, where entries that are implied by chains of predecessors from those named in the edit can be omitted.
+
+These direct predecessor sets in edits define a causality DAG.
+If there is a path from one edit to another in this DAG, then those edits must be processed in that order.
+If there is no path from one edit to another, those edits are concurrent and they are ordered by file server timestamp.
+
+\end{document}
