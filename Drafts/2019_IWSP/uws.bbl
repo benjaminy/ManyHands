@@ -1,0 +1,36 @@
+\begin{thebibliography}{1}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{URL }
+\providecommand{\doi}[1]{https://doi.org/#1}
+
+\bibitem{Borisov2004}
+Borisov, N., Goldberg, I., Brewer, E.: Off-the-record communication, or, why
+  not to use pgp. In: Proceedings of the 2004 ACM Workshop on Privacy in the
+  Electronic Society. pp. 77--84. WPES '04, ACM, New York, NY, USA (2004)
+
+\bibitem{Cohn-Gordon2018}
+Cohn-Gordon, K., Cremers, C., Garratt, L., Millican, J., Milner, K.: On
+  ends-to-ends encryption: Asynchronous group messaging with strong security
+  guarantees. In: Proceedings of the 2018 ACM SIGSAC Conference on Computer and
+  Communications Security. pp. 1802--1819. CCS '18, ACM, New York, NY, USA
+  (2018)
+
+\bibitem{Feldman2010}
+Feldman, A.J., Zeller, W.P., Freedman, M.J., Felten, E.W.: {SPORC}: Group
+  collaboration using untrusted cloud resources. In: Proceedings of the 9th
+  USENIX Conference on Operating Systems Design and Implementation. pp.
+  337--350. OSDI'10, USENIX Association, Berkeley, CA, USA (2010)
+
+\bibitem{Kleppmann2018}
+Kleppmann, M., Kollmann, S.A., Vasile, D.A., Beresford, A.R.: From secure
+  messaging to secure collaboration. In: 26th International Workshop on
+  Security Protocols (SPW) (2018)
+
+\bibitem{Terry1995}
+Terry, D.B., Theimer, M.M., Petersen, K., Demers, A.J., Spreitzer, M.J.,
+  Hauser, C.H.: Managing update conflicts in bayou, a weakly connected
+  replicated storage system. In: Proceedings of the Fifteenth ACM Symposium on
+  Operating Systems Principles. pp. 172--182. SOSP '95, ACM, New York, NY, USA
+  (1995)
+
+\end{thebibliography}
