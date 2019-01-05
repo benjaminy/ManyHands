@@ -3,6 +3,10 @@
 \providecommand{\urlprefix}{URL }
 \providecommand{\doi}[1]{https://doi.org/#1}
 
+\bibitem{Acquisti2013}
+Acquisti, A., John, L.K., Loewenstein, G.: What is privacy worth? The Journal
+  of Legal Studies  \textbf{42}(2),  249 -- 274 (2013)
+
 \bibitem{Borisov2004}
 Borisov, N., Goldberg, I., Brewer, E.: Off-the-record communication, or, why
   not to use pgp. In: Proceedings of the 2004 ACM Workshop on Privacy in the
