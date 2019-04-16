@@ -2,7 +2,8 @@
 
 /*
  * Meant for testing and debugging.
- * This module simulates in local memory an HTTP file server (i.e. no network comm at all).
+ * This module simulates an HTTP file server in local memory
+ * (i.e. no network or persistent storage at all).
  */
 
 import B32     from "hi-base32";
@@ -81,6 +82,7 @@ async function uploadInMem( mstorage, file_ptr, options_u )
 
     const r_ok = new Response( null, { status: 200 } );
     r_ok.headers.set( "etag", etag );
+    r.headers.set( "Last-Modified", new Date( now ).toGMTString() );
     return r_ok;
 }
 

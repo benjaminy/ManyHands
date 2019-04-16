@@ -10,18 +10,19 @@
 \begin{document}
 
 
-\title{How to Make Secure Collaborative Editing Mainstream: Cloud Storage, Usability and Scalability Tweaks}
-\titlerunning{Mainstreaming Secure Collaborative Editing}
+\title{Cheap 'n Easy Cloud Storage: The Critical Ingredient for Mainstream Secure Collaborative Editing?}
+\titlerunning{Cloud Storage for Secure Collaborative Editing}
 
 \author{Benjamin Ylvisaker\inst{1}\orcidID{0000-0002-8608-7404} \and
 Beau Carlborg\inst{1}\orcidID{}}
+\author{Benjamin Ylvisaker\orcidID{0000-0002-8608-7404} \and
+Beau Carlborg}
 \authorrunning{B. Ylvisaker and B. Carlborg}
 
 \institute{Colorado College, Colorado Springs, CO 80905, USA
   \email{bylvisaker@coloradocollege.edu}}
 
 \maketitle
-
 
 \begin{abstract}
 
@@ -38,8 +39,32 @@ In this paper we analyze the reasons for the non-use of this technology and prop
 \keywords{Secure group messaging  \and Collaborative editing \and Cloud storage.}
 \end{abstract}
 
-
 \section{Introduction}
+
+\textbf{A mystery}:
+As of early 2019, both \emph{secure} messaging and \emph{trust-the-service-provider} collaborative editing are widely used, \emph{mainstream} technologies.
+The core technology ingredients for \emph{secure} collaborative editing (CE) have existed for many years.
+A few research teams have even developed prototypes for secure CE systems.
+Yet, to the best of the authors' knowledge there is approximately zero mainstream use of secure CE systems.
+
+We propose an explanation of this mystery: The \emph{centralized} system architecture that both popular secure messaging and trust-the-service-provider CE applications use has some problematic issues for secure CE.
+In particular, the economics are challenging.
+Running a CE service is more costly than a messaging service, because of the storage and repeated querying costs.
+However, running any privacy-protecting service does not give the service provider the common business opportunity of deriving profit from users' data.
+On the other hand, \emph{distributed} architectures for CE have been studied, but conventional distributed systems suffer from serious usability problems, compared to centralized systems.
+
+We explore a hybrid solution to this system architecture dilemma.
+We start from a mostly distributed architecutre: Like all end-to-end encrypted (E2EE) systems, the protocol computation is done by clients.
+Furthermore, there is no central server for delivering messages or keys from one client to another.
+Rather, we require that each user supply his or her own cloud storage location which they use as both the primary storage location for their teams' data (that user's copy, to be more precise) and as a broadcast medium for sending their own edits to their teammates.
+
+In this paper we analyze the relative strengths and weaknesses of centralized and distributed architectures for mainstream collaborative editing applications.
+We then argue that our distributed plus cloud storage architecture mostly keeps the strengths and avoids the weaknesses of the two conventional architecture styles.
+Building a CE framework with this architecture is largely a matter of adapting existing protocols for secure group messaging and concurrent edit branch reconvergence.
+We identify and explain a handful of tweaks to traditional protocols necessary to get the most out of this nontraditional architecture.
+
+--
+
 
 Collaborative editing applications help teams work and socialize together; some popular examples: Google Docs, Evernote, Etherpad, Slack, Trello.
 In all widely used collaborative editing (CE) applications, \emph{central services} process and store teammates' edits{\slash}transactions.

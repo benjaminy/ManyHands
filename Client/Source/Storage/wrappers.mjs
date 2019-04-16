@@ -31,6 +31,23 @@ function addProps( obj, prop1, props )
 }
 
 /*
+ * Upload will fail if there is already a file at the given path
+ */
+export function noOverwriteWrapper( options, storage )
+{
+    async function upload( file_ptr, options_u ) {
+        const o = Object.assign( {}, options_u );
+        SU.appendHeaderHook( o, function( headers ) {
+            SU.overwriteHeader( headers, "If-None-Match", "*" );
+        } );
+
+        return await storage.upload( file_ptr, o );
+    }
+
+    return Object.assign( {}, storage, { upload:upload } );
+}
+
+/*
  * Upload to a randomly chosen name.  If a file already exists at that
  * path, retry until an unused name is found.
  *
@@ -40,15 +57,12 @@ function addProps( obj, prop1, props )
  * externally useful names are the root of the whole tree and a few odd
  * special cases.
  */
-export function randomNameWrapper( options, storage )
+export function randomNameWrapper( options, storage_r )
 {
+    const storage = noOverwriteWrapper( options, storage_r );
+
     async function upload( file_ptr, options_u ) {
         const retry_limit = UM.multiGetter( "retry_limit", undefined, options_u, options );
-        const o = Object.assign( {}, options_u );
-        SU.appendHeaderHook( o, function( headers ) {
-            SU.overwriteHeader( headers, "If-None-Match", "*" );
-        } );
-
         var retries = 0;
         while( ( !retry_limit ) || ( retries < retry_limit ) )
         {
@@ -371,4 +385,84 @@ export function authedPrivateJsonWrapper( options, storage )
     return encodingWrapper(
         SK_JSON, options, authedPrivateWrapper( options, storage ) );
 
+}
+
+/*
+ * phases:
+ * network: how to actually communicate with a data storage provider
+ * data blob: things that don't change the data, like atomic update and name generation
+ * byte array: things that work on byte arrays, like encryption and compression
+ * encoding: translating structured data to byte arrays
+ *
+ * It's a little inefficient to rebuild the stack after every phase addition.
+ * But I don't expect applications to be changing stacks often, so probably unimportant.
+ */
+function storageStack()
+{
+    const network = [];
+    const data_blob = [];
+    const byte_array = [];
+    const encoding = [];
+    var storage = null;
+
+    function makeStorage()
+    {
+        if( storage )
+            return storage;
+
+        if( network.length < 1 )
+            return null;
+
+        storage = network[ 0 ];
+        for( var i = 1; i < network.length; ++i )
+        {
+            storage = network[ i ]( storage );
+        }
+
+        for( const phases of [ data_blob, byte_array, encoding ] )
+        {
+            for( const phase of phases )
+            {
+                storage = phase( storage );
+            }
+        }
+
+        return storage;
+    }
+
+    function pushPhase( phases )
+    {
+        return ( wrapper ) => { phases.push( wrapper ); storage = null; };
+    }
+    function unshiftPhase( phases )
+    {
+        return ( wrapper ) => { phases.unshift( wrapper ); storage = null; };
+    }
+
+    function copy()
+    {
+        const s = storageStack();
+        for( const phase of network )
+            s.pushNetworkPhase( phase );
+        for( const phase of data_blob )
+            s.pushDataBlobPhase( phase );
+        for( const phase of byte_array )
+            s.pushByteArrayPhase( phase );
+        for( const phase of encoding )
+            s.pushEncodingPhase( phase );
+        return s;
+    }
+
+    const stack = {};
+    stack.storage = makeStorage;
+    stack.pushNetworkPhase      = pushPhase( network );
+    stack.unshiftNetworkPhase   = unshiftPhase( network );
+    stack.pushDataBlobPhase     = pushPhase( data_blob );
+    stack.unshiftDataBlobPhase  = unshiftPhase( data_blob );
+    stack.pushByteArrayPhase    = pushPhase( byte_array );
+    stack.unshiftByteArrayPhase = unshiftPhase( byte_array );
+    stack.pushEncodingPhase     = pushPhase( encoding );
+    stack.unshiftEncodingPhase  = unshiftPhase( encoding );
+
+    return stack;
 }

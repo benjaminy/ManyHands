@@ -99,3 +99,43 @@ There would need to be some mechanism for communicating this to teammates.
 #### Example Workflows
 
 ### Registration
+
+
+
+DON'T KNOW WHERE TO PUT THIS
+
+In order to make collaborative editing applications more secure and private, make them more decentralized/peer-to-peer.
+Maintaining some reasonable notion of consistency for the team's document/database becomes a challenging problem.
+
+This problem is clearly closely related to the classic database problem of making database replicas for the purpose of fault tolerance, high throughput, and/or low latency for geographically distributed clients.
+However, I think the constraints are quite different, which might make different solutions more desirable.
+
+One issue that is important for the P2P collaborative editing context is that some teams may have quite intermittent connections to the internet.
+In the extreme, team members may never be simultaneous online.
+This means that offline editing is a central feature of any reasonable architecture.
+Also, we need some mechanism for getting messages between teammates, even when they are not online simultaneously.
+
+...
+
+One family of technologies that has been used quite widely for collaborative editing is operational transformation (OT) and conflict-free replicated data types (CRDTs).
+These ideas are interesting, but in their simplest form, they have an important problem.
+Concrrent operations are simply not allowed to conflict with each other.
+But in many applications, there are application-level operations that intrinsically conflict; if users perform these operations while offline, there is no simple way to silently merge them when the users get back online.
+For example, consider a resource reservation system; two teammates should not be able to reserve the same resource for overlapping times.
+
+When conflicting edits are a feature of some application, there are a handful of sane strategies.
+
+- When a user performs a potentially conflicting operation, they have to wait for some strong kind of consensus.
+This makes sense for some kinds of conflicts; you wouldn't want to launch the missiles based on an incorrect understanding of the database.
+However, for some kinds of conflicts, it would be annoying to prevent an offline user from making further edits because of a potential editing conflict that could be resolved later.
+- For very light conflicts (perhaps, change the background color to green vs yellow), it's probably best to let the user continue editing without any care for conflicts, resolving them later if necessary.
+- There may be "medium" conflicts, where it's best for a user to wait for some amount of time or some amount of time, or some number of acknowledgments, but not necessarily enough to be sure
+
+One way to organize all of this is to say that all teammates eventually agree on a total order for the operations, but they might not for some recent operations.
+In other words, one teammate might be mistaken about the order of some number of recent operations.
+
+When a teammate gets more information and is forced to reorder some of the operations in their copy of the team's database, there are several cases to consider.
+The nicest case is that everything commutes, a la OT/CRDT.
+
+A couple awkwardnesses to worry about:
+

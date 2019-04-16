@@ -4,41 +4,99 @@
 \usepackage{ amssymb }
 
 \begin{document}
-\title{Secure Collaborative Editing for the Masses}
+\title{Why is Secure Collaborative Editing Not Mainstream?}
 \author{Benjamin Ylvisaker}
 
 \maketitle
 
 \section{Introduction}
 
-Collaborative editing applications help teams work and socialize together.
-Popular examples include Google Docs, Evernote, Etherpad, Slack and Trello.
-In all widely used collaborative editing (CE) applications, central services integrates teammates' edits into a consistent database/document and store that database.
-In many cases these services are operated by the developers of the application.
+Collaborative editing applications help teams work and socialize together; some popular examples: Google Docs, Evernote, Etherpad, Slack, Trello.
+In all widely used collaborative editing (CE) applications, \emph{central services} process and store teammates' edits/transactions.
+In many cases the application developer and service provider are one and the same organization.
 
-If a team has concerns (even mild ones) about protecting their data from exposure or tampering, relying on these kinds of services is extremely problematic.
-The team's data is vulnerable to the service provider's incentives not matching the users', poor operational security, and interference from outsiders like governments and courts.
-There is now an extensive literature, both scholarly and popular, on the risks associated with data exposure and manipulation; in this paper we take for granted that many teams are motivated to protect their data from \emph{anyone} outside the team.
+This architecture is extremely problematic from a privacy perspective; service providers have complete control over teams' data.
+Teams are vulnerable to service provider incentive misalignment, poor operational security, and interference from outsiders like governments and courts.
+There is an extensive literature, both scholarly and popular, on risks associated with private data exposure and manipulation.
+In this paper we assume that in many cases people are motivated to protect their teams' data from \emph{all} outsiders.
 
-In recent years, similar privacy concerns have led to wide adoption of secure messaging protocols and applications like OTR, Signal, WhatsApp and Telegram \cite{}.
-CE is similar to messaging, but with two additional challenges:
-\begin{enumerate}
-\item The data is persistent.
-  Edits in CE systems are similar to messages in messaging systems, but basic functionality requires that ``old'' edits be accessible to clients in an efficiently queryable format.
-\item Edits from teammates need to be integrated into a consistent document{\slash}database.
-  In messaging applications, it is typically not a big problem if users see messages in slightly different orders, or if users ``say'' things that are contradictory in some sense.
-  In CE, teammates need to converge towards a coherent view of concurrent (potentially conflicting) edits.
-\end{enumerate}
+Previous research projects (e.g. SPORC\cite{TODO}, TRVE Data\cite{TODO}) demonstrated that secure CE is possible.
+However, to the best of our knowledge no CE applications built on a secure foundation have achieved mainstream use.
+In contrast, secure \emph{messaging} protocols and applications like OTR, Signal, WhatsApp and Telegram \cite{TODO} are now mainstream.
+The question that motivated the project described in this paper is: Why has secure \emph{messaging} achieved mainstream use, while secure \emph{collaborative editing} has not?\footnotemark{}
 
-There are a few experimental secure/private CE architectures (e.g. SPORC, TRVE Data, PeerPad), but to the best of our knowledge no applications developed on such platforms have gained a significant user base.
-The focus of this project is identifying and mitigating remaining impediments to wide adoption of secure CE technologies.
-By way of analogy, we note that secure messaging technologies (e.g. PGP/GPG) existed for many years before the current generation of secure messaging applications, but their use was mostly confined to a small group of people with serious data privacy concerns.
-By making secure messaging almost as usable/convenient as less secure systems, the newer generation achieved mass adoption (aided, no doubt, by increasing public concern about data security and privacy).
-We are developing a protocol called United We Stand (UWS) to explore whether secure CE can similarly be made as usable as traditional centralized architectures.
+\footnotetext{Secure file sharing is a partial counterexample to this blanket comment about secure CE.
+However, file sharing protocols generally make no attempt at fine-grained integration of concurrent edits, an essential feature for many CE applications.}
+
+We believe that one important reason for this difference is economic.
+Popular secure messaging services use end-to-end encryption (E2EE) protocols to protect users from a wide range of attacks, but they rely on central servers to forward messages and facilitate peer-to-peer connections.
+In addition to important security and privacy concerns related to central servers (some of which are discussed later), there is the critical question of funding the operation and maintenance of these services.
+Deriving profit from users' private data (a common business strategy on the web today) is obviously not viable.
+Current models include offering secure messaging to attract and retain users for other profit-making ends (Facebook, Apple) and a mysterious combination of donations, grants and licensing deals (Open Whisper Systems/Signal).
+
+Compared to messaging, running a CE service carries the substantial additional costs of storage and repeated querying of teams' documents{\slash}databases.
+We speculate that the relatively weak economic incentive for providing privacy-protecting services has not been strong enough to support secure CE applications.
+Therefore, a potential direction for \emph{economically viable} secure CE is decentralization.
+This strategy puts the storage and computation costs on end users.
+One important hole in this economic story that we leave for cleverer minds is funding the development and maintenance of application code.
+(Once upon a time, users paid for software; could this happen again?)
+
+Decentralized CE has also been the subject of previous research and deployed systems (e.g. Bayou\cite{TODO}, PeerPad\cite{TODO}).
+We claim that previous decentralized CE systems have all made one or more important compromises relative to centralized systems in terms of usability and/or scalability.
+Our goal is to eliminate or mitigate as many of these compromises as possible, since most people in most situations are willing to give up little in exchange for improved data security and privacy.
+
+In this paper we analyze the ways in which we believe current decentralized CE systems fall short of their centralized cousins.
+We propose a compromise architecture between conventional centralized and peer-to-peer approaches, which is mostly decentralized, but where each user also has a cloud storage location for saving their edits and broadcasting them to teammates.
+We call this architecture peer-to-peer plus cloud storage (P2P+CS).
+
+, and we propose a new protocol called United We Stand (UWS) that addresses these challenges.
+In particular we focus on the following areas:
+\begin{itemize}
+\item Scalability of distributed consensus (specifically targeted at typical collaborative editing patterns)
+\item Scalability of distributed E2EE communication protocols
+\item Availability/privacy trade-offs related to servers
+\end{itemize}
+
+
+%% Centralization has some important advantages over decentralized architectures:
+%% \begin{itemize}
+%% \item A well-run central service makes applications available with low latency from anywhere on the internet.
+%% \item The central service can be an authority for ordering concurrent edits from different users.
+%% \item By providing a single coordination point, central services make it relatively easy to scale applications up to large team sizes.
+%% \end{itemize}
+
+
+
+
+
+%% Decentralized CE has been explored by a few researchers and developers (e.g. Bayou, PeerPad).
+%% Centralization has some important performance and usability/convenience advantages over existing decentralized CE systems.
+%% Our goal is to minimize these advantages by clever engineering to the point that regular users in common use cases would barely notice a difference between centralized and decentralized.
+%% The departure point for this paper relative to previous decentralized/secure CE work is the use of per-user commodity cloud storage accounts as the primary communication and storage medium.
+%% The main technical contributions of this paper are adaptations of existing E2EE communication and distributed concensus protocols to work and perform reasonably well with basic cloud storage upload as the primary communication medium.
+
+%% a protocol similar to existing ideas in secure CE from projects like SPORC and TRVE Data, but with a focus on maintaining the usability of centralized systems without any central servers.
+
+%% The key difference between our systems and previous secure CE projects is the use of user-provided commodity cloud storage accounts as the primary communication and storage infrastructure.
+
+%% CE is similar to messaging, but with two additional challenges:
+%% \begin{enumerate}
+%% \item The data are persistent.
+%%   Edits in CE systems are similar to messages in messaging systems, but basic functionality requires that ``old'' edits be accessible to clients in an efficiently queryable format.
+%% \item Edits from teammates need to be integrated into a consistent document{\slash}database.
+%%   In messaging applications, it is typically not a big problem if users see messages in slightly different orders, or if users ``say'' things that are contradictory in some sense.
+%%   In CE, teammates need to converge towards a coherent view of concurrent (potentially conflicting) edits.
+%% \end{enumerate}
+
+%% There are a few experimental secure{\slash}private CE architectures (e.g. SPORC, TRVE Data, PeerPad), but to the best of our knowledge no applications developed on such platforms have gained a significant user base.
+%% The focus of this project is identifying and mitigating remaining impediments to wide adoption of secure CE technologies.
+%% By way of analogy, we note that secure messaging technologies (e.g. PGP{\slash}GPG) existed for many years before the current generation of secure messaging applications, but their use was mostly confined to a small group of people with serious data privacy concerns.
+%% By making secure messaging almost as usable{\slash}convenient as less secure systems, the newer generation achieved mass adoption (aided, no doubt, by increasing public concern about data security and privacy).
+%% We are developing a protocol called United We Stand (UWS) to explore whether secure CE can similarly be made as usable as traditional centralized architectures.
 
 \section{Security-Convenience-Cost Trade-offs}
 
-There are trade-offs between security/privacy and convenience/usability.
+There are trade-offs between security{\slash}privacy and convenience{\slash}usability.
 Clever engineering can sometimes bring benefits in one dimension with little loss in the other, but it is unlikely that it is possible to achieve maximal security and convenience in the same system.
 We illustrate where we intend UWS to fall in the security-convenience spectrum with two categories of attacks that we deprioritize relative to convenience/usability.
 
@@ -48,16 +106,14 @@ However, where tensions exist between such protection and usability, we prefer u
 
 The second category is insider threats.
 It is impossible to completely prevent data exfiltration by a malicious teammate.
-It is important for teams to have some ability to remove teammates suspected of malicious behavior, but we are not willing to sacrifice usability in the name of protection from teammates.
+It is important to minimize the damage that can be done by such teammates and to make it easy to cut them off from future team activity, but we are not willing to sacrifice usability in the name of protection from teammates.
 
-In addition to these security-convenience trade-offs, economic questions play an important role.
-In particular, many conventional CE service providers derive profit from users' data.
-Business strategies can be as simple as selling users' data to advertisers, or more technical approaches like building statistical models to improve/personalize other (paid) services.
-Secure CE systems generally aim to prevent anyone outside of teams themselves from accessing the team's data (ours certainly does).
-This means that we have to think creatively about who pays for the storage, communication and computation resources involved.
-Whenever possible, we put these costs on end users.
-One important hole in this economic story that we leave for cleverer minds is funding the development and maintenance of application code.
-(Once upon a time, users paid for software; could this happen again?)
+%% In addition to these security-convenience trade-offs, economic questions play an important role.
+%% In particular, many conventional CE service providers derive profit from users' data.
+%% Business strategies can be as simple as selling users' data to advertisers, or more technical approaches like building statistical models to improve/personalize other (paid) services.
+%% Secure CE systems generally aim to prevent anyone outside of teams themselves from accessing the team's data (ours certainly does).
+%% This means that we have to think creatively about who pays for the storage, communication and computation resources involved.
+%% Whenever possible, we put these costs on end users.
 
 % This is already a challenge in the messaging context; for example,   (who pays for Signal?)
 
@@ -68,12 +124,12 @@ Existing secure CE projects support some of these features, but to the best of o
 
 \begin{itemize}
 \item Mostly offline support.
-  That is, the system should still work if a user is never simultaneously online with their teammates.
-\item Ability to work when teammates are behind firewalls that block incoming connections.
-\item Automatic merging of concurrent edits (not least those made by offline users).
+  In particular, the system must still work if a user is never simultaneously online with their teammates.
+\item No dependence on direct peer-to-peer connections.
+\item Merging of and conflict detection among concurrent edits.
 \item Multiple simultaneous ``connections'' from a single user.
 \item Available anywhere.
-  That is, it should be possible to use the system without first downloading a team's complete database.
+  That is, the system must be usable without first downloading a team's complete database.
 \item Low latency.
   See below for what we mean by ``low''.
 \item Database size scalability.
@@ -81,32 +137,38 @@ Existing secure CE projects support some of these features, but to the best of o
 \item Efficient team and team membership management.
 \end{itemize}
 
+Some of these requirements are relatively easy to support (e.g. database size scalability).
+We focus on the more challenging ones, where previous secure{\slash}decentralized CE systems have made compromises.
+
 \subsection{Mostly Offline Support and Firewalls}
 
-Secure CE systems have intrinsic tensions with servers.
-Even systems (like SPORC) that only send encrypted data to servers are still more vulnerable to some attacks than purely decentralized systems.
-First, surveilance can be more easily carried out on central servers than decentralized communication.
-Such surveilance can allow attackers to gain information about teammate identities and communication patterns.
-Second, central servers are easier for censors to block than decentralized communication.
-In recent years there have been several examples of governments and/or courts blocking secure messaging systems (e.g. WhatsApp in Brazil, Telegram in Russia, Signal in several countries).
+In any networked application there are tensions between security{\slash}privacy and servers playing some role in the application.
+Even systems (like SPORC) that only send encrypted data to servers are still more vulnerable to some attacks than decentralized systems.
+First, surveilance is easier with central servers than decentralized communication.
+Such surveilance can expose teammate identities and communication patterns.
+Second, central servers are easier for censors to block.
+In recent years there have been several examples of governments and{\slash}or courts blocking secure messaging systems (e.g. WhatsApp in Brazil, Telegram in Russia, Signal in several countries).
 Such blocking is feasible because clients need to communicate with central servers for these systems to function.
 Third, any server designed in to a protocol raises the question of who pays for the operation of that server.
 
 On the other hand, purely decentralized communication patterns have two critical usability problems relative to conventional CE.
-First, users must be online simultaneously to exchange edits.
+First, users must be online simultaneously to exchange edits\footnotemark{}.
 While this could work for some users in some contexts, it is problematic for users with intermittent internet connections and/or energy-constrained devices.
 Second, firewalls that block incoming connections can make decentralized communication impossible.
 The STUN/TURN/ICE protocols can help clients make peer-to-peer conncections through firewalls in some cases, but they do not always work and in some cases rely on server support (which is exactly what we are trying to avoid).
+
+\footnotetext{This does not mean that \emph{all} teammates need to be online simultaneously.
+Some P2P CE systems pass edits from user to user as particular pairs happen to be online together.}
 
 We reemphasize that while it is possible for users to work around these difficulties, we are aiming for a usability experience nearly indistinguishable from centralized services.
 
 In UWS we compromise on the server issue by assuming that every user has a passive cloud storage location of some kind.
 For many users, this will be an account with commodity services like Dropbox, Google Drive or Microsoft OneDrive.
 More technically savvy users with stronger privacy concerns can run their own storage server at home or with a lower profile cloud provider.
-To be clear, we are \emph{not} saying that all UWS data resides with some particular cloud storage provider, but rather that each user brings their own cloud storage location.
+To be clear, we are \emph{not} saying that all UWS data resides with some particular cloud storage provider, but rather that every user is responsible for providing their own cloud storage location.
 Users can choose where to store their data completely independently of any other user's choice.
 
-In our protocol design we strive to minimize the API and performance expectations of the storage server in order to maximize the flexibility that users/system designers have with filling that role.
+In our protocol design we minimize the API complexity and performance expectations of the storage server in order to maximize the flexibility that users/system designers have with filling that role.
 The interface is essentially simple file upload/download.
 The only slightly exotic support that is expected is some atomic checking by the server on upload (e.g. the HTTP If-Match header features).
 Details of the storage server API and further server-related mitigations are given below.
@@ -114,9 +176,9 @@ Details of the storage server API and further server-related mitigations are giv
 (Users with yet higher privacy concerns might be able to do their storage as a Tor Onion Service, or similar.
 Further investigation required.)
 
-\subsection{Edit Merging}
+\subsection{Concurrent Edit Merging and Conflicts}
 
-Good support for concurrent editing while disconnected is necessary to match the usability of popular CE systems.
+Good support for concurrent editing (especially while disconnected) is necessary to match the usability of popular CE systems.
 A system must both automatically merge concurrent edits when feasible and provide for conflict resolution otherwise.
 
 Many recent CE systems have put a lot of focus on automatic merging with some flavor of operational transformations (OT) or conflict-free replicated data types (CRDTs).
@@ -128,14 +190,14 @@ More details below.
 
 \subsection{Single-User Concurrent Access}
 
-It is common for users to have multiple ``connections'' open to cloud applications (e.g. multiple browser tabs on the same computer or simultaneously using a laptop and a mobile device).
+It is common for users to have multiple ``connections'' open to cloud applications (e.g. multiple browser tabs on the same computer or simultaneously using a PC and a mobile device).
 In systems with active servers, this kind of concurrency is just a special case of concurrent edits from different users.
 However, UWS is built on passive file servers, which we do not expect to automatically resolve potential conflicts between concurrent uploads from the same user on different devices.
 Therefore, extra care must be taken to prevent concurrent sessions from a single user clobbering each other's edits.
 
-\subsection{Server-Based Storage}
+\subsection{Available Anywhere}
 
-Users should have reasonable remote access to their documents/database in the sense that they can log in from a new device and have the same usability experience (or nearly so) as from a computer that they use regularly.
+Users should have reasonable remote access to their documents{\slash}database in the sense that they can connect from a new device and have the same usability experience (or nearly so) as from a computer that they use regularly.
 
 An important implication of this principle is that a protocol must support reasonably efficient query from the storage server.
 In other words, it is unacceptable to require users to download a team's complete database to a new device before they can start working with it.
@@ -143,7 +205,9 @@ In other words, it is unacceptable to require users to download a team's complet
 \subsection{Latency}
 
 Obviously, the lower the latency that a system can provide, the better.
-Our current prototype uses cloud storage upload as the only communication medium, which imposes a fairly high minimum latency for communicating edits to teammates (multiple seconds is common).
+Our current prototype uses cloud storage upload as the only communication medium, which imposes a fairly high minimum latency for communicating edits to teammates (multiple seconds is not uncommon).
+Cloud storage services vary in the facilities they provide for notification of changes.
+In the worst case, clients need to fall back to polling.
 
 \subsubsection{Cloud Storage-P2P Hybrids}
 
@@ -152,10 +216,10 @@ Several other projects have explored P2P CE, so the only question is how hard it
 
 \subsubsection{Latency-Tolerant Applications}
 
-Some applications should work fine, even with relatively high latency.
+Some applications work fine with relatively high latency.
 For example, a shared calendar or reservation system.
-
-Don't need to wait for the server.
+The UWS data consistency protocol is designed to give applications a lot of flexibility with how they treat data ``committedness''.
+One consequence of this design is that it is easy to make highly responsive user interfaces while the protocols run in the background.
 
 \subsection{Scalability}
 
@@ -227,20 +291,20 @@ In other words, if a team is sharing the storage cost, it would be easy for a te
 
 \section{Concurrent Edits}
 
-There has been a great deal of research on detecting conflicts between and automatically merging concurrent edits.
+There has been a great deal of research on conflict detection and automatic merging of concurrent edits.
 The UWS concurrent edit merging algorithm is closely related to the Bayou approach.
 
 \subsection{Bayou}
 
-In Bayou, the data shared between teammates is a linear chain of edits (\emph{Writes} in their jargon).
-Of course, the chains at different clients cannot be identical at all times.
+In Bayou, the basic data model is a linear chain of edits (\emph{Writes} in their jargon).
+Of course, different copies of ``the'' chain might not be identical at all times.
 The Bayou system divides the chain into two sections: tentative and committed.
 New edits are initially considered tentative.
-A consistency protocol is run to decide when edits can graduate from the tentative section to the stable/committed section.
+A consistency protocol is run to decide when edits can graduate from tentative to the stable{\slash}committed.
 
-The order of edits in the stable section has been agreed upon, and cannot be changed by subsequent messages from teammates (unless the protocol is violated).
-Edits in the tentative section might be reordered or superseded by as-yet-unseen edits.
-Clients are free to show data from tentative edits to users, but subsequent order changes can potentially cause arbitrary changes in application state.
+The order of stable edits has been agreed upon, and cannot be changed by subsequent messages (unless the protocol is violated).
+Tentative edits might be reordered or superseded by as-yet-unseen edits.
+Client user interfaces are free to incorporate tentative edits, but later messages might cause unexpected changes in application state.
 
 
 The strength of the Bayou approach is that it gives application programmers flexibility ...
