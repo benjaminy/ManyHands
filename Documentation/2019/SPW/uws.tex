@@ -10,11 +10,11 @@
 \begin{document}
 
 
-\title{Cheap 'n Easy Cloud Storage: The Critical Ingredient for Mainstream Secure Collaborative Editing?}
+\title{Cheap 'n Easy Cloud Storage: The Final Ingredient for Mainstream Secure Collaborative Editing?}
 \titlerunning{Cloud Storage for Secure Collaborative Editing}
 
-\author{Benjamin Ylvisaker\inst{1}\orcidID{0000-0002-8608-7404} \and
-Beau Carlborg\inst{1}\orcidID{}}
+% \author{Benjamin Ylvisaker\inst{1}\orcidID{0000-0002-8608-7404} \and
+% Beau Carlborg\inst{1}\orcidID{}}
 \author{Benjamin Ylvisaker\orcidID{0000-0002-8608-7404} \and
 Beau Carlborg}
 \authorrunning{B. Ylvisaker and B. Carlborg}
@@ -52,19 +52,40 @@ In particular, the economics are challenging.
 Running a CE service is more costly than a messaging service, because of the storage and repeated querying costs.
 However, running any privacy-protecting service does not give the service provider the common business opportunity of deriving profit from users' data.
 On the other hand, \emph{distributed} architectures for CE have been studied, but conventional distributed systems suffer from serious usability problems, compared to centralized systems.
+While many users are interested in security and privacy, most are willing to sacrifice very little in terms of expense and usability for enhanced security.
 
 We explore a hybrid solution to this system architecture dilemma.
 We start from a mostly distributed architecutre: Like all end-to-end encrypted (E2EE) systems, the protocol computation is done by clients.
-Furthermore, there is no central server for delivering messages or keys from one client to another.
-Rather, we require that each user supply his or her own cloud storage location which they use as both the primary storage location for their teams' data (that user's copy, to be more precise) and as a broadcast medium for sending their own edits to their teammates.
+Furthermore, there is no central server for delivering messages or coordinating clients.
+Rather, we require that each user supply his or her own cloud storage location which they use as both the primary storage location for their teams' data (that user's copy, to be precise) and as a broadcast medium for sending their own edits to their teammates.
 
 In this paper we analyze the relative strengths and weaknesses of centralized and distributed architectures for mainstream collaborative editing applications.
 We then argue that our distributed plus cloud storage architecture mostly keeps the strengths and avoids the weaknesses of the two conventional architecture styles.
 Building a CE framework with this architecture is largely a matter of adapting existing protocols for secure group messaging and concurrent edit branch reconvergence.
 We identify and explain a handful of tweaks to traditional protocols necessary to get the most out of this nontraditional architecture.
 
---
+\subsection{Security Non-Goals}
 
+This project is focused on protecting teams from untargeted attacks like dragnet surveillance.
+Two categories of attacks that we are \emph{not} focused on are targeted attacks from a technically sophisticated adversary and insider attacks from teammates.
+Of course, we aim for as much resistance to these kinds of attacks as is feasible, but not at the expense of usability.
+
+\section{Background and System Architecture}
+
+\subsection{Concurrent Edit Branch Merging}
+
+In any system that involves concurrent editing there exists the possibility of conficts that need to be resolved in some way.
+A wide reange of strategies for this conflicting branch resolution problem exist in different systems.
+To mention just a few: in version control systems like git, decisions about branching and merging are substantially manual with some automatic merging support for simple cases; in productivity apps like Office 365 and Google Docs a central service serializes edits and provides a backup user interface in case of conflicts; in proof-of-work blockchains like Bitcoin, a decentralized collection of clients vote with their compute cycles on which of the concurrent branches that exist should ``win'' and be considered canonical.
+
+This project aims to support a reasonably wide range of conflict resolution strategies.
+One piece of raw data that can be useful 
+An important observation we make here is that centralized systems can easily establish a temporal total order on edits.
+While such an order in itself is not a complete conflict resolution strategy, it can be a useful ingredient when there exists a true application semantics level conflict between concurrent edits.
+Conventional distributed systems can provide a partial order based on causality, but it is hard to order concurrent edits{\slash}messages{\slash}transactions in such systems.
+
+--
+RXWSOF
 
 Collaborative editing applications help teams work and socialize together; some popular examples: Google Docs, Evernote, Etherpad, Slack, Trello.
 In all widely used collaborative editing (CE) applications, \emph{central services} process and store teammates' edits{\slash}transactions.
@@ -122,12 +143,6 @@ Compared to some secure messaging protocols, where ``old'' messages are assumed 
 Nevertheless, we believe that this protocol has the potential to improve the security and privacy for the huge number of teams that currently use conventional centralized CE services.
 In order to achieve this kind of mainstream success, the protocol must provide usability nearly indistinguishable from centralized services.
 We analyze ways in which we believe previous decentralized CE projects have fallen short in this regard and sketch adaptations of existing secure messaging and distributed systems protocols that we believe could provide that level of usability.
-
-\subsection{Security Non-Goals}
-
-The UWS project is focused on protecting teams from untargeted surveillance attacks.
-Two categories of attacks that we are not focused on are targeted attacks from a technically sophisticated adversary and insider attacks from teammates.
-Of course, we aim for UWS to be as resistant to these kinds of attacks as is feasible, but not at the expense of usability.
 
 \section{Centralized{\slash}Decentralized Hybrid}
 
