@@ -42,7 +42,14 @@ This means every user must have an API key of some sort in order to have a user 
 One unintuitive step we have to take is using each file pointer by its opaque id, as **files may not be accessed by their name**. The file pointer is a universal ID which may point to a file owned by anybody, and as long as the file permissions are set correctly, you may download it (and thus follow the pointers inside).
 
  - [x] Server timestamping of uploaded files
+ 
+A last-modified date and created date are both stored and may be read.
+ 
  - [x] Conditional requests/headers (ETag, `If-Match` and  `If-None-Match`)
+ 
+ETag existed in request responses in Google Drive v2, but was removed in v3 with no clear alternative.
+ 
+Our implementation, therefore, uses the v2 API for requests, so this vital piece of information can be stored. 
 
 ### Dropbox
 

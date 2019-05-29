@@ -3,7 +3,7 @@
 import fs from "fs";
 import readline from "readline";
 import googleapis from 'googleapis';
-
+// TODO the googleapis package is not yet in the package.json
 const {google} = googleapis;
 /**
  * @license
@@ -29,17 +29,20 @@ const {google} = googleapis;
  * with its terms.
  */
 
-function authorize(credentials, callback) {
+async function authorize(credentials, callback) {
     const {client_secret, client_id, redirect_uris} = credentials.installed;
     const oAuth2Client = new google.auth.OAuth2(
         client_id, client_secret, redirect_uris[0]);
 
     // Check if we have previously stored a token.
-    fs.readFile(TOKEN_PATH, (err, token) => {
-        if (err) return getAccessToken(oAuth2Client, callback);
-        oAuth2Client.setCredentials(JSON.parse(token));
-        callback(oAuth2Client);
-    });
+    let token;
+    try {
+        token = fs.readFileSync(TOKEN_PATH);
+    } catch (e) {
+        return getAccessToken(oAuth2Client, callback);
+    }
+    oAuth2Client.setCredentials(JSON.parse(token));
+    return callback(oAuth2Client);
 }
 
 /**
@@ -48,7 +51,7 @@ function authorize(credentials, callback) {
  * @param {google.auth.OAuth2} oAuth2Client The OAuth2 client to get token for.
  * @param {getEventsCallback} callback The callback for the authorized client.
  */
-function getAccessToken(oAuth2Client, callback) {
+async function getAccessToken(oAuth2Client, callback) {
     const authUrl = oAuth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: GOOGLE_API_SCOPES,
@@ -58,19 +61,18 @@ function getAccessToken(oAuth2Client, callback) {
         input: process.stdin,
         output: process.stdout,
     });
-    rl.question('Enter the code from that page here: ', (code) => {
-        rl.close();
-        oAuth2Client.getToken(code, (err, token) => {
-            if (err) return console.error('Error retrieving access token', err);
-            oAuth2Client.setCredentials(token);
-            // Store the token to disk for later program executions
-            fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
-                if (err) return console.error(err);
-                console.log('Token stored to', TOKEN_PATH);
-            });
-            callback(oAuth2Client);
-        });
+    const code = await rl.question('Enter the code from that page here: ');
+    rl.close();
+    const token = await oAuth2Client.getToken(code);
+
+    if (err) return console.error('Error retrieving access token', err);
+    oAuth2Client.setCredentials(token);
+    // Store the token to disk for later program executions
+    fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
+        if (err) return console.error(err);
+        console.log('Token stored to', TOKEN_PATH);
     });
+    return callback(oAuth2Client);
 }
 
 /**
@@ -84,15 +86,15 @@ function getAccessToken(oAuth2Client, callback) {
  *
  * @param auth OAuth2 object given via authentication with Google's servers
  * @param options_u JavaScript object with request information. Must include {body, filename}
- * @returns {Promise<void>}
+ * @returns
  */
 async function uploadGoogleDrive( auth, options_u )
 {
-    const drive = google.drive({version: 'v3', auth});
+    const drive = google.drive({version: 'v2', auth});
 
     const file_metadata = {
         mimeType: 'application/octet-stream',
-        name: options_u.filename // TODO if you change the root, will it still have the same id?
+        title: options_u.filename // TODO if you change the root, will it still have the same id?
         // solution: provide the fp when you're updating the root file.
     };
     const media = {
@@ -100,21 +102,13 @@ async function uploadGoogleDrive( auth, options_u )
         body: options_u.body
     };
 
-    return await drive.files.create({
+    const file_obj = await drive.files.insert({ // .create in v3
             resource: file_metadata,
             media: media,
-            fields: 'id'
-        },
-        {}).id;
-    /*
-    , function (err, file) {
-        if (err) {
-            throw Error("Some error occurred while uploading this file: " + err);
-        } else {
-            return {path: file.id}; // this is our file pointer! -- TODO: return ETag, timestamp
-        }
-    });
-    */
+            fields: '*'
+        });
+
+    return {path: file_obj.data.id, etag: file_obj.data.etag, timestamp: file_obj.data.modifiedDate};
 }
 
 /**
@@ -127,9 +121,9 @@ async function uploadGoogleDrive( auth, options_u )
 async function downloadGoogleDrive( auth, file_ptr )
 {
 
-    const drive = google.drive({version: 'v3', auth});
+    const drive = google.drive({version: 'v2', auth});
 
-    drive.files.get({fileId: file_ptr.path, alt: 'media'}, {responseType: 'stream'},
+    /*drive.files.get({fileId: file_ptr.path, alt: 'media'}, {responseType: 'stream'},
         function(err, res){
             res.data
                 .on('end', () => {
@@ -140,7 +134,7 @@ async function downloadGoogleDrive( auth, file_ptr )
                 })
                 .pipe(dest);
         }
-    );
+    );*/
 }
 
 const GOOGLE_API_SCOPES = ['https://www.googleapis.com/auth/drive.file'];
@@ -159,8 +153,8 @@ export default function init( )
     }
 
     const mstorage = {};
-    mstorage.upload   = ( ...ps ) => authorize( credentials, (auth) =>   uploadGoogleDrive(auth, ...ps) );
-    mstorage.download = ( ...ps ) => authorize( credentials, (auth) => downloadGoogleDrive(auth, ...ps) );
+    mstorage.upload   = async ( ...ps ) => authorize( credentials, (auth) =>   uploadGoogleDrive(auth, ...ps) );
+    mstorage.download = async ( ...ps ) => authorize( credentials, (auth) => downloadGoogleDrive(auth, ...ps) );
 
     mstorage.fpFromPlainData = async function fpFromPlainData( fp )
     {
