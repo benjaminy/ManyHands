@@ -143,6 +143,7 @@ export function filePtrGenWrapper( options, storage )
     async function fpToPlainData( fp )
     {
         const f = storage.fpToPlainData( fp );
+        if( "fpToPlainData" in options )
         {
             const f2 = options.fpToPlainData( fp );
             return Object.assign( {}, f, f2 );

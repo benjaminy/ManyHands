@@ -135,7 +135,7 @@ export function parseQuery( q )
     function parseInputElem( thing )
     {
         if( thing === "%" )
-            return { tag: rules_var_tag }
+            return { tag: rules_var_tag };
         try {
             return parseSrcVar( thing );
         }
