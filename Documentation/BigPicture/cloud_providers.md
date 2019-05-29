@@ -15,7 +15,7 @@ In order to accomplish this, interfacing with existing and well-known cloud serv
 
 ## Cloud Providers
 
-Follows is a list of cloud providers and their 
+Follows is a list of cloud providers and some information about accomplishing these requirements through their particular APIs.
 
 ### Google Drive
 
