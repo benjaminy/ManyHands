@@ -21,12 +21,12 @@ const localPersistentDB = {};
  * - b - set of children with blank timestamps
  * - ??? something about garbage??? */
 
-/* is there any reason for nodes to "know" their own link? */
+/* is there any reason for nodes to "know" their own location? */
 
 /* Should a node have a timestamp if it's dirty? */
 
 
-/* Once committed to a tree, nodes are immutable.
+/* Nodes are copy-on-first-write-since-last-tree-commit.
  * Make a mutable copy, if necessary. */
 /* private */ function touchNode( node )
 {
@@ -38,7 +38,6 @@ const localPersistentDB = {};
     return node;
 }
 
-
 /* Nodes always have all their plain data values.  No laziness here. */
 
 /* public */ function getValue( node, name )
@@ -49,6 +48,16 @@ const localPersistentDB = {};
     return node[ plain_data_tag ][ name ];
 }
 
+/* Warning: Must only be used read-only */
+/* public */ function getValues( node )
+{
+    assert( tree_node_tag in node );
+    assert( isString( name ) );
+
+    return node[ plain_data_tag ];
+}
+
+/* NOTE: Returns a new node because of copy-on-first-write */
 /* public */ function setValue( node, name, value )
 {
     assert( tree_node_tag in node );
@@ -60,6 +69,16 @@ const localPersistentDB = {};
     return node;
 }
 
+/* NOTE: Returns a new node because of copy-on-first-write */
+/* public */ function deleteValue( node, name )
+{
+    assert( tree_node_tag in node );
+    assert( isString( name ) );
+
+    node = touchNode( node );
+    delete node[ plain_data_tag ][ name ]
+    return node;
+}
 
 /* public */ function isChildInMemCache( node, name )
 {
@@ -74,7 +93,7 @@ const localPersistentDB = {};
     assert( tree_node_tag in node );
     assert( isString( name ) );
 
-    return node[ local_cache_tag ].has( name )
+    return node[ local_cache_tag ].has( name );
 }
 
 /* private */ function dehydrate( node )
@@ -92,7 +111,7 @@ const localPersistentDB = {};
     return d;
 }
 
-/* private */ function rehydrate( parent, dehydrated, link, storage_cb )
+/* private */ function rehydrate( parent, link, dehydrated, storage_cb )
 {
     const pstorage = parent[ storage_tag ];
     const cstorage = storage_cb ? storage_cb( pstorage ) : pstorage;
@@ -101,15 +120,15 @@ const localPersistentDB = {};
     c[ plain_data_tag ]      = dehydrated.p;
     c[ blank_timestamp_tag ] = dehydrated.b;
     const links = {};
-    for( child_name in dehydrated.c )
+    for( name in dehydrated.c )
     {
-        links[ child_name ] = cstorage.rehydrateLink(
-            parent, child_name, dehydrated.c[ child_name ] );
+        links[ name ] = cstorage.rehydrateLink(
+            parent, name, dehydrated.c[ name ] );
     }
-    c[ link_tag ]            = links;
-    c[ mem_cache_tag ]       = { contains: () => false };
-    c[ local_cache_tag ]     = { contains: () => false };
-    c[ storage_tag ]         = cstorage;
+    c[ link_tag ]        = links;
+    c[ mem_cache_tag ]   = { has: () => false };
+    c[ local_cache_tag ] = { has: () => false };
+    c[ storage_tag ]     = cstorage;
 
     if( "timestamp" in link )
     {

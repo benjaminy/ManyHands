@@ -259,7 +259,21 @@ When teammates update their own storage trees, they can store references to thei
 This sharing idea relies on teammates trusting each other to not delete their part of the team's shared data.
 In other words, if a team is sharing the storage cost, it would be easy for a teammate to do a denial of service attack by removing their data.
 
-\section{Ordering Edits Efficiently in the Common Case}
+\section{Supporting a Range of Merging Strategies}
+
+As mentioned in the introduction, there is a wide range of strategies for resolving inconsistencies between concurrent edits.
+Our goal with UWS is to provide a foundation upon which application and middleware programmers can implement a wide range of strategies.
+We do this by copying two ingredients from Bayou: active transactions and a total order of edits.
+
+\emph{Active transactions} means that edits are not only passive data, but can include a function that takes the current state of the database as an input and can calculate arbitrary changes at the point where the edit is added to the chain.
+Obviously for the sake of sanity, these transactions need to be deterministic functions of the current state of the database.
+Clients may need to re-run the functions as the consistency protocol runs, potentially reordering parts of the edit chain.
+This concept can be found in systems as diverse as Datomic and Ethereum.
+Active transaction allows implementation of CRDTs and OT
+
+Concerns with total order:
+scalability
+malicious servers
 
 There has been a great deal of research on conflict detection and automatic merging of concurrent edits.
 Many recent CE systems have put a lot of focus on automatic merging with some flavor of operational transformations (OT) or conflict-free replicated data types (CRDTs).
