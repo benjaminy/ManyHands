@@ -53,3 +53,22 @@ Our implementation, therefore, uses the v2 API for requests, so this vital piece
 
 ### Dropbox
 
+ - [x] Authenticated upload of files
+
+Much like Google Drive, it is necessary to create an application identity by generating authorization keys on Dropbox's website.
+
+Fortunately, the OAuth step of authorizing is not necessary when the owner of the API key is also the person using it (as is the case in this software).
+
+ - [x] Public (unauthenticated) download and traversal of files
+
+A file may be downloaded by its unique ID (which we will use as a file pointer), or by its URL (as may be necessary/useful with a root file).
+
+ - [x] Server timestamping of uploaded files
+
+The API provides a `client_modified` and `server_modified` timestamp when downloading a file or checking its metadata.
+
+ - [x] Conditional requests/headers (ETag, `If-Match` and  `If-None-Match`)
+
+When downloading a file, the ETag is sent, and the conditional requests are supported.
+
+One concern is that when uploading a file, an ETag is not sent back, meaning we may lack some atomicity when uploading a file (since we have to check back with the file to find its ETag, and it could have changed in that time). I believe if the only people checking for ETags are the people who are not uploading the file, this may be a moot point.
