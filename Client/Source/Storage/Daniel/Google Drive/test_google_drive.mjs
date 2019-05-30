@@ -27,7 +27,7 @@ storage.upload(
             console.log(`file id: ${fp.path}, uploaded at ${fp.timestamp} with etag ${fp.etag}`);
             storage.download(fp).then(
                 data => {
-                    console.log(`data: ${data}`);
+                    console.log(`data: ${data}`); // TODO this should preferably be a buffer for when we deal with encrypted data
                 },
                 err => {
                     console.log("An error occurred while downloading: " + err);
