@@ -3,7 +3,6 @@
 import fs from "fs";
 import readline from "readline";
 import googleapis from 'googleapis';
-// TODO the googleapis package is not yet in the package.json
 const {google} = googleapis;
 
 async function authorize(credentials) {
