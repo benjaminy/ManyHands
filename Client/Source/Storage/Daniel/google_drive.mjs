@@ -5,31 +5,8 @@ import readline from "readline";
 import googleapis from 'googleapis';
 // TODO the googleapis package is not yet in the package.json
 const {google} = googleapis;
-/**
- * @license
- * Copyright Google Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * ---
- *
- * Parts of this file originated from sample code originally written by
- * Google Inc., modified and adapted by Daniel Barnes for the purposes of
- * this project. The licence has been included here in order to comply
- * with its terms.
- */
 
-async function authorize(credentials, callback) {
+async function authorize(credentials) {
     const {client_secret, client_id, redirect_uris} = credentials.installed;
     const oAuth2Client = new google.auth.OAuth2(
         client_id, client_secret, redirect_uris[0]);
@@ -39,40 +16,49 @@ async function authorize(credentials, callback) {
     try {
         token = fs.readFileSync(TOKEN_PATH);
     } catch (e) {
-        return getAccessToken(oAuth2Client, callback);
+        return await getAccessToken(oAuth2Client);
     }
     oAuth2Client.setCredentials(JSON.parse(token));
-    return callback(oAuth2Client);
+    return oAuth2Client;
 }
 
 /**
  * Get and store new token after prompting for user authorization, and then
  * execute the given callback with the authorized OAuth2 client.
  * @param {google.auth.OAuth2} oAuth2Client The OAuth2 client to get token for.
- * @param {getEventsCallback} callback The callback for the authorized client.
  */
-async function getAccessToken(oAuth2Client, callback) {
+async function getAccessToken(oAuth2Client) {
     const authUrl = oAuth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: GOOGLE_API_SCOPES,
     });
-    console.log('Authorize this app by visiting this url:', authUrl);
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
+    const code = await tokenPrompt(authUrl);
+    const resp = await oAuth2Client.getToken(code);
+    const token = resp.tokens;
+    return new Promise(function(resolve, reject)
+    {
+        oAuth2Client.setCredentials(token);
+        // Store the token to disk for later program executions
+        fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
+            if (err) return reject(err);
+            console.log('Token stored to', TOKEN_PATH);
+        });
+        return resolve(oAuth2Client);
     });
-    const code = await rl.question('Enter the code from that page here: ');
-    rl.close();
-    const token = await oAuth2Client.getToken(code);
+}
 
-    if (err) return console.error('Error retrieving access token', err);
-    oAuth2Client.setCredentials(token);
-    // Store the token to disk for later program executions
-    fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
-        if (err) return console.error(err);
-        console.log('Token stored to', TOKEN_PATH);
+async function tokenPrompt(authUrl){
+    return new Promise(function(resolve, reject) {
+        console.log('Authorize this app by visiting this url:', authUrl);
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+        });
+        rl.question('Enter the code from that page here: ', code => {
+            resolve(code);
+            rl.close();
+        });
     });
-    return callback(oAuth2Client);
 }
 
 /**
@@ -90,8 +76,8 @@ async function getAccessToken(oAuth2Client, callback) {
  */
 async function uploadGoogleDrive( auth, options_u )
 {
-    const drive = google.drive({version: 'v2', auth});
-
+    const authClient = await auth;
+    const drive = google.drive({version: 'v2', auth: authClient});
     const file_metadata = {
         mimeType: 'application/octet-stream',
         title: options_u.filename // TODO if you change the root, will it still have the same id?
@@ -108,7 +94,11 @@ async function uploadGoogleDrive( auth, options_u )
             fields: '*'
         });
 
-    return {path: file_obj.data.id, etag: file_obj.data.etag, timestamp: file_obj.data.modifiedDate};
+    return {
+        path: file_obj.data.id,
+        etag: file_obj.data.etag,
+        timestamp: file_obj.data.modifiedDate
+    };
 }
 
 /**
@@ -120,21 +110,27 @@ async function uploadGoogleDrive( auth, options_u )
  */
 async function downloadGoogleDrive( auth, file_ptr )
 {
+    const authClient = await auth;
+    const drive = google.drive({version: 'v2', auth: authClient});
 
-    const drive = google.drive({version: 'v2', auth});
+    let data = "";
 
-    /*drive.files.get({fileId: file_ptr.path, alt: 'media'}, {responseType: 'stream'},
-        function(err, res){
-            res.data
-                .on('end', () => {
-                    console.log('Done');
-                })
-                .on('error', err => {
-                    console.log('Error', err);
-                })
-                .pipe(dest);
-        }
-    );*/
+    return new Promise((success, error) => {
+        drive.files.get({fileId: file_ptr.path, alt: 'media'}, {responseType: 'stream'},
+            function(err, res){
+                res.data
+                    .on('data', (chunk) => {
+                        data += chunk
+                    })
+                    .on('end', () => {
+                        success(data);
+                    })
+                    .on('error', err => {
+                        error(err);
+                    });
+            }
+        );
+    });
 }
 
 const GOOGLE_API_SCOPES = ['https://www.googleapis.com/auth/drive.file'];
@@ -153,8 +149,8 @@ export default function init( )
     }
 
     const mstorage = {};
-    mstorage.upload   = async ( ...ps ) => authorize( credentials, (auth) =>   uploadGoogleDrive(auth, ...ps) );
-    mstorage.download = async ( ...ps ) => authorize( credentials, (auth) => downloadGoogleDrive(auth, ...ps) );
+    mstorage.upload   = async ( ...ps ) =>   uploadGoogleDrive(authorize(credentials), ...ps);
+    mstorage.download = async ( ...ps ) => downloadGoogleDrive(authorize(credentials), ...ps);
 
     mstorage.fpFromPlainData = async function fpFromPlainData( fp )
     {
