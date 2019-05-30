@@ -144,7 +144,7 @@ export default function init( )
 
     try {
         credentials = JSON.parse(fs.readFileSync(CREDENTIAL_PATH)); // TODO no sync reading
-    } catch(e){
+    } catch(err){
         console.log('Error loading client secret file:', err);
     }
 
