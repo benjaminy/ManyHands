@@ -66,7 +66,7 @@ export function init_simple_dict(initial_data=false){
     };
 
     ds.find = (options) => {
-        const {entity, attribute, value} = options;
+        const {entity, attribute, value} = typeof(options) == 'object' ? options : {};
         if(entity === undefined && attribute === undefined && value === undefined){
             // doesn't matter what we use
             return [...data];
@@ -161,7 +161,7 @@ function sortedSearch(list, field, value){
 function unsortedSearch(list, field, value){
     const results = [];
     for(let record in list){
-        if(list[record][field] === value){
+        if(list[record][field] === value){ // TODO: === is not the perfect comparison, this might not work on attributes
             results.push(list[record]);
         }
     }

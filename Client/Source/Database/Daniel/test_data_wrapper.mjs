@@ -10,6 +10,8 @@ const susan = simple_dict.add({
     value: 1000
 });
 
+assert(simple_dict.find().length === 1);
+
 assert(compareDatom(simple_dict.find({entity: 1})[0], susan));
 assert(simple_dict.find({entity: 2}).length === 0);
 
