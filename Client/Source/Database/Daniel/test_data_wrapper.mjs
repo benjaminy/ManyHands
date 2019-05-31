@@ -10,13 +10,13 @@ const susan = simple_dict.add({
     value: 1000
 });
 
-assert(compareDatom(simple_dict.findByEntity(1)[0], susan));
-assert(simple_dict.findByEntity(2).length === 0);
+assert(compareDatom(simple_dict.find({entity: 1})[0], susan));
+assert(simple_dict.find({entity: 2}).length === 0);
 
-assert(compareDatom(simple_dict.findByAttribute(K.key(':age'))[0], susan));
-assert(simple_dict.findByAttribute(K.key(':name')).length === 0);
+assert(compareDatom(simple_dict.find({attribute: K.key( ':age')})[0], susan));
+assert(simple_dict.find({attribute: K.key(':name')}).length === 0);
 
-assert(compareDatom(simple_dict.findByValue(1000)[0], susan));
-assert(simple_dict.findByValue(72).length === 0);
+assert(compareDatom(simple_dict.find({value: 1000})[0], susan));
+assert(simple_dict.find({value: 72}).length === 0);
 
 console.log("All tests completed");
