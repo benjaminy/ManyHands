@@ -158,7 +158,7 @@ export function normalizeValue( attribute, value )
     return v;
 }
 
-export initializeBuiltInAttrs()
+export function initializeBuiltInAttrs()
 {
 }
 
