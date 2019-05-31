@@ -60,7 +60,7 @@ export function parseQuery( q )
 {
     assert( Array.isArray( q ) );
 
-    var i = 0;
+    let i = 0;
 
     function getSection( section, startK, endMarkers )
     {
@@ -310,7 +310,7 @@ export function parseQuery( q )
         {
             var src_var = null;
             try {
-                if( thing[ 0 ].startsWith( "$" ) )
+                if( thing[ 0 ].startsWith( "$" ) ) // which database to search
                 {
                     src_var = thing[ 0 ].substring( 1 );
                     thing.shift( 1 );
@@ -365,44 +365,44 @@ export async function runQuery( db, q )
         if( clauses.length === 1 )
         {
             const clause = clauses[ 0 ].tuple;
-            for( const i in db.datoms )
-            {
-                const datom = db.datoms[ i ];
-                assert( datom.length >= clause.length );
-                var match_fail = false;
-                const bindings = {};
-                for( const j in clause )
-                {
-                    const c_elem = clause[ j ];
-                    const d_elem = datom[ j ];
-                    if( j.tag === underbar_tag )
-                    {
-                        // ignore
-                    }
-                    else if( c_elem.tag === variable_tag )
-                    {
-                        bindings[ c_elem.name ] = d_elem;
-                    }
-                    else if( constant_tags.has( c_elem.tag ) )
-                    {
-                        if( !is_compatible( c_elem, d_elem ) )
-                        {
-                            match_fail = true;
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        throw new Error( "Query: Illegal data clause tag: " + c_elem.tag );
-                    }
-                }
-                if( !match_fail )
-                {
-                    const result = [];
-                    vars.forEach( ( v ) => { result.push( bindings[ v ] ) } );
-                    results.push( result );
-                }
+
+            const [entity={}, attribute={}, value={}, timestamp={}, revoked={}] = clause;
+
+            const bindings = {};
+            if(entity.tag === variable_tag) {
+                bindings[entity.name] = 'entity';
             }
+            if(attribute.tag === variable_tag) {
+                bindings[attribute.name] = 'entity';
+            }
+            if(value.tag === variable_tag) {
+                bindings[value.name] = 'entity';
+            }
+            if(timestamp.tag === variable_tag) {
+                bindings[timestamp.name] = 'entity';
+            }
+            if(revoked.tag === variable_tag) {
+                bindings[revoked.name] = 'entity';
+            }
+
+            const q = {
+                entity: constant_tags.has(entity.tag) ? entity.val : undefined,
+                attribute: constant_tags.has(attribute.tag) ? attribute.val : undefined,
+                value: constant_tags.has(value.tag) ? value.val : undefined,
+                timestamp: constant_tags.has(timestamp.tag) ? tiemstamp.val : undefined,
+                revoked: constant_tags.has(revoked.tag) ? revoked.val : undefined
+            };
+
+            const resultSet = db.find(q);
+
+            const results = [];
+
+            resultSet.forEach((item) => {
+                const result = [];
+                vars.forEach( ( v ) => { result.push( item[bindings[ v ]] ) } );
+                results.push( result );
+            });
+
             return results;
         }
         else
