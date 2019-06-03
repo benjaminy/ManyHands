@@ -10,6 +10,10 @@ const q1 = Q.parseQuery(
     [ Q.findK, "?e",
       Q.whereK, [ "?e", ":age", 42 ] ] );
 
+const q2 = Q.parseQuery(
+    [ Q.findK, "?e", "?age",
+      Q.whereK, [ "?e", ":age", "?age" ] ] );
+
 // console.log("query where clauses: ", q1.where.clauses[0].tuple);
 
 // const q2 = DQ.parseQuery(
@@ -63,6 +67,14 @@ async function main()
 
     console.log( "FINI?", JSON.stringify( r1 ) );
     assert(r1.length === 2, "Two results should be returned from this query. Found: " + r1.length);
+    assert((ethel === r1[0][0] || ethel === r1[1][0])
+        && (fred === r1[0][0] || fred === r1[1][0])
+        && r1[0][0] !== r1[1][0]);
+
+    const r2 = await Q.runQuery( db, q2 );
+
+    console.log( "3x2 array?", JSON.stringify(r2));
+    assert(r2.length === 3, "Three results should be returned from this query. Found: " + r2.length);
 }
 
 main().then(() =>{

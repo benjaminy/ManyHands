@@ -339,7 +339,6 @@ function is_compatible( query_const, datom_value )
 export async function runQuery( db, q )
 {
     const vars = [];
-    const results = [];
 
     if( q.find.tag === find_rel_tag )
     {
@@ -372,7 +371,7 @@ export async function runQuery( db, q )
 
             const bindings = {};
             // we build a map so we can get from the binding name to the field it represents
-            // within a datom; for example, datom[bindings["?entitybound"]] => datom.entity
+            // within a datom; for example, datom[bindings["?entitybound"]] === datom.entity
             if(entity.tag === variable_tag) {
                 bindings[entity.name] = 'entity';
             }
