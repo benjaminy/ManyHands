@@ -358,12 +358,16 @@ export async function runQuery( db, q )
         throw new Error( "Unimplemented" );
     }
 
+    const bindingSet = new Set();
+    const joins = new Set();
+
     if( q.where.tag === where_clauses_tag )
     {
         const clauses = q.where.clauses;
-        if( clauses.length === 1 )
+        const whereResults = [];
+        for( let i = 0; i < clauses.length; i++ )
         {
-            const clause = clauses[ 0 ].tuple;
+            const clause = clauses[ i ].tuple;
 
             const [entity={}, attribute={}, value={}, timestamp={}, revoked={}] = clause;
             // these will either be empty, or have a `tag` attribute, and other optional
@@ -373,20 +377,48 @@ export async function runQuery( db, q )
             // we build a map so we can get from the binding name to the field it represents
             // within a datom; for example, datom[bindings["?entitybound"]] === datom.entity
             if(entity.tag === variable_tag) {
+                if(bindingSet.has(entity.name)){
+                    joins.add(entity.name);
+                } else {
+                    bindingSet.add(entity.name);
+                }
                 bindings[entity.name] = 'entity';
             }
             if(attribute.tag === variable_tag) {
+                if(bindingSet.has(entity.name)){
+                    joins.add(entity.name);
+                } else {
+                    bindingSet.add(entity.name);
+                }
                 bindings[attribute.name] = 'attribute';
             }
             if(value.tag === variable_tag) {
+                if(bindingSet.has(entity.name)){
+                    joins.add(entity.name);
+                } else {
+                    bindingSet.add(entity.name);
+                }
                 bindings[value.name] = 'value';
             }
             if(timestamp.tag === variable_tag) {
+                if(bindingSet.has(entity.name)){
+                    joins.add(entity.name);
+                } else {
+                    bindingSet.add(entity.name);
+                }
                 bindings[timestamp.name] = 'timestamp';
             }
             if(revoked.tag === variable_tag) {
+                if(bindingSet.has(entity.name)){
+                    joins.add(entity.name);
+                } else {
+                    bindingSet.add(entity.name);
+                }
                 bindings[revoked.name] = 'revoked';
             }
+
+            L.debug("Binding Set:", bindingSet);
+            L.debug("Joins:", joins);
 
             // is the tag for each field a constant? if so, it means we're "searching by" this field,
             // and we will pass this q object into our database to retrieve applicable datoms.
@@ -394,27 +426,65 @@ export async function runQuery( db, q )
                 entity: constant_tags.has(entity.tag) ? entity.val : undefined,
                 attribute: constant_tags.has(attribute.tag) ? attribute.val : undefined,
                 value: constant_tags.has(value.tag) ? value.val : undefined,
-                timestamp: constant_tags.has(timestamp.tag) ? tiemstamp.val : undefined,
+                timestamp: constant_tags.has(timestamp.tag) ? timestamp.val : undefined,
                 revoked: constant_tags.has(revoked.tag) ? revoked.val : undefined
             };
 
             // retrieve a set of datoms through the DB's efficient indexing and searching capabilities
             const resultSet = db.find(q);
+            whereResults.push({bindings: bindings, results: resultSet});
+        }
 
-            // take the datoms and retrieve the relevant ("bound") data.
-            const results = [];
+        // Now process the whereResults into an actual result set
+        const results = [];
+        L.debug("Where results: ", JSON.stringify(whereResults));
 
-            resultSet.forEach((item) => {
+        if(whereResults.length === 1) {
+            const res = whereResults[0];
+
+            res.results.forEach((item) => {
                 const result = [];
-                vars.forEach( ( v ) => { result.push( item[bindings[ v ]] ) } );
-                results.push( result );
+                vars.forEach((v) => {
+                    result.push(item[res.bindings[v]])
+                });
+                results.push(result);
             });
 
             return results;
-        }
-        else
-        {
-            throw new Error( "Unimplemented" );
+        } else if(joins.size === 1){
+            const join = joins.values().next().value;
+            const final = {};
+
+            whereResults.forEach(({bindings, results}) => {
+                vars.forEach(returned => {
+                    if(returned in bindings) {
+                        results.forEach(result => {
+                            const current_entity = result[bindings[join]];
+                            if (final[current_entity] === undefined) {
+                                final[current_entity] = {};
+                            }
+                            final[current_entity][returned] = result[bindings[returned]];
+                        });
+                    }
+                });
+            });
+
+            // now we have all of our data collected and organized by their bindings-- build the final result set!
+
+            const queryResults = [];
+
+            Object.keys(final).forEach(entity => {
+                const result = [];
+                vars.forEach((v) => {
+                    result.push(final[entity][v]);
+                });
+                queryResults.push(result);
+            });
+
+            return queryResults;
+
+        } else {
+            throw new Error("Unimplemented");
         }
     }
     else

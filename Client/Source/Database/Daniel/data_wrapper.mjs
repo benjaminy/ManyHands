@@ -58,15 +58,15 @@ export function init_simple_dict(initial_data=false){
         return datom;
     };
     ds.revoke = (datom) => {
-        for(let i = 0; i < data.length; i++){
-            if(compareDatom(datom, data[i])) {
+        for(let i = 0; i < data.length; i++) {
+            if (compareDatom(datom, data[i])) {
                 datom.revoked = true;
             }
         }
     };
 
     ds.find = (options) => {
-        const {entity, attribute, value} = typeof(options) == 'object' ? options : {};
+        const {entity, attribute, value} = typeof(options) === 'object' ? options : {};
         if(entity === undefined && attribute === undefined && value === undefined){
             // doesn't matter what we use
             return [...data];
