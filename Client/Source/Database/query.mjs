@@ -367,24 +367,30 @@ export async function runQuery( db, q )
             const clause = clauses[ 0 ].tuple;
 
             const [entity={}, attribute={}, value={}, timestamp={}, revoked={}] = clause;
+            // these will either be empty, or have a `tag` attribute, and other optional
+            // attributes which are necessary for describing the tag.
 
             const bindings = {};
+            // we build a map so we can get from the binding name to the field it represents
+            // within a datom; for example, datom[bindings["?entitybound"]] => datom.entity
             if(entity.tag === variable_tag) {
                 bindings[entity.name] = 'entity';
             }
             if(attribute.tag === variable_tag) {
-                bindings[attribute.name] = 'entity';
+                bindings[attribute.name] = 'attribute';
             }
             if(value.tag === variable_tag) {
-                bindings[value.name] = 'entity';
+                bindings[value.name] = 'value';
             }
             if(timestamp.tag === variable_tag) {
-                bindings[timestamp.name] = 'entity';
+                bindings[timestamp.name] = 'timestamp';
             }
             if(revoked.tag === variable_tag) {
-                bindings[revoked.name] = 'entity';
+                bindings[revoked.name] = 'revoked';
             }
 
+            // is the tag for each field a constant? if so, it means we're "searching by" this field,
+            // and we will pass this q object into our database to retrieve applicable datoms.
             const q = {
                 entity: constant_tags.has(entity.tag) ? entity.val : undefined,
                 attribute: constant_tags.has(attribute.tag) ? attribute.val : undefined,
@@ -393,8 +399,10 @@ export async function runQuery( db, q )
                 revoked: constant_tags.has(revoked.tag) ? revoked.val : undefined
             };
 
+            // retrieve a set of datoms through the DB's efficient indexing and searching capabilities
             const resultSet = db.find(q);
 
+            // take the datoms and retrieve the relevant ("bound") data.
             const results = [];
 
             resultSet.forEach((item) => {
