@@ -9,6 +9,7 @@ import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs"
 const age   = K.key( ":age" );
 const likes = K.key( ":likes" );
 const annoys = K.key(":annoys");
+const loves = K.key(":loves");
 const sally = 12345;
 const fred  = 12346;
 const ethel = 12347;
@@ -50,6 +51,11 @@ db.add({
     attribute: annoys,
     value: ethel
 });
+db.add({
+    entity: ethel,
+    attribute: loves,
+    value: sally
+});
 
 async function main(){
     return Promise.all([
@@ -57,7 +63,8 @@ async function main(){
         test_02_double_select(),
         test_03_double_where(),
         //test_04_double_condition(),
-        test_05_references()
+        test_05_references(),
+        test_06_double_reference()
     ])
 }
 
@@ -66,7 +73,7 @@ async function test_01_single_select()
 
     const q1 = Q.parseQuery(
         [ Q.findK, "?e",
-            Q.whereK, [ "?e", ":age", 42 ] ] );
+            Q.whereK, [ "?e", age, 42 ] ] );
     const r1 = await Q.runQuery( db, q1 );
 
     console.log( "FINI?", JSON.stringify( r1 ) );
@@ -74,6 +81,9 @@ async function test_01_single_select()
     assert((ethel === r1[0][0] || ethel === r1[1][0])
         && (fred === r1[0][0] || fred === r1[1][0])
         && r1[0][0] !== r1[1][0]);
+
+    console.log("SUCCESS: test_01_single_select");
+
 }
 
 async function test_02_double_select()
@@ -81,19 +91,21 @@ async function test_02_double_select()
 
     const q2 = Q.parseQuery(
         [ Q.findK, "?e", "?age",
-            Q.whereK, [ "?e", ":age", "?age" ] ] );
+            Q.whereK, [ "?e", age, "?age" ] ] );
 
     const r2 = await Q.runQuery( db, q2 );
 
     console.log( "3x2 array?", JSON.stringify(r2));
     assert(r2.length === 3, "Three results should be returned from this query. Found: " + r2.length);
+
+    console.log("SUCCESS: test_02_double_select");
 }
 
 async function test_03_double_where()
 {
     const q3 = Q.parseQuery(
         [ Q.findK, "?a", "?l",
-            Q.whereK, ["?e", ":age", "?a"], ["?e", ":likes", "?l"]]
+            Q.whereK, ["?e", age, "?a"], ["?e", likes, "?l"]]
     );
 
     const r3 = await Q.runQuery( db, q3 );
@@ -119,7 +131,7 @@ async function test_04_double_condition()
     const q4 = Q.parseQuery(
         [Q.findK, "?e",
             Q.inK, "$", "?age", "?pizza",
-            Q.whereK, ["?e", ":age", "?age"], ["?e", ":likes", "?pizza"]]
+            Q.whereK, ["?e", age, "?age"], ["?e", likes, "?pizza"]]
     );
 
     const r4 = await Q.runQuery( db, q4, 42, "pizza" );
@@ -127,13 +139,16 @@ async function test_04_double_condition()
     console.log("r4:", r4);
 
     assert(r4.length === 1 && r4[0][0] === fred);
+
+    console.log("SUCCESS: test_04_double_condition");
+
 }
 
 async function test_05_references()
 {
     const q5 = Q.parseQuery( // what is the age of people who are annoyed?
         [Q.findK, "?age",
-        Q.whereK, ["?a", ":annoys", "?e"], ["?e", ":age", "?age"]] // TODO underbar
+        Q.whereK, ["?a", annoys, "?e"], ["?e", age, "?age"]] // TODO underbar for ?a
     );
 
     const r5 = await Q.runQuery(db, q5);
@@ -141,6 +156,24 @@ async function test_05_references()
     console.log("r5", r5);
 
     assert(r5.length === 1 && r5[0][0] === 42);
+
+    console.log("SUCCESS: test_05_references");
+
+}
+
+async function test_06_double_reference(){
+    const q6 = Q.parseQuery( // find the annoyed lover
+        [Q.findK, "?annoyer", "?loved",
+        Q.whereK, ["?annoyer", annoys, "?e"], ["?e", loves, "?loved"]]
+    );
+
+    const r6 = await Q.runQuery(db, q6);
+    console.log("r6", r6);
+
+    assert(r6.length === 1 && r6[0][0] === fred && r6[0][1] === sally);
+
+    console.log("SUCCESS: test_06_double_reference");
+
 }
 
 main().then(() =>{
