@@ -8,6 +8,7 @@ import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs"
 
 const age   = K.key( ":age" );
 const likes = K.key( ":likes" );
+const annoys = K.key(":annoys");
 const sally = 12345;
 const fred  = 12346;
 const ethel = 12347;
@@ -44,12 +45,19 @@ db.add({
     attribute: likes,
     value: "sushi"
 });
+db.add({
+    entity: fred,
+    attribute: annoys,
+    value: ethel
+});
 
 async function main(){
     return Promise.all([
         test_01_single_select(),
         test_02_double_select(),
-        test_03_double_where()
+        test_03_double_where(),
+        //test_04_double_condition(),
+        test_05_references()
     ])
 }
 
@@ -91,6 +99,48 @@ async function test_03_double_where()
     const r3 = await Q.runQuery( db, q3 );
 
     console.log("Ages and likes paired?", JSON.stringify(r3));
+    const [[a1, l1], [a2, l2], [a3, l3]] = r3.sort((s, o) => s[1].charCodeAt(0) - o[1].charCodeAt(0));
+    assert(
+        a1 === 21
+        && l1 === "opera"
+        && a2 === 42
+        && l2 === "pizza"
+        && a3 === 42
+        && l3 === "sushi"
+    );
+    console.log("SUCCESS: test_03_double_where");
+}
+
+/*
+TODO: I am unsure how to use these :in parameters, or if that is unsupported so far
+ */
+async function test_04_double_condition()
+{
+    const q4 = Q.parseQuery(
+        [Q.findK, "?e",
+            Q.inK, "$", "?age", "?pizza",
+            Q.whereK, ["?e", ":age", "?age"], ["?e", ":likes", "?pizza"]]
+    );
+
+    const r4 = await Q.runQuery( db, q4, 42, "pizza" );
+
+    console.log("r4:", r4);
+
+    assert(r4.length === 1 && r4[0][0] === fred);
+}
+
+async function test_05_references()
+{
+    const q5 = Q.parseQuery( // what is the age of people who are annoyed?
+        [Q.findK, "?age",
+        Q.whereK, ["?a", ":annoys", "?e"], ["?e", ":age", "?age"]] // TODO underbar
+    );
+
+    const r5 = await Q.runQuery(db, q5);
+
+    console.log("r5", r5);
+
+    assert(r5.length === 1 && r5[0][0] === 42);
 }
 
 main().then(() =>{

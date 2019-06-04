@@ -336,7 +336,7 @@ function is_compatible( query_const, datom_value )
     return query_const.val === datom_value;
 }
 
-export async function runQuery( db, q )
+export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (database + :in clause)
 {
     const vars = [];
 
@@ -361,17 +361,24 @@ export async function runQuery( db, q )
     const bindingSet = new Set();
     const joins = new Set();
 
+    // TODO if( q.in.tag ===  )
+
     if( q.where.tag === where_clauses_tag )
     {
         const clauses = q.where.clauses;
         const whereResults = [];
         for( let i = 0; i < clauses.length; i++ )
         {
+            console.log("CLAUSES:", clauses);
             const clause = clauses[ i ].tuple;
+
+            console.log("CLAUSE :", clause);
 
             const [entity={}, attribute={}, value={}, timestamp={}, revoked={}] = clause;
             // these will either be empty, or have a `tag` attribute, and other optional
             // attributes which are necessary for describing the tag.
+
+            console.log("EAV", entity, attribute, value);
 
             const bindings = {};
             // we build a map so we can get from the binding name to the field it represents
@@ -385,34 +392,34 @@ export async function runQuery( db, q )
                 bindings[entity.name] = 'entity';
             }
             if(attribute.tag === variable_tag) {
-                if(bindingSet.has(entity.name)){
-                    joins.add(entity.name);
+                if(bindingSet.has(attribute.name)){
+                    joins.add(attribute.name);
                 } else {
-                    bindingSet.add(entity.name);
+                    bindingSet.add(attribute.name);
                 }
                 bindings[attribute.name] = 'attribute';
             }
             if(value.tag === variable_tag) {
-                if(bindingSet.has(entity.name)){
-                    joins.add(entity.name);
+                if(bindingSet.has(value.name)){
+                    joins.add(value.name);
                 } else {
-                    bindingSet.add(entity.name);
+                    bindingSet.add(value.name);
                 }
                 bindings[value.name] = 'value';
             }
             if(timestamp.tag === variable_tag) {
-                if(bindingSet.has(entity.name)){
-                    joins.add(entity.name);
+                if(bindingSet.has(timestamp.name)){
+                    joins.add(timestamp.name);
                 } else {
-                    bindingSet.add(entity.name);
+                    bindingSet.add(timestamp.name);
                 }
                 bindings[timestamp.name] = 'timestamp';
             }
             if(revoked.tag === variable_tag) {
-                if(bindingSet.has(entity.name)){
-                    joins.add(entity.name);
+                if(bindingSet.has(revoked.name)){
+                    joins.add(revoked.name);
                 } else {
-                    bindingSet.add(entity.name);
+                    bindingSet.add(revoked.name);
                 }
                 bindings[revoked.name] = 'revoked';
             }
@@ -455,6 +462,51 @@ export async function runQuery( db, q )
             const join = joins.values().next().value;
             const final = {};
 
+            console.log("WHERE RESULTS", whereResults);
+            console.log("VARS:", vars);
+
+            const joinResults = {};
+
+            joins.forEach(join => {
+                let joinIntersection = null;
+                whereResults.forEach(singleResult => {
+                    console.log("loop");
+                    const singleSet = new Set();
+                    singleResult.results.forEach(res => {
+                        singleSet.add(res[singleResult.bindings[join]])
+                    });
+                    if(joinIntersection === null) {
+                        joinIntersection = singleSet;
+                    } else {
+                        joinIntersection = new Set([...singleSet].filter(x => joinIntersection.has(x)));
+                    }
+                });
+
+                joinResults[join] = joinIntersection;
+
+                console.log("JOIN INTERSECTION", joinIntersection);
+            });
+
+            // now, for every intersection made, delete any non-matching results
+
+            whereResults.forEach(singleResult => {
+                Object.keys(joinResults).forEach(res => {
+                    if(res in singleResult.bindings){
+                        // joinResults[res] // is a list of acceptable values to not filter out
+                        singleResult.results = singleResult.results.filter(x => {
+                            console.log("adfadsfads", singleResult, joinResults[res]);
+                            console.log("aaaaaa", x[singleResult.bindings[res]]);
+                            return joinResults[res].has(x[singleResult.bindings[res]]);
+                            /*console.log("whereResults", whereResults);
+                            console.log("res", res);
+                            console.log("single", singleResult);*/
+                        });
+                    }
+                });
+            });
+
+            console.log(whereResults);
+
             whereResults.forEach(({bindings, results}) => {
                 vars.forEach(returned => {
                     if(returned in bindings) {
@@ -472,6 +524,7 @@ export async function runQuery( db, q )
             // now we have all of our data collected and organized by their bindings-- build the final result set!
 
             const queryResults = [];
+            console.log("FINAL:", final);
 
             Object.keys(final).forEach(entity => {
                 const result = [];
