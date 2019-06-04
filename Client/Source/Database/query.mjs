@@ -458,8 +458,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
             });
 
             return results;
-        } else if(joins.size === 1){
-            const join = joins.values().next().value;
+        } else {
             const final = {};
 
             console.log("WHERE RESULTS", whereResults);
@@ -470,11 +469,16 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
             joins.forEach(join => {
                 let joinIntersection = null;
                 whereResults.forEach(singleResult => {
-                    console.log("loop");
+                    console.log("loop", join, singleResult.bindings);
+                    if(!(join in singleResult.bindings)){
+                        return; // continue loop
+                    }
                     const singleSet = new Set();
                     singleResult.results.forEach(res => {
+                        console.log("asdfasdfs", res, singleResult, join);
                         singleSet.add(res[singleResult.bindings[join]])
                     });
+                    console.log("singleset", singleSet);
                     if(joinIntersection === null) {
                         joinIntersection = singleSet;
                     } else {
@@ -482,12 +486,16 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                     }
                 });
 
+                console.log("join intersection", join, joinIntersection);
+
                 joinResults[join] = joinIntersection;
 
                 console.log("JOIN INTERSECTION", joinIntersection);
             });
 
             // now, for every intersection made, delete any non-matching results
+
+            console.log("whereresults before filter", whereResults);
 
             whereResults.forEach(singleResult => {
                 Object.keys(joinResults).forEach(res => {
@@ -505,17 +513,26 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                 });
             });
 
-            console.log(whereResults);
+            console.log("Whereresults after filter:", whereResults);
 
             whereResults.forEach(({bindings, results}) => {
                 vars.forEach(returned => {
                     if(returned in bindings) {
                         results.forEach(result => {
-                            const current_entity = result[bindings[join]];
-                            if (final[current_entity] === undefined) {
-                                final[current_entity] = {};
+                            console.log("result: ", result, bindings, returned, joins);
+
+                            const cat = {};
+                            joins.forEach(j => {cat[j] = result[bindings[j]]});
+
+
+                            const idx = JSON.stringify(cat); // TODO we want to index by many variables-- is this ugly?
+
+                            //const current_entity = result[bindings[join]];
+                            if (final[idx] === undefined) {
+                                final[idx] = {};
                             }
-                            final[current_entity][returned] = result[bindings[returned]];
+                            final[idx][returned] = result[bindings[returned]];
+
                         });
                     }
                 });
@@ -536,8 +553,6 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
 
             return queryResults;
 
-        } else {
-            throw new Error("Unimplemented");
         }
     }
     else
