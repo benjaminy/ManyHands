@@ -513,28 +513,56 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                 });
             });
 
-            console.log("Whereresults after filter:", whereResults);
+            console.log("Whereresults after filter:", JSON.stringify(whereResults), vars);
 
             whereResults.forEach(({bindings, results}) => {
-                vars.forEach(returned => {
-                    if(returned in bindings) {
-                        results.forEach(result => {
-                            console.log("result: ", result, bindings, returned, joins);
+                results.forEach(result => {
+                    const cat = {};
+                    joins.forEach(j => {
+                        const val = result[bindings[j]];
+                        if(val !== undefined){
+                            cat[j] = val;
+                        }
+                    });
 
-                            const cat = {};
-                            joins.forEach(j => {cat[j] = result[bindings[j]]});
+                    console.log("cat", cat);
+                    const idx = JSON.stringify(cat); // TODO we want to index by many variables-- is this ugly?
 
-
-                            const idx = JSON.stringify(cat); // TODO we want to index by many variables-- is this ugly?
-
-                            //const current_entity = result[bindings[join]];
-                            if (final[idx] === undefined) {
-                                final[idx] = {};
-                            }
-                            final[idx][returned] = result[bindings[returned]];
-
-                        });
+                    //const current_entity = result[bindings[join]];
+                    if (final[idx] === undefined) {
+                        final[idx] = [];
                     }
+
+                    console.log("result to build rs:", idx, bindings, results, result);
+
+                    const rs = {};
+
+                    vars.forEach(returned => {
+                        console.log("result: ", result, bindings, returned, joins);
+                        if(returned in bindings) {
+
+                            rs[returned] = result[bindings[returned]];
+
+                            console.log(`Piece of data we're adding: ${result[bindings[returned]]} ${JSON.stringify(final)} ${idx} ${returned}`);;
+
+                        }
+                    });
+                    console.log("some stuff:", vars, final, final[idx], rs);
+
+                    /*
+                    console.log("some stuff:", vars, final, final[idx], rs);
+                    let merged = false;
+                    final[idx].forEach(attempt => {
+                        if(noConflict(attempt, rs)){
+                            merged = true;
+                            for(let i in rs){
+                                attempt[i] = rs
+                            }
+                        }
+                    });
+                     */
+
+                    final[idx] = [...final[idx], rs];
                 });
             });
 
@@ -542,11 +570,6 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
 
             const queryResults = [];
             console.log("FINAL:", final);
-
-            const bigObj = {};
-
-            const visitedNodes = []; // JSON strings again.
-
 
             const compatible = function(a, o){
                 let comp = true;
@@ -565,31 +588,47 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
             };
 
             const pair = function(running, start, final, ...prev){
+
+                console.log("arguments", running, start, final, prev, "end arguemntns");
+
                 let log = false;
                 if(start === "{\"two\":2}"){log=true;}
 
-                //console.log(final, start);
-                const keys = Object.assign({}, final[start]);
-                for(let o in final) {
-                    //console.log("SFPO", start, final, prev, o);
-                    if (!final.hasOwnProperty(o)) {
-                        continue;
+                const results = [];
+
+                console.log("FS", final, start);
+
+                final[start].forEach(n => {
+
+                    //console.log(final, start);
+                    const keys = Object.assign({}, n);
+                    for (let k in final) {
+                        final[k].forEach(o => {
+                            //console.log("SFPOK", start, final, prev, o, k);
+                            if (!final.hasOwnProperty(k)) {
+                                return;
+                            }
+                            if (k === start || prev.indexOf(k) !== -1) {
+                                return;
+                            }
+                            //console.log("ADFSJADFKHDSIFKADSI", running, JSON.parse(k));
+                            if (compatible(running, JSON.parse(k))) {
+                                //if (log) console.log(running, o);
+                                console.log(`recursing on ${JSON.stringify(o)}, start ${start}. prev is ${prev}`);
+                                const pairings = pair({...JSON.parse(k), ...running}, k, final, start, ...prev);
+                                pairings.forEach(pair => {
+                                    for(let x in pair) {
+                                        console.log("recursive pairing", x, pairings, final, o, x, keys);
+                                        keys[x] = pair[x];
+                                    }
+                                });
+                                running = {...o, ...running};
+                            }
+                        });
                     }
-                    if (o === start || prev.indexOf(o) !== -1) {
-                        continue;
-                    }
-                    if (compatible(running, JSON.parse(o))) {
-                        if(log) console.log(running, o);
-                        //console.log(`recursing on ${o}, start ${start}. prev is ${prev}`);
-                        const pairings = pair({...JSON.parse(o), ...running}, o, final, start, ...prev);
-                        for (let x in pairings) {
-                            //console.log("recursive pairing", x, pairings, final, o, x, keys);
-                            keys[x] = pairings[x];
-                        }
-                        running = {...JSON.parse(o), ...running};
-                    }
-                }
-                return keys;
+                    results.push(keys);
+                });
+                return results;
             };
 
             const rs = new Set();
@@ -598,22 +637,13 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                 //console.log("i is", i);
                 const pairings = pair(JSON.parse(i), i, final);
                 //console.log("pairing: ", pairings);
-                rs.add(JSON.stringify(pairings, Object.keys(pairings).sort()));
+                pairings.forEach(pair => {
+                    rs.add(JSON.stringify(pair, Object.keys(pair).sort()));
+                });
             }
 
             console.log(rs);
             console.log(final);
-
-            /*joins.forEach(join => {
-                Object.keys(final).forEach(jk => {
-                    const joinK = JSON.parse(jk);
-                    if(join in joinK){
-                        bigObj[join][joinK[join]]
-                    }
-                });
-            });*/
-
-
 
             rs.forEach(entity => {
                 const result = [];

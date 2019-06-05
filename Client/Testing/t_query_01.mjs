@@ -59,13 +59,15 @@ db.add({
 
 async function main(){
     return Promise.all([
-        test_01_single_select(),
-        test_02_double_select(),
+        //test_01_single_select(),
+        //test_02_double_select(),
         test_03_double_where(),
         //test_04_double_condition(),
-        test_05_references(),
-        test_06_double_reference(),
-        test_07_many_hops()
+        //test_05_references(),
+        //test_06_double_reference(),
+        //test_07_many_hops(),
+        //test_08_fanout(),
+        //test_09_fanout_many()
     ]);
 }
 
@@ -247,7 +249,7 @@ async function test_07_many_hops(){
         value: 66
     });
 
-    /*db7.add({ TODO this isn't working, it overrides 66 in the result set
+    /*db7.add({
         entity: 55,
         attribute: assoc5,
         value: 666
@@ -276,6 +278,133 @@ async function test_07_many_hops(){
     r7[1].forEach((e) => {
         assert(e === (i++ * 11), `Result set is malformatted or incorrect (expected ${(i-1)*11}, found ${e})`);
     });
+}
+
+async function test_08_fanout(){
+
+    const assoc1 = K.key(":a1");
+    const assoc2 = K.key(":a2");
+    const assoc3 = K.key(":a3");
+
+    const db8 = init_simple_dict();
+
+    db8.add({
+        entity: 1,
+        attribute: assoc1,
+        value: 2
+    });
+
+    db8.add({
+        entity: 2,
+        attribute: assoc2,
+        value: 3
+    });
+
+    db8.add({
+        entity: 3,
+        attribute: assoc3,
+        value: 4
+    });
+
+    // TEMPORARY
+
+    db8.add({
+        entity: 3,
+        attribute: assoc3,
+        value: 44
+    });
+
+    const q8 = Q.parseQuery(
+        [Q.findK, "?one", "?two", "?three", "?four",
+            Q.whereK, ["?one", assoc1, "?two"],
+            ["?two", assoc2, "?three"],
+            ["?three", assoc3, "?four"]]
+    );
+
+    const r8 = await Q.runQuery(db8, q8);
+
+    console.log("r8", r8);
+
+    assert(r8.length === 2, `The length of the result set must be 2 (found: ${r8.length})`);
+}
+
+
+async function test_09_fanout_many(){
+
+    const assoc1 = K.key(":a1");
+    const assoc2 = K.key(":a2");
+    const assoc3 = K.key(":a3");
+
+    const db9 = init_simple_dict();
+
+    db9.add({
+        entity: 1,
+        attribute: assoc1,
+        value: 2
+    });
+
+    db9.add({
+        entity: 2,
+        attribute: assoc2,
+        value: 3
+    });
+
+    db9.add({
+        entity: 3,
+        attribute: assoc3,
+        value: 4
+    });
+
+    // TEMPORARY
+
+    db9.add({
+        entity: 3,
+        attribute: assoc3,
+        value: 44
+    });
+
+    db9.add({
+        entity: 22,
+        attribute: assoc2,
+        value: 33
+    });
+
+    db9.add({
+        entity: 33,
+        attribute: assoc3,
+        value: 44
+    });
+
+    db9.add({
+        entity: 33,
+        attribute: assoc3,
+        value: 444
+    });
+
+    db9.add({
+        entity: 22,
+        attribute: assoc2,
+        value: 333
+    });
+
+    db9.add({
+        entity: 333,
+        attribute: assoc3,
+        value: 4444
+    });
+
+
+    const q9 = Q.parseQuery(
+        [Q.findK, "?one", "?two", "?three", "?four",
+            Q.whereK, ["?one", assoc1, "?two"],
+            ["?two", assoc2, "?three"],
+            ["?three", assoc3, "?four"]]
+    );
+
+    const r9 = await Q.runQuery(db9, q9);
+
+    console.log(r9);
+
 }
 
 main().then(() =>{
