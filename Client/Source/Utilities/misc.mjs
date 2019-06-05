@@ -290,7 +290,7 @@ export function hasProp( thing, prop )
     try {
         return prop in thing;
     }
-    catch() {
+    catch(ex) {
         return false;
     }
 }

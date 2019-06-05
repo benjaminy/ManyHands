@@ -276,7 +276,6 @@ async function test_07_many_hops(){
     r7[1].forEach((e) => {
         assert(e === (i++ * 11), `Result set is malformatted or incorrect (expected ${(i-1)*11}, found ${e})`);
     });
-
 }
 
 main().then(() =>{
