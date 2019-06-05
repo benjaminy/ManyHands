@@ -59,14 +59,14 @@ db.add({
 
 async function main(){
     return Promise.all([
-        //test_01_single_select(),
-        //test_02_double_select(),
-        //test_03_double_where(),
+        test_01_single_select(),
+        test_02_double_select(),
+        test_03_double_where(),
         //test_04_double_condition(),
-        //test_05_references(),
-        //test_06_double_reference(),
+        test_05_references(),
+        test_06_double_reference(),
         test_07_many_hops()
-    ])
+    ]);
 }
 
 async function test_01_single_select()
@@ -267,13 +267,16 @@ async function test_07_many_hops(){
     console.log("r7:", r7);
 
     let i = 1;
-    assert(r7.length === 2 && r7[0].length === 6, `Result set has incorrect length (expecting 1x6, found ${r7.length}x${r7[0].length})`);
+    assert(r7.length === 2 && r7[0].length === 6, `Result set has incorrect length (expecting 2x6, found ${r7.length}x${r7[0].length})`);
     r7[0].forEach((e) => {
         assert(e === i++, `Result set is malformatted or incorrect (expected ${i-1}, found ${e})`);
         // r7 === [[1, 2, 3, 4, 5, 6]]
     });
+    i = 1;
+    r7[1].forEach((e) => {
+        assert(e === (i++ * 11), `Result set is malformatted or incorrect (expected ${(i-1)*11}, found ${e})`);
+    });
 
-    assert()
 }
 
 main().then(() =>{

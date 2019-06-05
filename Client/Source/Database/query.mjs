@@ -543,10 +543,83 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
             const queryResults = [];
             console.log("FINAL:", final);
 
-            Object.keys(final).forEach(entity => {
+            const bigObj = {};
+
+            const visitedNodes = []; // JSON strings again.
+
+
+            const compatible = function(a, o){
+                let comp = true;
+                let hit = false;
+                Object.keys(a).forEach(x => {
+                    if(x in o){
+                        hit = true;
+                    } else {
+                        return;
+                    }
+                    if(o[x] !== a[x]){
+                        comp = false;
+                    }
+                });
+                return hit && comp;
+            };
+
+            const pair = function(running, start, final, ...prev){
+                let log = false;
+                if(start === "{\"two\":2}"){log=true;}
+
+                //console.log(final, start);
+                const keys = Object.assign({}, final[start]);
+                for(let o in final) {
+                    //console.log("SFPO", start, final, prev, o);
+                    if (!final.hasOwnProperty(o)) {
+                        continue;
+                    }
+                    if (o === start || prev.indexOf(o) !== -1) {
+                        continue;
+                    }
+                    if (compatible(running, JSON.parse(o))) {
+                        if(log) console.log(running, o);
+                        //console.log(`recursing on ${o}, start ${start}. prev is ${prev}`);
+                        const pairings = pair({...JSON.parse(o), ...running}, o, final, start, ...prev);
+                        for (let x in pairings) {
+                            //console.log("recursive pairing", x, pairings, final, o, x, keys);
+                            keys[x] = pairings[x];
+                        }
+                        running = {...JSON.parse(o), ...running};
+                    }
+                }
+                return keys;
+            };
+
+            const rs = new Set();
+
+            for(let i in final) {
+                //console.log("i is", i);
+                const pairings = pair(JSON.parse(i), i, final);
+                //console.log("pairing: ", pairings);
+                rs.add(JSON.stringify(pairings, Object.keys(pairings).sort()));
+            }
+
+            console.log(rs);
+            console.log(final);
+
+            /*joins.forEach(join => {
+                Object.keys(final).forEach(jk => {
+                    const joinK = JSON.parse(jk);
+                    if(join in joinK){
+                        bigObj[join][joinK[join]]
+                    }
+                });
+            });*/
+
+
+
+            rs.forEach(entity => {
                 const result = [];
+                const obj = JSON.parse(entity);
                 vars.forEach((v) => {
-                    result.push(final[entity][v]);
+                    result.push(obj[v]);
                 });
                 queryResults.push(result);
             });
