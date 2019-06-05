@@ -285,6 +285,17 @@ export function multiGetter( property_name, default_value, ...objects )
     return default_value;
 }
 
+export function hasProp( thing, prop )
+{
+    try {
+        return prop in thing;
+    }
+    catch() {
+        return false;
+    }
+}
+
+
 /* Graveyard */
 
 //     sessionStorage.setItem( 'filePort', p );

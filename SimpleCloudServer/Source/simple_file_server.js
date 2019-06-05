@@ -19,17 +19,18 @@ const DEFAULT_PORT = 8080;
 const DEFAULT_DIR  = ".";
 
 const opt          = require( "node-getopt" ).create( [
-    [ "P", "port=PORT",      "Port to server on; default is "+DEFAULT_PORT ],
+    [ "P", "port=PORT",      "Port to serve on; default is "+DEFAULT_PORT ],
     [ "D", "dir=DIR",        "Root directory to serve from; default is "+DEFAULT_DIR ],
     [ "C", "cert=CERT_FILE", "Certificate file; will serve over HTTP if not given" ],
     [ "K", "key=KEY_FILE",   "key file; will serve over HTTP if not given" ] ] )
   .bindHelp().parseSystem();
 
+const fs_exists    = U.promisify( fs.exists );
+const fs_readFile  = U.promisify( fs.readFile );
 const fs_writeFile = U.promisify( fs.writeFile );
 const fs_unlink    = U.promisify( fs.unlink );
 
 /* Constants and Globals */
-
 
 const LONGPOLL_DATA_FILE = "pastRequestedFiles.json";
 const LONGPOLL_TIMEOUT = 4000;
@@ -79,6 +80,7 @@ function incrFileVersion( path )
 
 /* Server */
 
+/* nodeCleanup registers this function to be called just before the process exits */
 nodeCleanup( ( exitCode, signal ) =>
     {
         fs.writeFileSync( path.join( root_dir, "file_versions.json" ),
@@ -252,7 +254,7 @@ async function handleDelete( req, resp )
     const fdir = path.join( cloud_dir, dirs.slice( 1, dirs.length - 1 ).join( path.sep ) );
     try {
         await fs_unlink( path.join( fdir, filename ) );
-        if( !fs.existsSync( path.join( fdir, filename ) ) )
+        if( !( await fs_exists( path.join( fdir, filename ) ) ) )
         {
             delete file_versions[ file_path ];
         }
@@ -322,19 +324,7 @@ function handleDynamic( req, resp, next )
     }
 }
 
-function setHeadersHook( response, path, stat )
-{
-    try {
-        var version = file_versions[ path ];
-    }
-    catch( err ) {
-        var version = 1;
-        file_versions[ path ] = version;
-    }
-    response.setHeader( "etag", version );
-}
-
-function main()
+async function main()
 {
     log( opt.options );
     if( "dir" in opt.options )
@@ -348,9 +338,9 @@ function main()
             port = x;
     }
 
-    if( fs.existsSync( LONGPOLL_DATA_FILE ) )
+    if( await fs_exists( LONGPOLL_DATA_FILE ) )
     {
-        const json = fs.readFileSync( LONGPOLL_DATA_FILE );
+        const json = await fs_readFile( LONGPOLL_DATA_FILE );
         LongPollReq.pastRequestedFiles = JSON.parse(json);
     }
 
@@ -360,17 +350,30 @@ function main()
     if( "cert" in opt.options && "key" in opt.options )
     {
         options = {
-            key:  fs.readFileSync( opt.options.key ),
-            cert: fs.readFileSync( opt.options.cert )
+            key:  await fs_readFile( opt.options.key ),
+            cert: await fs_readFileSync( opt.options.cert )
         };
         protocol = "HTTPS"
     }
 
     try {
-        file_versions = JSON.parse( fs.readFileSync( path.join( root_dir, "file_versions.json" ) ) );
+        const text = await fs_readFile( path.join( root_dir, "file_versions.json" ) )
+        file_versions = JSON.parse( text );
     }
     catch( err ) {
-        log( "Failed to read file_versions.json: ", err );
+        log( "Failed to read file_versions.json ", err );
+    }
+
+    function setHeadersHook( response, path, stat )
+    {
+        try {
+            var version = file_versions[ path ];
+        }
+        catch( err ) {
+            var version = 1;
+            file_versions[ path ] = version;
+        }
+        response.setHeader( "etag", version );
     }
 
     const serveFiles = serveStatic( cloud_dir, { "setHeaders" : setHeadersHook } );
@@ -388,4 +391,4 @@ function main()
     log( "Serving directory", cloud_dir, "on port", port, "with protocol", protocol );
 }
 
-main();
+main().then( function() { console.log( "Simple File Server finished" ) } );
