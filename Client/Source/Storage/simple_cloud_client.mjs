@@ -17,7 +17,7 @@ const in_browser = this && ( this.window === this );
 
 export default function init( user, options )
 {
-    assert( typeof( user ) === "string" );
+    assert( isString( user ) );
 
     if( options )
     {
@@ -38,34 +38,50 @@ export default function init( user, options )
 
     const host = protocol_hostname + ":" + DEFAULT_SERVER_PORT + "/";
 
-    const upload = async function upload( path, options )
+    const upload = async function upload( link_start, value, options )
     {
-        // XXX content, content_type, headersHook
-        assert( M.isPath( path ) );
-        /* assert( typeof( content ) is whatever fetch accepts ) */
-
-        const p = encode_path( user, path );
-
+        const coded_value = SC.encode( value, options );
+        /* TODO: compression */
+        const ( cryptoed_value, crypto_link_info ) =
+              SC.encrypto( coded_value, options );
+        const link_mid = Object.assign( {}, link_start, crypto_link_info );
         const headers = new Headers();
-        if( !( "header_hooks" in opts ) )
-            return;
-        for( const hook of opts.header_hooks )
-            hook( headers );
 
-        if( ( !( headers.has( "Content-Type" ) ) ) && "body" in options
-            && typeof( options.body ) === "string" )
+        headers.set( "Content-Type", "application/octet-stream" );
+        headers.set( "Content-Length", "" + cryptoed_value.byteLength );
+
+        async function coreUpload( path )
         {
-            headers.set( "Content-Type", "text/plain" );
+            assert( M.isPath( path ) );
+            /* assert( typeof( content ) is whatever fetch accepts ) */
+
+            const p = encode_path( user, path );
+
+            const fetch_options = { method : "POST", headers: headers, body: cryptoed_value };
+            const response = await fetch( p, fetch_options );
+            A.log( "upload Response", response.status, response.statusText );
+            return response;
         }
 
-        const fetch_options = { method  : "POST", headers: headers };
-        if( "body" in options )
+        if( SC.COND_UPLOAD in options )
         {
-            fetch_options.body = options.body;
+            const cond_upload = options[ COND_UPLOAD ];
+            if( cond_upload === COND_ATOMIC )
+            {
+                return GH.atomicUpdate(
+                    headers, link_mid, options,
+                    () => { return coreUpload( link_mid.path ) } );
+            }
+            else if( cond_upload === COND_
         }
-        const response = await fetch( p, fetch_options );
-        A.log( "upload Response", response.status, response.statusText );
-        return response;
+        
+        const response =
+            await GH.atomicUpload( headers, options, async () => {
+                GH.noOverwriteWrapper( headers, options, async () => {
+                    GH.randomNameWrapper( headers, options, coreUpload )
+                } )
+            } );
+
     };
 
     const download = async function download( path, options )

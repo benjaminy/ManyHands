@@ -4,9 +4,12 @@
  * File Comment
  */
 
+import assert from "assert";
+import * as UM from "../Utilities/misc";
+
 const plain_data_tag = Symbol ...;
 const mem_cache_tag = Symbol ...;
-const link_tag = Symbol ...;
+const links_tag = Symbol ...;
 
 const tree_node_tag = Symbol ...;
 const dirty_tag = Symbol ...;
@@ -38,21 +41,28 @@ const localPersistentDB = {};
     return node;
 }
 
+/* public */ function isTreeNode( n )
+{
+    return tree_node_tag in node;
+}
+
+
+/* Begin plain old data part */
+
 /* Nodes always have all their plain data values.  No laziness here. */
 
 /* public */ function getValue( node, name )
 {
-    assert( tree_node_tag in node );
-    assert( isString( name ) );
+    assert( isTreeNode( node ) );
+    assert( UM.isString( name ) );
 
     return node[ plain_data_tag ][ name ];
 }
 
-/* Warning: Must only be used read-only */
+/* WARNING: Must only be used read-only */
 /* public */ function getValues( node )
 {
-    assert( tree_node_tag in node );
-    assert( isString( name ) );
+    assert( isTreeNode( node ) );
 
     return node[ plain_data_tag ];
 }
@@ -60,8 +70,8 @@ const localPersistentDB = {};
 /* NOTE: Returns a new node because of copy-on-first-write */
 /* public */ function setValue( node, name, value )
 {
-    assert( tree_node_tag in node );
-    assert( isString( name ) );
+    assert( isTreeNode( node ) );
+    assert( UM.isString( name ) );
     /* assert( isPlainData( value ) ); */
 
     node = touchNode( node );
@@ -72,26 +82,28 @@ const localPersistentDB = {};
 /* NOTE: Returns a new node because of copy-on-first-write */
 /* public */ function deleteValue( node, name )
 {
-    assert( tree_node_tag in node );
-    assert( isString( name ) );
+    assert( isTreeNode( node ) );
+    assert( UM.isString( name ) );
 
     node = touchNode( node );
     delete node[ plain_data_tag ][ name ]
     return node;
 }
 
+/* End plain old data part.  Begin tree children part */
+
 /* public */ function isChildInMemCache( node, name )
 {
-    assert( tree_node_tag in node );
-    assert( isString( name ) );
+    assert( isTreeNode( node ) );
+    assert( UM.isString( name ) );
 
     return node[ mem_cache_tag ].has( name );
 }
 
 /* public */ function isChildInLocalCache( node, name )
 {
-    assert( tree_node_tag in node );
-    assert( isString( name ) );
+    assert( isTreeNode( node ) );
+    assert( UM.isString( name ) );
 
     return node[ local_cache_tag ].has( name );
 }
@@ -102,7 +114,7 @@ const localPersistentDB = {};
     d.p = node[ plain_data_tag ];
     d.b = node[ blank_timestamp_tag ];
     d.c = {}
-    const links = node[ link_tag ];
+    const links = node[ links_tag ];
     const storage = node[ storage ];
     for( name in links )
     {
@@ -125,7 +137,7 @@ const localPersistentDB = {};
         links[ name ] = cstorage.rehydrateLink(
             parent, name, dehydrated.c[ name ] );
     }
-    c[ link_tag ]        = links;
+    c[ links_tag ]        = links;
     c[ mem_cache_tag ]   = { has: () => false };
     c[ local_cache_tag ] = { has: () => false };
     c[ storage_tag ]     = cstorage;
@@ -144,7 +156,7 @@ const localPersistentDB = {};
 
 /* public */ async function getChild( parent, child_name )
 {
-    assert( tree_node_tag in parent );
+    assert( isTreeNode( parent ) );
     assert( isString( child_name ) );
 
     const mem_cache = parent[ mem_cache_tag ];
@@ -154,13 +166,13 @@ const localPersistentDB = {};
         return mem_cache.get( child_name )
     }
 
-    if( !( child_name in parent[ link_tag ] ) )
+    if( !( child_name in parent[ links_tag ] ) )
     {
         throw new Error( "No child in node with name: " + child_name );
     }
 
-    const link = parent[ link_tag ][ child_name ];
-    // necessary? exposed outside lib? ... assert( link_tag in link );
+    const link = parent[ links_tag ][ child_name ];
+    // necessary? exposed outside lib? ... assert( links_tag in link );
 
     const local_cache = parent[ local_cache_tag ];
     if( await local_cache_cache.has( link.path ) )
@@ -186,7 +198,7 @@ const localPersistentDB = {};
     return child;
 }
 
-function setAdd( obj, field, item )
+function addToSet( obj, field, item )
 {
     if( !( field in obj ) )
     {
@@ -197,15 +209,15 @@ function setAdd( obj, field, item )
 
 /* public */ function removeChild( parent, child_name )
 {
-    assert( tree_node_tag in parent );
+    assert( isTreeNode( parent ) );
     assert( isString( child_name ) );
 
-    if( !( ( child_name in parent[ link_tag ] ||
+    if( !( ( child_name in parent[ links_tag ] ||
              parent[ mem_cache_tag ].has( child_name ) ) ) )
     {
         throw new Error( "No child with name " + child_name );
     }
-    else if( !( child_name in parent[ link_tag ] ) )
+    else if( !( child_name in parent[ links_tag ] ) )
     {
         /* mem cache kinda complicated ... */
         assert( dirty_tag in parent );
@@ -226,20 +238,20 @@ function setAdd( obj, field, item )
         {
             parent[ local_cache_tag ].delete( child_name );
         }
-        setAdd( parent, garbage_tag, parent[ link_tag ][ child_name ] );
-        delete parent[ link_tag ][ child_name ];
+        addToSet( parent, garbage_tag, parent[ links_tag ][ child_name ] );
+        delete parent[ links_tag ][ child_name ];
         return parent;
     }
 }
 
 /* public */ function setChild( parent, child_name, child )
 {
-    assert( tree_node_tag in parent );
-    assert( tree_node_tag in child );
+    assert( isTreeNode( parent ) );
+    assert( isTreeNode( child ) );
     assert( isString( child_name ) );
 
     parent = touchNode( parent );
-    if( parent[ link_tag ].has( child_name )
+    if( parent[ links_tag ].has( child_name )
         || parent[ mem_cache_tag ].has( child_name ) )
     {
         parent = removeChild( parent, child_name );
@@ -251,14 +263,14 @@ function setAdd( obj, field, item )
 
 /* public */ function newChild( parent, child_name, storage_cb )
 {
-    assert( tree_node_tag in parent );
+    assert( isTreeNode( parent ) );
     assert( isString( child_name ) );
 
     const child = rehydrate( parent, {}, {} );
     const pstorage = parent[ storage_tag ];
     const child = touchNode( {} );
     child[ plain_data_tag ] = {};
-    child[ link_tag ] = {};
+    child[ links_tag ] = {};
     return [ setChild( node, child_name, child, storage_options ), child ];
 }
 
@@ -269,7 +281,7 @@ function setAdd( obj, field, item )
         return node;
     }
     const old_blanks = node[ blank_timsetamps_tag ];
-    const links = node[ link_tag ];
+    const links = node[ links_tag ];
     for( const child_name in node[ dirty_tag ] )
     {
         const [ child_link, garbage_nodes ] =
@@ -317,20 +329,21 @@ async function writeTree( root )
 }
 
 
+
 async function openRoot( storage, path )
 {
 }
 
-/* The plain storage stack should have at least a network phase and an object encoding phase. */
-async function newRoot( plain_storage_stack, path )
-{
-    const root = {};
-    const stores = {}
-    root[ storage_tag ] = stores
-    stores.plain = plain_storage_stack;
-    stores.noOverwrite = plain_storage_stack.copy().pushDataBlobPhase( noOverwriteWrapper );
-    stores.root        = plain_storage_stack.copy().pushDataBlobPhase( atomicUpdateWrapper );
-    stores.node        = plain_storage_stack.copy().pushDataBlobPhase( randomNameWrapper );
-    const file_path = {}
-    const resp = storage.upload( path, { body: {} } )
-}
+// /* The plain storage stack should have at least a network phase and an object encoding phase. */
+// async function newRoot( plain_storage_stack, path )
+// {
+//     const root = {};
+//     const stores = {}
+//     root[ storage_tag ] = stores
+//     stores.plain = plain_storage_stack;
+//     stores.noOverwrite = plain_storage_stack.copy().pushDataBlobPhase( noOverwriteWrapper );
+//     stores.root        = plain_storage_stack.copy().pushDataBlobPhase( atomicUpdateWrapper );
+//     stores.node        = plain_storage_stack.copy().pushDataBlobPhase( randomNameWrapper );
+//     const file_path = {}
+//     const resp = storage.upload( path, { body: {} } )
+// }
