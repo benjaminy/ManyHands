@@ -66,7 +66,7 @@ export async function atomicUpdate( headers, link_start, options, upload )
 {
     assert( ETAG in link_start );
     overwriteHeader( headers, "If-Match", link_start[ ETAG ] );
-    const [ response, link_finish ] = await upload();
+    const [ response, link_finish ] = await upload( link_start );
     if( response.status === 412 )
     {
         throw { [SC.ERROR_KIND]: SC.ERROR_ATOMIC_UPDATE_FAILED };
@@ -80,30 +80,30 @@ export async function upload( link_start, value, options, coreUpload )
     /* TODO: compression */
     const [ cryptoed_value, crypto_link_info ] =
           await SC.encrypto( coded_value, options );
-    const link_mid = Object.assign( {}, link_start, crypto_link_info );
-    if( SC.PATH_PREFIX in options )
-    {
-        link_mid.path = options[ SC.PATH_PREFIX ].concat( link_mid.path );
-    }
-    link_mid.path = UM.nestedArrayFlatten( link_mid.path );
-    assert( link_mid.path.every( ( p ) => typeof( p ) === "string" ) );
-    link_mid.path = P.join( ...( link_mid.path.map( encodeURIComponent ) ) );
+    const cryptoed_link = Object.assign( {}, link_start, crypto_link_info );
 
     const headers = new Headers();
-
     headers.set( "Content-Type", "application/octet-stream" );
     headers.set( "Content-Length", "" + cryptoed_value.byteLength );
 
-    async function uploadThen( path )
+    async function uploadThen( path_arr )
     {
-        const response = await coreUpload( path, headers, cryptoed_value );
-        const link = { path: path };
-        if( SC.COND_UPLOAD in options && ( options[ SC.COND_UPLOAD ] === SC.COND_ATOMIC ) )
+        var path = path_arr;
+        if( SC.PATH_PREFIX in options )
         {
-            link.etag = response.headers.get( "etag" );
-            link.timestamp = response.headers.get( "Last-Modified" );
+            path = options[ SC.PATH_PREFIX ].concat( path );
         }
-        return link;
+        path = UM.nestedArrayFlatten( path );
+        assert( path.every( ( p ) => typeof( p ) === "string" ) );
+        path = P.join( ...( path.map( encodeURIComponent ) ) );
+        const response = await coreUpload( path, headers, cryptoed_value );
+        const link_response = { path: path_arr };
+        if( true || SC.COND_UPLOAD in options && ( options[ SC.COND_UPLOAD ] === SC.COND_ATOMIC ) )
+        {
+            link_response[ ETAG ] = response.headers.get( "etag" );
+            link_response.timestamp = response.headers.get( "Last-Modified" );
+        }
+        return [ response, link_response ];
     }
 
     if( SC.COND_UPLOAD in options )
@@ -112,12 +112,17 @@ export async function upload( link_start, value, options, coreUpload )
         if( cond_upload === SC.COND_ATOMIC )
         {
             return atomicUpdate(
-                headers, link_mid, options,
-                () => { return uploadThen( link_mid.path ) } );
+                headers, cryptoed_link, options,
+                () => { return uploadThen( cryptoed_link.path ) } );
         }
-        else if( cond_upload === COND_RAND )
+        else if( cond_upload === SC.COND_NO_OVERWRITE )
         {
-            GH.noOverwriteWrapper( headers, options, async () => {
+            return noOverwrite(
+                headers, options, () => { return uploadThen( cryptoed_link.path ); } )
+        }
+        else if( cond_upload === SC.COND_UNIQUE )
+        {
+            noOverwriteWrapper( headers, options, async () => {
                 GH.randomNameWrapper( headers, options, coreUpload )
             } );
         }
@@ -128,7 +133,7 @@ export async function upload( link_start, value, options, coreUpload )
     }
     else
     {
-        return uploadThen( link_mid.path, headers, cryptoed_value );
+        return uploadThen( cryptoed_link.path );
     }
 }
 
@@ -150,5 +155,5 @@ export async function download( link, options, coreDownload )
     }
     const value = await SC.decrypto( await response.arrayBuffer(), link, options );
     const value_decoded = SC.decode( value, options );
-    return value_decoded;
+    return [ value_decoded, {} ];
 }

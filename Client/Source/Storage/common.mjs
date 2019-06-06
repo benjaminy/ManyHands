@@ -7,20 +7,24 @@
 import assert from "assert";
 import T from "transit-js";
 
-export const PATH_PREFIX    = T.symbol( "path prefix" );
+const sy = T.symbol;
 
-export const ENCODE_OBJ     = T.symbol( "obj" );
-export const ENCODE_TRANSIT = T.symbol( "transit" );
-export const ENCODE_JSON    = T.symbol( "json" );
-export const ENCODE_TEXT    = T.symbol( "text encoding" );
-export const ASSOC_DATA     = T.symbol( "associated data" );
+export const PATH_PREFIX                = sy( "path prefix" );
 
-export const COND_UPLOAD    = T.symbol( "conditional upload" );
-export const COND_ATOMIC    = T.symbol( "atomic upload" );
-export const COND_UNIQUE    = T.symbol( "unique upload" );
+export const ENCODE_OBJ                 = sy( "obj" );
+export const ENCODE_TRANSIT             = sy( "transit" );
+export const ENCODE_JSON                = sy( "json" );
+export const ENCODE_TEXT                = sy( "text encoding" );
+export const ASSOC_DATA                 = sy( "associated data" );
 
-export const ERROR_KIND     = T.symbol( "storage error kind" );
-export const ERROR_OVERWRITE_FAILED = T.symbol( "storage error overwrite failed" );
+export const COND_UPLOAD                = sy( "conditional upload" );
+export const COND_ATOMIC                = sy( "atomic upload" );
+export const COND_UNIQUE                = sy( "unique upload" );
+export const COND_NO_OVERWRITE          = sy( "no overwrite" );
+
+export const ERROR_KIND                 = sy( "storage error kind" );
+export const ERROR_OVERWRITE_FAILED     = sy( "atomic update failed" );
+export const ERROR_ATOMIC_UPDATE_FAILED = sy( "storage error overwrite failed" );
 
 function mapAssocData( fn, v, options )
 {
@@ -32,7 +36,7 @@ function mapAssocData( fn, v, options )
     else
     {
         const r = fn( v );
-        console.log( "MMEP", v, r  );
+        // console.log( "MMEP", v, r  );
         return r;
     }
 }

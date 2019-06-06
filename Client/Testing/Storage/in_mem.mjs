@@ -15,6 +15,7 @@ async function main()
     const s = SM();
     await SUD.just_upload( s );
     await SUD.up_down( s );
+    await AU.test1( s );
     //await up_down_crypto( s );
     //await up_down_crypto_verify( s );
     console.log( "VICTORY" );

@@ -8,6 +8,7 @@ import * as SC from "../../Source/Storage/common.mjs";
 import * as UM from "../../Source/Utilities/misc.mjs";
 
 export async function test1( s ) {
+    /* FIXME */
     const options1 = {}
     options1[ SC.ENCODE_OBJ ] = SC.ENCODE_TRANSIT;
     options1[ SC.COND_UPLOAD ] = SC.COND_NO_OVERWRITE;

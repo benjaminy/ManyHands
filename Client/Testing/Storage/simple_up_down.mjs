@@ -21,7 +21,7 @@ export async function up_down( s ) {
     map_orig.set( "c", new Uint8Array( 7 ) );
     var resp_u = await s.upload( { path: [ "t2" ] }, map_orig, options );
     console.log( "UPLOADED", resp_u );
-    var map_down = await s.download( { path: [ "t2" ] }, options );
+    var [ map_down, l ] = await s.download( { path: [ "t2" ] }, options );
     console.log( "up_down", map_orig.toString(), map_down.get( "c" ) );
     assert( T.equals( map_orig, map_down ) );
 }

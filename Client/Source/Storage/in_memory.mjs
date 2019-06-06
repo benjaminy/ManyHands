@@ -58,7 +58,7 @@ export default function init( options_init )
         const response_precond = preconditionCheck( path, headers );
         if( response_precond )
         {
-            L.debug( "in-mem: Precond check failed", response_precond );
+            L.debug( "in-mem: Precond check failed" );
             return response_precond;
         }
         const etag = B32.encode( await CB.digest_sha_512( body ) );
@@ -73,9 +73,11 @@ export default function init( options_init )
         return response_ok;
     }
 
-    async function upload( link, value, options )
+    async function upload( linkA, value, options )
     {
-        return GH.upload( link, value, options, coreUpload );
+        const [ response, linkB ] =
+              await GH.upload( linkA, value, options, coreUpload );
+        return linkB;
     }
 
     async function coreDownload( path )
