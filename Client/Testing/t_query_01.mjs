@@ -59,15 +59,153 @@ db.add({
 
 async function main(){
     return Promise.all([
-        //test_01_single_select(),
-        //test_02_double_select(),
-        //test_03_double_where(),
+        test_01_single_select(),
+        test_02_double_select(),
+        test_03_double_where(),
         //test_04_double_condition(),
-        //test_05_references(),
-        //test_06_double_reference(),
-        test_07_many_hops()
-    ])
+        test_05_references(),
+        test_06_double_reference(),
+        test_07_many_hops(),
+        test_08_fanout(),
+        test_09_fanout_many(),
+        simpler_fanout(),
+        visualization()
+    ]);
 }
+
+async function simpler_fanout(){
+    const aKey = K.key(":a");
+    const bKey = K.key(":b");
+    const cKey = K.key(":c");
+    const dKey = K.key(":d");
+
+    const db = init_simple_dict();
+
+    db.add({
+        entity: "A",
+        attribute: aKey,
+        value: "B1"
+    });
+    db.add({
+        entity: "A",
+        attribute: aKey,
+        value: "B2"
+    });
+    db.add({
+        entity: "B1",
+        attribute: bKey,
+        value: "C11"
+    });
+    db.add({
+        entity: "B1",
+        attribute: bKey,
+        value: "C12"
+    });
+    db.add({
+        entity: "B2",
+        attribute: bKey,
+        value: "C21"
+    });
+    db.add({
+        entity: "B2",
+        attribute: bKey,
+        value: "C22"
+    });
+    db.add({
+        entity: "C11",
+        attribute: cKey,
+        value: "D111"
+    });
+    db.add({
+        entity: "C22",
+        attribute: cKey,
+        value: "D222"
+    });
+    db.add({
+        entity: "C22",
+        attribute: cKey,
+        value: "D221"
+    });
+
+    db.add({
+        entity: "D222",
+        attribute: dKey,
+        value: "E2222"
+    });
+
+    db.add({
+        entity: "D111",
+        attribute: dKey,
+        value: "E1111"
+    });
+
+    db.add({
+        entity: "D222",
+        attribute: dKey,
+        value: "E2221"
+    });
+
+    const q = Q.parseQuery(
+        [Q.findK, "?a", "?b", "?c", "?d", "?e",
+            Q.whereK, ["?a", aKey, "?b"],
+            ["?b", bKey, "?c"],
+            ["?c", cKey, "?d"],
+            ["?d", dKey, "?e"]]
+    );
+
+    const r = await Q.runQuery(db, q);
+
+    console.log(r);
+
+    assert(r.length === 3 && r[0].length === 5,
+        `Query length returned is incorrect (expected 3x5, found ${r.length}x${r[0].length})`);
+
+}
+
+async function visualization(){
+
+    const aKey = K.key(":a");
+    const bKey = K.key(":b");
+
+    const db = init_simple_dict();
+
+    db.add({
+        entity: "A",
+        attribute: aKey,
+        value: "B"
+    });
+
+    db.add({
+        entity: "B",
+        attribute: bKey,
+        value: "C1"
+    });
+    db.add({
+        entity: "B",
+        attribute: bKey,
+        value: "C2"
+    });
+
+    const q = Q.parseQuery(
+        [Q.findK, "?a", "?b", "?c",
+            Q.whereK, ["?a", aKey, "?b"],
+            ["?b", bKey, "?c"]]
+    );
+
+    const r = await Q.runQuery(db, q);
+
+    console.log(r);
+
+    assert(r.length === 2 && r[0].length === 3 && r[1].length === 3,
+        `Result set has incorrect length (expecting 2x3, found ${r.length}x${r[0].length})`);
+    assert(r[0][0] === "A" && r[0][1] === "B" && r[1][0] === "A" && r[1][1] === "B"
+    && r[0][2] !== r[1][2] && ((r[0][2] === "C2" || r[1][2] === "C2") && (r[0][2] === "C1" || r[1][2] === "C1")),
+        "Data is malformatted.");
+
+    // Expected: [ [ 'A', 'B', 'C2' ], [ 'A', 'B', 'C1' ] ]
+
+}
+
 
 async function test_01_single_select()
 {
@@ -247,7 +385,7 @@ async function test_07_many_hops(){
         value: 66
     });
 
-    /*db7.add({ TODO this isn't working, it overrides 66 in the result set
+    /*db7.add({
         entity: 55,
         attribute: assoc5,
         value: 666
@@ -267,13 +405,148 @@ async function test_07_many_hops(){
     console.log("r7:", r7);
 
     let i = 1;
-    assert(r7.length === 2 && r7[0].length === 6, `Result set has incorrect length (expecting 1x6, found ${r7.length}x${r7[0].length})`);
+    assert(r7.length === 2 && r7[0].length === 6, `Result set has incorrect length (expecting 2x6, found ${r7.length}x${r7[0].length})`);
     r7[0].forEach((e) => {
         assert(e === i++, `Result set is malformatted or incorrect (expected ${i-1}, found ${e})`);
         // r7 === [[1, 2, 3, 4, 5, 6]]
     });
+    i = 1;
+    r7[1].forEach((e) => {
+        assert(e === (i++ * 11), `Result set is malformatted or incorrect (expected ${(i-1)*11}, found ${e})`);
+    });
+}
 
-    assert()
+async function test_08_fanout(){
+
+    const assoc1 = K.key(":a1");
+    const assoc2 = K.key(":a2");
+    const assoc3 = K.key(":a3");
+
+    const db8 = init_simple_dict();
+
+    db8.add({
+        entity: 1,
+        attribute: assoc1,
+        value: 2
+    });
+
+    db8.add({
+        entity: 2,
+        attribute: assoc2,
+        value: 3
+    });
+
+    db8.add({
+        entity: 3,
+        attribute: assoc3,
+        value: 4
+    });
+
+    // TEMPORARY
+
+    db8.add({
+        entity: 3,
+        attribute: assoc3,
+        value: 44
+    });
+
+    const q8 = Q.parseQuery(
+        [Q.findK, "?one", "?two", "?three", "?four",
+            Q.whereK, ["?one", assoc1, "?two"],
+            ["?two", assoc2, "?three"],
+            ["?three", assoc3, "?four"]]
+    );
+
+    const r8 = await Q.runQuery(db8, q8);
+
+    console.log("r8", r8);
+
+    assert(r8.length === 2, `The length of the result set must be 2 (found: ${r8.length})`);
+}
+
+
+async function test_09_fanout_many(){
+
+    const assoc1 = K.key(":a1");
+    const assoc2 = K.key(":a2");
+    const assoc3 = K.key(":a3");
+
+    const db9 = init_simple_dict();
+
+    db9.add({
+        entity: 1,
+        attribute: assoc1,
+        value: 2
+    });
+
+    /*db9.add({
+        entity: 1,
+        attribute: assoc1,
+        value: 22
+    });*/
+
+    db9.add({
+        entity: 2,
+        attribute: assoc2,
+        value: 3
+    });
+
+    db9.add({
+        entity: 3,
+        attribute: assoc3,
+        value: 4
+    });
+
+    // TEMPORARY
+
+    db9.add({
+        entity: 3,
+        attribute: assoc3,
+        value: 44
+    });
+
+    db9.add({
+        entity: 22,
+        attribute: assoc2,
+        value: 33
+    });
+
+    db9.add({
+        entity: 33,
+        attribute: assoc3,
+        value: 44
+    });
+
+    db9.add({
+        entity: 33,
+        attribute: assoc3,
+        value: 444
+    });
+
+    db9.add({
+        entity: 22,
+        attribute: assoc2,
+        value: 333
+    });
+
+    db9.add({
+        entity: 333,
+        attribute: assoc3,
+        value: 4444
+    });
+
+
+    const q9 = Q.parseQuery(
+        [Q.findK, "?one", "?two", "?three", "?four",
+            Q.whereK, ["?one", assoc1, "?two"],
+            ["?two", assoc2, "?three"],
+            ["?three", assoc3, "?four"]]
+    );
+
+    const r9 = await Q.runQuery(db9, q9);
+
+    console.log(r9);
+
 }
 
 main().then(() =>{
