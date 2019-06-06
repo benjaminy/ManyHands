@@ -369,16 +369,16 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
         const whereResults = [];
         for( let i = 0; i < clauses.length; i++ )
         {
-            console.log("CLAUSES:", clauses);
+            //console.log("CLAUSES:", clauses);
             const clause = clauses[ i ].tuple;
 
-            console.log("CLAUSE :", clause);
+            //console.log("CLAUSE :", clause);
 
             const [entity={}, attribute={}, value={}, timestamp={}, revoked={}] = clause;
             // these will either be empty, or have a `tag` attribute, and other optional
             // attributes which are necessary for describing the tag.
 
-            console.log("EAV", entity, attribute, value);
+            //console.log("EAV", entity, attribute, value);
 
             const bindings = {};
             // we build a map so we can get from the binding name to the field it represents
@@ -424,8 +424,8 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                 bindings[revoked.name] = 'revoked';
             }
 
-            L.debug("Binding Set:", bindingSet);
-            L.debug("Joins:", joins);
+            //L.debug("Binding Set:", bindingSet);
+            //L.debug("Joins:", joins);
 
             // is the tag for each field a constant? if so, it means we're "searching by" this field,
             // and we will pass this q object into our database to retrieve applicable datoms.
@@ -444,7 +444,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
 
         // Now process the whereResults into an actual result set
         const results = [];
-        L.debug("Where results: ", JSON.stringify(whereResults));
+        //L.debug("Where results: ", JSON.stringify(whereResults));
 
         if(whereResults.length === 1) {
             const res = whereResults[0];
@@ -461,24 +461,24 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
         } else {
             const final = {};
 
-            console.log("WHERE RESULTS", whereResults);
-            console.log("VARS:", vars);
+            //console.log("WHERE RESULTS", whereResults);
+            //console.log("VARS:", vars);
 
             const joinResults = {};
 
             joins.forEach(join => {
                 let joinIntersection = null;
                 whereResults.forEach(singleResult => {
-                    console.log("loop", join, singleResult.bindings);
+                    //console.log("loop", join, singleResult.bindings);
                     if(!(join in singleResult.bindings)){
                         return; // continue loop
                     }
                     const singleSet = new Set();
                     singleResult.results.forEach(res => {
-                        console.log("asdfasdfs", res, singleResult, join);
+                        //console.log("asdfasdfs", res, singleResult, join);
                         singleSet.add(res[singleResult.bindings[join]])
                     });
-                    console.log("singleset", singleSet);
+                    //console.log("singleset", singleSet);
                     if(joinIntersection === null) {
                         joinIntersection = singleSet;
                     } else {
@@ -486,24 +486,24 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                     }
                 });
 
-                console.log("join intersection", join, joinIntersection);
+                //console.log("join intersection", join, joinIntersection);
 
                 joinResults[join] = joinIntersection;
 
-                console.log("JOIN INTERSECTION", joinIntersection);
+                //console.log("JOIN INTERSECTION", joinIntersection);
             });
 
             // now, for every intersection made, delete any non-matching results
 
-            console.log("whereresults before filter", whereResults);
+            //console.log("whereresults before filter", whereResults);
 
             whereResults.forEach(singleResult => {
                 Object.keys(joinResults).forEach(res => {
                     if(res in singleResult.bindings){
                         // joinResults[res] // is a list of acceptable values to not filter out
                         singleResult.results = singleResult.results.filter(x => {
-                            console.log("adfadsfads", singleResult, joinResults[res]);
-                            console.log("aaaaaa", x[singleResult.bindings[res]]);
+                            //console.log("adfadsfads", singleResult, joinResults[res]);
+                            //console.log("aaaaaa", x[singleResult.bindings[res]]);
                             return joinResults[res].has(x[singleResult.bindings[res]]);
                             /*console.log("whereResults", whereResults);
                             console.log("res", res);
@@ -513,7 +513,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                 });
             });
 
-            console.log("Whereresults after filter:", JSON.stringify(whereResults), vars);
+            //console.log("Whereresults after filter:", JSON.stringify(whereResults), vars);
 
             whereResults.forEach(({bindings, results}) => {
                 results.forEach(result => {
@@ -525,7 +525,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                         }
                     });
 
-                    console.log("cat", cat);
+                    //console.log("cat", cat);
                     const idx = JSON.stringify(cat); // TODO we want to index by many variables-- is this ugly?
 
                     //const current_entity = result[bindings[join]];
@@ -533,21 +533,21 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                         final[idx] = [];
                     }
 
-                    console.log("result to build rs:", idx, bindings, results, result);
+                    //console.log("result to build rs:", idx, bindings, results, result);
 
                     const rs = {};
 
                     vars.forEach(returned => {
-                        console.log("result: ", result, bindings, returned, joins);
+                        //console.log("result: ", result, bindings, returned, joins);
                         if(returned in bindings) {
 
                             rs[returned] = result[bindings[returned]];
 
-                            console.log(`Piece of data we're adding: ${result[bindings[returned]]} ${JSON.stringify(final)} ${idx} ${returned}`);;
+                            //console.log(`Piece of data we're adding: ${result[bindings[returned]]} ${JSON.stringify(final)} ${idx} ${returned}`);;
 
                         }
                     });
-                    console.log("some stuff:", vars, final, final[idx], rs);
+                    //console.log("some stuff:", vars, final, final[idx], rs);
 
                     /*
                     console.log("some stuff:", vars, final, final[idx], rs);
@@ -569,7 +569,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
             // now we have all of our data collected and organized by their bindings-- build the final result set!
 
             const queryResults = [];
-            console.log("FINAL:", final);
+            //console.log("FINAL:", final);
 
             const compatible = function(a, o, connected){
                 let comp = true;
@@ -589,14 +589,14 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
 
             const pair = function(running, start, final, ...prev){
 
-                console.log("arguments", running, start, final, prev, "end arguemntns");
+                //console.log("arguments", running, start, final, prev, "end arguemntns");
 
                 let log = false;
                 if(start === "{\"two\":2}"){log=true;}
 
                 const results = [];
 
-                console.log("FS", final, start);
+                //console.log("FS", final, start);
 
                 final[start].forEach(n => {
 
@@ -614,11 +614,11 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                             //console.log("ADFSJADFKHDSIFKADSI", running, JSON.parse(k));
                             if (compatible(running, JSON.parse(k), true)) {
                                 //if (log) console.log(running, o);
-                                console.log(`recursing on ${JSON.stringify(o)}, start ${start}. prev is ${prev}`);
+                                //console.log(`recursing on ${JSON.stringify(o)}, start ${start}. prev is ${prev}`);
                                 const pairings = pair({...JSON.parse(k), ...running}, k, final, start, ...prev);
                                 pairings.forEach(pair => {
                                     for(let x in pair) {
-                                        console.log("recursive pairing", x, pairings, final, o, x, keys);
+                                        //console.log("recursive pairing", x, pairings, final, o, x, keys);
                                         keys[x] = pair[x];
                                     }
                                 });
@@ -628,7 +628,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                     }
                     results.push(keys);
                 });
-                console.log("A results", results);
+                //console.log("A results", results);
 
                 // one last step: check all the combinations for merges/conflicts and return a final list
                 const collected = [];
@@ -648,7 +648,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                     collected.push(running_res);
                 }
 
-                console.log("COLLECTED", collected);
+                //console.log("COLLECTED", collected);
 
                 return collected;
             };
@@ -656,15 +656,15 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
             const rs = new Set();
 
             for(let i in final) {
-                console.log("i is", i);
+                //console.log("i is", i);
                 const pairings = pair(JSON.parse(i), i, final);
-                console.log("pairing: ", pairings);
+                //console.log("pairing: ", pairings);
                 pairings.forEach(pair => {
                     rs.add(JSON.stringify(pair, Object.keys(pair).sort()));
                 });
             }
 
-            console.log("RSFIAL", rs, final);
+            //console.log("RSFIAL", rs, final);
 
             rs.forEach(entity => {
                 const result = [];
