@@ -1,7 +1,7 @@
 /* An interface which should be extended by data structures */
 
-import * as K from '../../Utilities/keyword.mjs';
-import assert  from "../../Utilities/assert";
+import * as K from "../../Utilities/keyword.mjs";
+import assert  from "../../Utilities/assert.mjs";
 
 import T from "transit-js";
 
@@ -11,9 +11,6 @@ function init(){
 
     dataStructure.add = (datom) => {};
     dataStructure.revoke = (datom) => {};
-    dataStructure.findByEntity = (entity) => {}; // returns a list of datoms
-    dataStructure.findByAttribute = (attribute) => {}; // returns a list of datoms
-    dataStructure.findByValue = (key) => {}; // returns a list of datoms
 
     return dataStructure;
 }

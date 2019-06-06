@@ -1,9 +1,8 @@
 /* Top Matter */
 
-import assert  from "../Source/Utilities/assert";
-import * as UM from "../Source/Utilities/misc";
-import * as K  from "../Source/Utilities/keyword";
-import * as Q  from "../Source/Database/query";
+import assert  from "../Source/Utilities/assert.mjs";
+import * as K  from "../Source/Utilities/keyword.mjs";
+import * as Q  from "../Source/Database/query.mjs";
 import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs"
 
 const age   = K.key( ":age" );
@@ -549,8 +548,46 @@ async function test_09_fanout_many(){
 
 }
 
-main().then(() =>{
-    console.log( "t_query_01.mjs tests passed." );
-}, (err) => {
+/*main().then(() => {
+    console.log( "t_query_01.mjs unit tests passed." );
+}, err => {
+    console.error(err);
+});*/
+
+async function timing(){
+    return timing_test_01_just_records();
+}
+
+async function timing_test_01_just_records(){
+    let size = 10;
+    let timing = 0;
+    const results = {};
+    const attr = K.key(":assoc");
+    const q = Q.parseQuery([Q.findK, "?entity", "?value",
+        Q.whereK, ["?entity", attr, "?value"]]);
+    while(timing < 10000){
+        const db = init_simple_dict();
+        for(let i = 0; i < size; i++){
+            db.add({
+                entity: 1,
+                attribute: attr,
+                value: 1
+            });
+        }
+        let start = (new Date()).getTime();
+        const r = await Q.runQuery(db, q);
+        let end = (new Date()).getTime();
+        timing = end - start;
+        console.log(end, start);
+        results[size] = timing;
+        size += 50;
+        console.log("Completed one test: ", size, timing)
+    }
+    console.log(results);
+}
+
+timing().then(() => {
+
+}, err => {
     console.error(err);
 });

@@ -43,7 +43,7 @@ var randomName = function( num_chars, encoding, prefix, suffix )
     }
 
     return PREFIX + name + SUFFIX;
-}
+};
 
 function encodeDecodeFunctions( encoding )
 {
