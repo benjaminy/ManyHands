@@ -630,10 +630,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                 });
                 console.log("A results", results);
 
-                // one last step: check all the combinations for merges/conflicts
-
-
-                // return results;
+                // one last step: check all the combinations for merges/conflicts and return a final list
                 const collected = [];
                 const visited = new Set();
 
@@ -659,24 +656,29 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
             const rs = new Set();
 
             for(let i in final) {
-                //console.log("i is", i);
+                console.log("i is", i);
                 const pairings = pair(JSON.parse(i), i, final);
-                //console.log("pairing: ", pairings);
+                console.log("pairing: ", pairings);
                 pairings.forEach(pair => {
                     rs.add(JSON.stringify(pair, Object.keys(pair).sort()));
                 });
             }
 
-            console.log(rs);
-            console.log(final);
+            console.log("RSFIAL", rs, final);
 
             rs.forEach(entity => {
                 const result = [];
                 const obj = JSON.parse(entity);
+                let incomplete = false;
                 vars.forEach((v) => {
                     result.push(obj[v]);
+                    if(!(v in obj)){
+                        incomplete = true;
+                    }
                 });
-                queryResults.push(result);
+                if(!incomplete) {
+                    queryResults.push(result);
+                }
             });
 
             return queryResults;
