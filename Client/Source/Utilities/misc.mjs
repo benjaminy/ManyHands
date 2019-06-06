@@ -1,10 +1,8 @@
 /* Top Matter */
 
 const P = Promise;
-import BufferThing from "buffer/";
-const Buffer = BufferThing.Buffer;
-import TE from "text-encoding";
-const { TextEncoder, TextDecoder } = TE;
+//import BufferThing from "buffer/";
+//const Buffer = BufferThing.Buffer;
 
 export const encoding = 'utf-8';
 var [ encode, decode ] = encodeDecodeFunctions( encoding );
@@ -290,9 +288,18 @@ export function hasProp( thing, prop )
     try {
         return prop in thing;
     }
-    catch() {
+    catch( err ) {
         return false;
     }
+}
+
+export function nestedArrayFlatten( arr )
+{
+    return arr.reduce( function( accumulator, item )
+    {
+        const more = [].concat( item ).some( Array.isArray );
+        return accumulator.concat( more ? nestedArrayFlatten( item ) : item );
+    }, [] );
 }
 
 

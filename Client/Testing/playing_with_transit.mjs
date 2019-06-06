@@ -24,3 +24,19 @@ obj[ djs ] = 123;
 obj[ djs2 ] = 456;
 
 console.log( "obj", obj );
+
+const reader = T.reader( "json" );
+const writer = T.writer( "json" );
+
+function roundtrip( x ) {
+    const written = writer.write( x );
+    const read = reader.read( written );
+    console.log( "Foo on you", x, written, read );
+    return read;
+}
+
+roundtrip( "45" );
+roundtrip( [ "45" ] );
+const m = roundtrip( { a: "42", b:42 } );
+
+console.log( m.get( "b" ) );

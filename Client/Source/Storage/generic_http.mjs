@@ -4,7 +4,10 @@
  * File comment
  */
 
-import assert from "assert";
+import assert  from "assert";
+import * as UM from "../Utilities/misc.mjs";
+import * as SC from "./common.mjs";
+import P       from "path";
 
 export const ETAG = Symbol( "ETag" );
 
@@ -71,33 +74,81 @@ export async function atomicUpdate( headers, link_start, options, upload )
     return [ response, link_finish ];
 }
 
-export async function upload( link_start, value, headers, options, coreUpload )
+export async function upload( link_start, value, options, coreUpload )
 {
     const coded_value = SC.encode( value, options );
     /* TODO: compression */
-    const ( cryptoed_value, crypto_link_info ) =
-          SC.encrypto( coded_value, options );
+    const [ cryptoed_value, crypto_link_info ] =
+          await SC.encrypto( coded_value, options );
     const link_mid = Object.assign( {}, link_start, crypto_link_info );
+    if( SC.PATH_PREFIX in options )
+    {
+        link_mid.path = options[ SC.PATH_PREFIX ].concat( link_mid.path );
+    }
+    link_mid.path = UM.nestedArrayFlatten( link_mid.path );
+    assert( link_mid.path.every( ( p ) => typeof( p ) === "string" ) );
+    link_mid.path = P.join( ...( link_mid.path.map( encodeURIComponent ) ) );
+
     const headers = new Headers();
 
     headers.set( "Content-Type", "application/octet-stream" );
     headers.set( "Content-Length", "" + cryptoed_value.byteLength );
 
+    async function uploadThen( path )
+    {
+        const response = await coreUpload( path, headers, cryptoed_value );
+        const link = { path: path };
+        if( SC.COND_UPLOAD in options && ( options[ SC.COND_UPLOAD ] === SC.COND_ATOMIC ) )
+        {
+            link.etag = response.headers.get( "etag" );
+            link.timestamp = response.headers.get( "Last-Modified" );
+        }
+        return link;
+    }
+
     if( SC.COND_UPLOAD in options )
     {
-        const cond_upload = options[ COND_UPLOAD ];
-        if( cond_upload === COND_ATOMIC )
+        const cond_upload = options[ SC.COND_UPLOAD ];
+        if( cond_upload === SC.COND_ATOMIC )
         {
             return atomicUpdate(
                 headers, link_mid, options,
-                () => { return coreUpload( link_mid.path ) } );
+                () => { return uploadThen( link_mid.path ) } );
         }
         else if( cond_upload === COND_RAND )
         {
-                GH.noOverwriteWrapper( headers, options, async () => {
-                    GH.randomNameWrapper( headers, options, coreUpload )
-                } )
+            GH.noOverwriteWrapper( headers, options, async () => {
+                GH.randomNameWrapper( headers, options, coreUpload )
+            } );
         }
-
+        else
+        {
+            throw new Error( "Unsupported option" );
+        }
     }
+    else
+    {
+        return uploadThen( link_mid.path, headers, cryptoed_value );
+    }
+}
+
+export async function download( link, options, coreDownload )
+{
+    const link_mid = Object.assign( {}, link );
+    if( SC.PATH_PREFIX in options )
+    {
+        link_mid.path = options[ SC.PATH_PREFIX ].concat( link_mid.path );
+    }
+    link_mid.path = UM.nestedArrayFlatten( link_mid.path );
+    assert( link_mid.path.every( ( p ) => typeof( p ) === "string" ) );
+    link_mid.path = P.join( ...( link_mid.path.map( encodeURIComponent ) ) );
+
+    const response = await coreDownload( link_mid.path, options );
+    if( !response.ok )
+    {
+        throw { [SC.ERROR_KIND]: SC.ERROR_NOT_FOUND };
+    }
+    const value = await SC.decrypto( await response.arrayBuffer(), link, options );
+    const value_decoded = SC.decode( value, options );
+    return value_decoded;
 }

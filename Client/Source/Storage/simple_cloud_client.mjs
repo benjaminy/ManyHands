@@ -38,50 +38,23 @@ export default function init( user, options )
 
     const host = protocol_hostname + ":" + DEFAULT_SERVER_PORT + "/";
 
-    const upload = async function upload( link_start, value, options )
+    const upload = async function upload( link, value, options )
     {
-        const coded_value = SC.encode( value, options );
-        /* TODO: compression */
-        const ( cryptoed_value, crypto_link_info ) =
-              SC.encrypto( coded_value, options );
-        const link_mid = Object.assign( {}, link_start, crypto_link_info );
-        const headers = new Headers();
-
-        headers.set( "Content-Type", "application/octet-stream" );
-        headers.set( "Content-Length", "" + cryptoed_value.byteLength );
-
-        async function coreUpload( path )
+        async function coreUpload( path, headers, body )
         {
             assert( M.isPath( path ) );
             /* assert( typeof( content ) is whatever fetch accepts ) */
 
             const p = encode_path( user, path );
 
-            const fetch_options = { method : "POST", headers: headers, body: cryptoed_value };
-            const response = await fetch( p, fetch_options );
+            const fetch_init =
+		  { method : "POST", headers: headers, body: body };
+            const response = await fetch( p, fetch_init );
             A.log( "upload Response", response.status, response.statusText );
             return response;
         }
 
-        if( SC.COND_UPLOAD in options )
-        {
-            const cond_upload = options[ COND_UPLOAD ];
-            if( cond_upload === COND_ATOMIC )
-            {
-                return GH.atomicUpdate(
-                    headers, link_mid, options,
-                    () => { return coreUpload( link_mid.path ) } );
-            }
-            else if( cond_upload === COND_
-        }
-        
-        const response =
-            await GH.atomicUpload( headers, options, async () => {
-                GH.noOverwriteWrapper( headers, options, async () => {
-                    GH.randomNameWrapper( headers, options, coreUpload )
-                } )
-            } );
-
+	return GH.upload( link, value, options )
     };
 
     const download = async function download( path, options )

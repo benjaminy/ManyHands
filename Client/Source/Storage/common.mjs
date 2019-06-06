@@ -7,6 +7,8 @@
 import assert from "assert";
 import T from "transit-js";
 
+export const PATH_PREFIX    = T.symbol( "path prefix" );
+
 export const ENCODE_OBJ     = T.symbol( "obj" );
 export const ENCODE_TRANSIT = T.symbol( "transit" );
 export const ENCODE_JSON    = T.symbol( "json" );
@@ -29,7 +31,9 @@ function mapAssocData( fn, v, options )
     }
     else
     {
-        return = fn( v );
+        const r = fn( v );
+        console.log( "MMEP", v, r  );
+        return r;
     }
 }
 
@@ -42,8 +46,11 @@ export function encode( value, options )
     if( ENCODE_OBJ in options )
     {
         const object_encoding = options[ ENCODE_OBJ ];
-        transit_writer = ( transit_writer || object_encoding !== ENCODE_TRANSIT )
-            ? transit_writer : T.writer( "json" );
+        if( ( !transit_writer ) && object_encoding === ENCODE_TRANSIT )
+        {
+            const w = T.writer( "json" );
+            transit_writer = w.write.bind( w );
+        }
         const encode_fn =
               object_encoding === ENCODE_TRANSIT ? transit_writer
               : ( object_encoding === ENCODE_JSON ? JSON.stringify
@@ -55,12 +62,16 @@ export function encode( value, options )
         value = mapAssocData( encode_fn, value, options );
     }
 
-    if( ENCODE_TEXT in options )
+    if( ENCODE_OBJ in options || ENCODE_TEXT in options )
     {
         /* NOTE: Apparently the overlords of the web think utf-8 is the only
          * text encoding that matters.  They might be right. */
-        text_encoder = text_encoder ? text_encoder : new TextEncoder();
-        return mapAssocData( text_endcoder, value, options );
+        if( !text_encoder )
+        {
+            const t = new TextEncoder();
+            text_encoder = t.encode.bind( t );
+        }
+        return mapAssocData( text_encoder, value, options );
     }
 
     return value;
@@ -68,17 +79,25 @@ export function encode( value, options )
 
 export function decode( value, options )
 {
-    if( ENCODE_TEXT in options )
+    if( ENCODE_OBJ in options || ENCODE_TEXT in options )
     {
-        text_decoder = text_decoder ? text_decoder : new TextDecoder();
+        if( !text_decoder )
+        {
+            const t = new TextDecoder();
+            text_decoder = t.decode.bind( t );
+        }
         value = mapAssocData( text_decoder, value, options );
     }
 
     if( ENCODE_OBJ in options )
     {
         const object_encoding = options[ ENCODE_OBJ ];
-        transit_reader = ( transit_reader || object_encoding !== ENCODE_TRANSIT )
-            ? transit_reader : T.reader( "json" );
+        if( ( !transit_reader ) && object_encoding === ENCODE_TRANSIT )
+        {
+            const r = T.reader( "json" );
+            transit_reader = r.read.bind( r );
+            console.log( "XXX1", value, r.read( value ) );
+        }
         const decode_fn =
               object_encoding === ENCODE_TRANSIT ? transit_reader
               : ( object_encoding === ENCODE_JSON ? JSON.parse
@@ -87,7 +106,8 @@ export function decode( value, options )
         {
             throw new Error( "Unsupported option" );
         }
-        return mapAssocData( encode_fn, value, options );
+        console.log( "BEFORE", value );
+        return mapAssocData( decode_fn, value, options );
     }
 
     return value;
@@ -96,5 +116,11 @@ export function decode( value, options )
 /* This function handles both ciphering and authentication */
 export async function encrypto( value, options )
 {
-    
+    return [ value, {} ];
+}
+
+export async function decrypto( value, link, options )
+{
+    // console.log( "HUH", typeof value, value );
+    return value;
 }

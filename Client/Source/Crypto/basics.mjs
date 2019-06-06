@@ -4,7 +4,7 @@
  *
  */
 
-import * as M    from "../Utilities/misc";
+import * as M    from "../Utilities/misc.mjs";
 import WebCrypto from "node-webcrypto-ossl";
 const WC = new WebCrypto();
 export const CS = WC.subtle;

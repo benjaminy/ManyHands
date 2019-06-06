@@ -2,6 +2,8 @@
  * Top Matter
  */
 
+/* NOTE: This is for the legacy storage API.  Now deprecated. */
+
 import assert  from "../Source/Utilities/assert";
 import SM      from "../Source/Storage/in_memory";
 import * as SW from "../Source/Storage/wrappers";
