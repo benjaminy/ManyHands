@@ -571,7 +571,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
             const queryResults = [];
             console.log("FINAL:", final);
 
-            const compatible = function(a, o){
+            const compatible = function(a, o, connected){
                 let comp = true;
                 let hit = false;
                 Object.keys(a).forEach(x => {
@@ -584,7 +584,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                         comp = false;
                     }
                 });
-                return hit && comp;
+                return (hit || !connected) && comp;
             };
 
             const pair = function(running, start, final, ...prev){
@@ -612,7 +612,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                                 return;
                             }
                             //console.log("ADFSJADFKHDSIFKADSI", running, JSON.parse(k));
-                            if (compatible(running, JSON.parse(k))) {
+                            if (compatible(running, JSON.parse(k), true)) {
                                 //if (log) console.log(running, o);
                                 console.log(`recursing on ${JSON.stringify(o)}, start ${start}. prev is ${prev}`);
                                 const pairings = pair({...JSON.parse(k), ...running}, k, final, start, ...prev);
@@ -628,7 +628,32 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                     }
                     results.push(keys);
                 });
-                return results;
+                console.log("A results", results);
+
+                // one last step: check all the combinations for merges/conflicts
+
+
+                // return results;
+                const collected = [];
+                const visited = new Set();
+
+                for(let i = 0; i < results.length; i++){
+                    let running_res = {...results[i]};
+                    if(visited.has(JSON.stringify(results[i], Object.keys(results[i]).sort()))){
+                        continue;
+                    }
+                    for(let j = 0; j < results.length; j++){
+                        if(compatible(results[i], results[j], false)){
+                            running_res = {...running_res, ...results[j]};
+                        }
+                    }
+                    visited.add(JSON.stringify(results[i], Object.keys(results[i]).sort()));
+                    collected.push(running_res);
+                }
+
+                console.log("COLLECTED", collected);
+
+                return collected;
             };
 
             const rs = new Set();

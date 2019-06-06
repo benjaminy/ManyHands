@@ -59,17 +59,54 @@ db.add({
 
 async function main(){
     return Promise.all([
-        //test_01_single_select(),
-        //test_02_double_select(),
+        test_01_single_select(),
+        test_02_double_select(),
         test_03_double_where(),
         //test_04_double_condition(),
-        //test_05_references(),
-        //test_06_double_reference(),
-        //test_07_many_hops(),
-        //test_08_fanout(),
-        //test_09_fanout_many()
+        test_05_references(),
+        test_06_double_reference(),
+        test_07_many_hops(),
+        test_08_fanout(),
+        //test_09_fanout_many(),
+        visualization()
     ]);
 }
+
+async function visualization(){
+
+    const aKey = K.key(":a");
+    const bKey = K.key(":b");
+
+    const db = init_simple_dict();
+
+    db.add({
+        entity: "A",
+        attribute: aKey,
+        value: "B"
+    });
+
+    db.add({
+        entity: "B",
+        attribute: bKey,
+        value: "C1"
+    });
+    db.add({
+        entity: "B",
+        attribute: bKey,
+        value: "C2"
+    });
+
+    const q = Q.parseQuery(
+        [Q.findK, "?a", "?b", "?c",
+            Q.whereK, ["?a", aKey, "?b"],
+            ["?b", bKey, "?c"]]
+    );
+
+    const r = await Q.runQuery(db, q);
+
+    console.log(r);
+}
+
 
 async function test_01_single_select()
 {
