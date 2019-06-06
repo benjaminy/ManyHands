@@ -1,6 +1,6 @@
 /* Top Matter */
 
-import * as K  from "../Utilities/keyword";
+import * as K  from "../Utilities/keyword.mjs";
 
 export const identK       = K.key( ":db/ident" );
 export const docK         = K.key( ":db/doc" );

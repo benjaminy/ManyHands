@@ -1,9 +1,8 @@
 /* Top Matter */
 
-import assert  from "../Source/Utilities/assert";
-import * as UM from "../Source/Utilities/misc";
-import * as K  from "../Source/Utilities/keyword";
-import * as Q  from "../Source/Database/query";
+import assert  from "../Source/Utilities/assert.mjs";
+import * as K  from "../Source/Utilities/keyword.mjs";
+import * as Q  from "../Source/Database/query.mjs";
 import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs"
 
 const age   = K.key( ":age" );

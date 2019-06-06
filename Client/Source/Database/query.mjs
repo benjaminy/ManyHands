@@ -2,12 +2,12 @@
 
 "use strict";
 
-import assert  from "../Utilities/assert";
-import * as UM from "../Utilities/misc";
-import * as L  from "../Utilities/logging";
-import * as K  from "../Utilities/keyword";
-import * as S  from "../Utilities/set";
-import * as DA from "./attribute";
+import assert  from "../Utilities/assert.mjs";
+import * as UM from "../Utilities/misc.mjs";
+import * as L  from "../Utilities/logging.mjs";
+import * as K  from "../Utilities/keyword.mjs";
+import * as S  from "../Utilities/set.mjs";
+import * as DA from "./attribute.mjs";
 
 export const findK  = K.key( ":find" );
 export const withK  = K.key( ":with" );
