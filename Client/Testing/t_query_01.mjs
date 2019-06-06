@@ -59,7 +59,7 @@ db.add({
 
 async function main(){
     return Promise.all([
-        /*test_01_single_select(),
+        test_01_single_select(),
         test_02_double_select(),
         test_03_double_where(),
         //test_04_double_condition(),
@@ -67,9 +67,9 @@ async function main(){
         test_06_double_reference(),
         test_07_many_hops(),
         test_08_fanout(),
-        test_09_fanout_many(),*/
+        test_09_fanout_many(),
         simpler_fanout(),
-        //visualization()
+        visualization()
     ]);
 }
 
@@ -157,6 +157,9 @@ async function simpler_fanout(){
 
     console.log(r);
 
+    assert(r.length === 3 && r[0].length === 5,
+        `Query length returned is incorrect (expected 3x5, found ${r.length}x${r[0].length})`);
+
 }
 
 async function visualization(){
@@ -194,7 +197,7 @@ async function visualization(){
     console.log(r);
 
     assert(r.length === 2 && r[0].length === 3 && r[1].length === 3,
-        "Result set has incorrect length (expecting 2x3, found ${r.length}x${r[0].length})");
+        `Result set has incorrect length (expecting 2x3, found ${r.length}x${r[0].length})`);
     assert(r[0][0] === "A" && r[0][1] === "B" && r[1][0] === "A" && r[1][1] === "B"
     && r[0][2] !== r[1][2] && ((r[0][2] === "C2" || r[1][2] === "C2") && (r[0][2] === "C1" || r[1][2] === "C1")),
         "Data is malformatted.");
