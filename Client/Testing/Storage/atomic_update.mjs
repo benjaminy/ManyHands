@@ -42,7 +42,11 @@ export async function test1( s ) {
         {
             console.log( "LITTLE VICTORY" );
         }
+        else
+        {
+            console.log( "RUH-ROH" );
+        }
     }
 
-    console.log( "just_upload", link4 );
+    console.log( "VICTORY" );
 }

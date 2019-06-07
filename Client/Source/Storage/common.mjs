@@ -19,7 +19,7 @@ export const ASSOC_DATA                 = sy( "associated data" );
 
 export const COND_UPLOAD                = sy( "conditional upload" );
 export const COND_ATOMIC                = sy( "atomic upload" );
-export const COND_UNIQUE                = sy( "unique upload" );
+export const COND_NEW_NAME              = sy( "unique upload" );
 export const COND_NO_OVERWRITE          = sy( "no overwrite" );
 
 export const ERROR_KIND                 = sy( "storage error kind" );

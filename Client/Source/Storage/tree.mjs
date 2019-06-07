@@ -5,6 +5,7 @@
  */
 
 import assert from "assert";
+import T from "transit-js";
 import * as UM from "../Utilities/misc";
 
 const plain_data_tag = Symbol ...;
@@ -41,9 +42,15 @@ const localPersistentDB = {};
     return node;
 }
 
-/* public */ function isTreeNode( n )
+/* public */ function isTreeNode( thing )
 {
-    return tree_node_tag in node;
+    return UM.hasProp( thing, tree_node_tag );
+}
+
+function isValidTransitMapKey( thing )
+{
+    /* TODO: maybe. Not sure if this is easy to judge. */
+    return true;
 }
 
 
@@ -51,12 +58,12 @@ const localPersistentDB = {};
 
 /* Nodes always have all their plain data values.  No laziness here. */
 
-/* public */ function getValue( node, name )
+/* public */ function getValue( node, key )
 {
     assert( isTreeNode( node ) );
-    assert( UM.isString( name ) );
+    assert( isValidTransitMapKey( key ) );
 
-    return node[ plain_data_tag ][ name ];
+    return node[ plain_data_tag ].get( key );
 }
 
 /* WARNING: Must only be used read-only */
@@ -68,57 +75,57 @@ const localPersistentDB = {};
 }
 
 /* NOTE: Returns a new node because of copy-on-first-write */
-/* public */ function setValue( node, name, value )
+/* public */ function setValue( node, key, value )
 {
     assert( isTreeNode( node ) );
-    assert( UM.isString( name ) );
+    assert( isValidTransitMapKey( key ) );
     /* assert( isPlainData( value ) ); */
 
     node = touchNode( node );
-    node[ plain_data_tag ][ name ] = value;
+    node[ plain_data_tag ].set( key, value );
     return node;
 }
 
 /* NOTE: Returns a new node because of copy-on-first-write */
-/* public */ function deleteValue( node, name )
+/* public */ function deleteValue( node, key )
 {
     assert( isTreeNode( node ) );
-    assert( UM.isString( name ) );
+    assert( isValidTransitMapKey( key ) );
 
     node = touchNode( node );
-    delete node[ plain_data_tag ][ name ]
+    node[ plain_data_tag ].delete( key );
     return node;
 }
 
 /* End plain old data part.  Begin tree children part */
 
-/* public */ function isChildInMemCache( node, name )
+/* public */ function isChildInMemCache( node, key )
 {
     assert( isTreeNode( node ) );
-    assert( UM.isString( name ) );
+    assert( isValidTransitMapKey( key ) );
 
-    return node[ mem_cache_tag ].has( name );
+    return node[ mem_cache_tag ].has( key );
 }
 
-/* public */ function isChildInLocalCache( node, name )
+/* public */ function isChildInLocalCache( node, key )
 {
     assert( isTreeNode( node ) );
-    assert( UM.isString( name ) );
+    assert( isValidTransitMapKey( key ) );
 
-    return node[ local_cache_tag ].has( name );
+    return node[ local_cache_tag ].has( key );
 }
 
 /* private */ function dehydrate( node )
 {
-    d = {};
-    d.p = node[ plain_data_tag ];
-    d.b = node[ blank_timestamp_tag ];
-    d.c = {}
+    d = T.map();
+    d.set( "p", node[ plain_data_tag ] );
+    d.set( "b", node[ blank_timestamp_tag ] );
+    d.set( "c", {} );
     const links = node[ links_tag ];
     const storage = node[ storage ];
-    for( name in links )
+    for( [ key, link ] in links )
     {
-        d.c[ name ] = storage.dehydrateLink( links[ name ] );
+        d.c.set( key, storage.dehydrateLink( link ) );
     }
     return d;
 }
@@ -154,7 +161,7 @@ const localPersistentDB = {};
     return c;
 }
 
-/* public */ async function getChild( parent, child_name )
+/* public */ async function getChild( parent, key )
 {
     assert( isTreeNode( parent ) );
     assert( isString( child_name ) );
@@ -207,22 +214,22 @@ function addToSet( obj, field, item )
     obj[ field ].add( item );
 }
 
-/* public */ function removeChild( parent, child_name )
+/* public */ function deleteChild( parent, key )
 {
     assert( isTreeNode( parent ) );
-    assert( isString( child_name ) );
+    assert( isValidTransitMapKey( key ) );
 
-    if( !( ( child_name in parent[ links_tag ] ||
-             parent[ mem_cache_tag ].has( child_name ) ) ) )
+    if( !( ( key in parent[ links_tag ] ||
+             parent[ mem_cache_tag ].has( key ) ) ) )
     {
-        throw new Error( "No child with name " + child_name );
+        throw new Error( "No child with name " + key );
     }
-    else if( !( child_name in parent[ links_tag ] ) )
+    else if( !( key in parent[ links_tag ] ) )
     {
         /* mem cache kinda complicated ... */
         assert( dirty_tag in parent );
-        parent[ mem_cache_tag ].delete( child_name );
-        if( parent[ dirty_tag ].has( child_name ) )
+        parent[ mem_cache_tag ].delete( key );
+        if( parent[ dirty_tag ].has( key ) )
         {
         }
         return parent;
@@ -244,11 +251,11 @@ function addToSet( obj, field, item )
     }
 }
 
-/* public */ function setChild( parent, child_name, child )
+/* public */ function setChild( parent, key, child )
 {
     assert( isTreeNode( parent ) );
     assert( isTreeNode( child ) );
-    assert( isString( child_name ) );
+    assert( isValidTransitMapKey( key ) );
 
     parent = touchNode( parent );
     if( parent[ links_tag ].has( child_name )
@@ -261,10 +268,10 @@ function addToSet( obj, field, item )
     return parent;
 }
 
-/* public */ function newChild( parent, child_name, storage_cb )
+/* public */ function newChild( parent, key, storage_cb )
 {
     assert( isTreeNode( parent ) );
-    assert( isString( child_name ) );
+    assert( isValidTransitMapKey( key ) );
 
     const child = rehydrate( parent, {}, {} );
     const pstorage = parent[ storage_tag ];
@@ -332,6 +339,8 @@ async function writeTree( root )
 
 async function openRoot( storage, path )
 {
+    const root = {};
+    root[ storage_tag ] = storage;
 }
 
 // /* The plain storage stack should have at least a network phase and an object encoding phase. */

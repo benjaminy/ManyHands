@@ -11,6 +11,8 @@ import P       from "path";
 
 export const ETAG = Symbol( "ETag" );
 
+const DEFAULT_BYTES_PER_NAME = 10;
+
 export function overwriteHeader( headers, name, value )
 {
     if( headers.has( name ) )
@@ -34,25 +36,25 @@ export async function noOverwrite( headers, options, upload )
     return response;
 }
 
-export async function randomName( headers, path, options, upload )
+export async function newName( headers, path, options, upload )
 {
     overwriteHeader( headers, "If-None-Match", "*" );
     const retry_limit = 5;
     var retries = 0;
     while( ( !retry_limit ) || ( retries < retry_limit ) )
     {
-        const bytes = CB.getRandomBytes( BYTES_PER_NAME );
+        const bytes = CB.getRandomBytes( DEFAULT_BYTES_PER_NAME );
         const name = UM.toHexString( bytes );
         const full_path = path.append( name );
         const [ response, link ] = await upload( full_path );
-        if( response.status === 412 )
+        if( response.ok )
+        {
+            return [ response, Object.assign( {}, link, { path: full_path } ) ]
+        }
+        else if( response.status === 412 )
         {
             retries += 1;
             L.warn( "Name collision", name, retries );
-        }
-        else if( response.ok )
-        {
-            return [ response, Object.assign( {}, link, { path: full_path } ) ]
         }
         else
         {
@@ -120,11 +122,9 @@ export async function upload( link_start, value, options, coreUpload )
             return noOverwrite(
                 headers, options, () => { return uploadThen( cryptoed_link.path ); } )
         }
-        else if( cond_upload === SC.COND_UNIQUE )
+        else if( cond_upload === SC.COND_NEW_NAME )
         {
-            noOverwriteWrapper( headers, options, async () => {
-                GH.randomNameWrapper( headers, options, coreUpload )
-            } );
+            return newName( headers, options, uploadThen );
         }
         else
         {

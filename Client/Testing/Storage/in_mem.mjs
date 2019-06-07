@@ -9,6 +9,7 @@ import SM       from "../../Source/Storage/in_memory.mjs";
 
 import * as SUD from "./simple_up_down.mjs";
 import * as AU  from "./atomic_update.mjs";
+import * as RN  from "./random_name.mjs";
 
 async function main()
 {
