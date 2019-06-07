@@ -92,8 +92,49 @@ async function test_12_attribute_query(){
         attribute: A.identK,
         value: ":likes"
     });
+    db.add({
+        entity: 10,
+        attribute: A.valueTypeK,
+        value: A.vtypeRef
+    });
+    db.add({
+        entity: 10,
+        attribute: A.cardinalityK,
+        value: A.cardinalityMany
+    });
+    db.add({
+        entity: 10,
+        attribute: A.docK,
+        value: "hor de door"
+    });
+    db.add({
+        entity: 10,
+        attribute: A.uniqueK,
+        value: null
+    });
+    db.add({
+        entity: 10,
+        attribute: A.indexK,
+        value: false
+    });
+    db.add({
+        entity: 10,
+        attribute: A.fulltextK,
+        value: false
+    });
+    db.add({
+        entity: 10,
+        attribute: A.isComponentK,
+        value: false
+    });
+    db.add({
+        entity: 10,
+        attribute: A.noHistoryK,
+        value: false
+    });
+
     const r = await Q.runQuery(db, q, ":likes");
-    console.log("r12", );
+    console.log("r12", r);
 }
 
 async function test_10_simpler_fanout(){

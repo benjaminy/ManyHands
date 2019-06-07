@@ -9,6 +9,8 @@ import * as K  from "../Utilities/keyword.mjs";
 import * as S  from "../Utilities/set.mjs";
 import * as DA from "./attribute.mjs";
 
+import transit from "transit-js";
+
 export const findK  = K.key( ":find" );
 export const withK  = K.key( ":with" );
 export const inK    = K.key( ":in" );
@@ -336,7 +338,7 @@ function is_compatible( query_const, datom_value )
     return query_const.val === datom_value;
 }
 
-export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (database + :in clause)
+export async function runQuery( db, q, ...ins )
 {
     const vars = [];
 
@@ -592,7 +594,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
             // now we have all of our data collected and organized by their bindings-- build the final result set!
 
             const queryResults = [];
-            //console.log("FINAL:", final);
+            console.log("FINAL:", final);
 
             const compatible = function(a, o, connected){
                 let comp = true;
@@ -696,6 +698,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                 vars.forEach((v) => {
                     result.push(obj[v]);
                     if(!(v in obj)){
+                        console.log("incomplete", v, obj);
                         incomplete = true;
                     }
                 });
