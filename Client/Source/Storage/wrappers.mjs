@@ -4,11 +4,11 @@
  * File comment
  */
 
-import assert  from "../Utilities/assert";
-import * as L  from "../Utilities/logging";
-import * as UM from "../Utilities/misc";
-import * as SU from "./utilities";
-import * as CB from "../Crypto/basics"
+import assert  from "../Utilities/assert.mjs";
+import * as L  from "../Utilities/logging.mjs";
+import * as UM from "../Utilities/misc.mjs";
+import * as SU from "./utilities.mjs";
+import * as CB from "../Crypto/basics.mjs"
 import TE      from "text-encoding";
 
 const P = Promise;

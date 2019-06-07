@@ -8,11 +8,11 @@
 
 import T from "transit-js";
 
-import assert  from "../Utilities/assert";
-import * as K  from "../Utilities/keyword";
-import * as SW from "../Storage/wrappers";
-import * as DC from "./common";
-import * as DT from "./transaction";
+import assert  from "../Utilities/assert.mjs";
+import * as K  from "../Utilities/keyword.mjs";
+import * as SW from "../Storage/wrappers.mjs";
+import * as DC from "./common.mjs";
+import * as DT from "./transaction.mjs";
 
 
 /*
@@ -161,7 +161,7 @@ async function fold_txns_oldest_first( db, f, initial_val, f_is_async )
             /* TODO: await every so often */
             const v = f( txn, helper( txn.next ) );
             /* TODO: await every so often */
-            return = f_is_async ? await v : v;
+            return f_is_async ? await v : v;
         }
         else
         {
@@ -198,7 +198,7 @@ export async function entity( db, thing )
 {
     if( T.isInteger( thing ) )
     {
-        function find_ent_id( txn )
+        const find_ent_id = function( txn )
         {
             if( thing in txn.datoms )
             {
@@ -206,12 +206,12 @@ export async function entity( db, thing )
                 earlyExit( new Entity );
             }
             return null;
-        }
+        };
         return fold_txns( db, find_ent_id, null );
     }
     else if( T.isKeyword( thing ) )
     {
-        function find_ident( txn )
+        const find_ident = function( txn )
         {
             if( txn.failed )
                 return null;
@@ -231,7 +231,7 @@ export async function entity( db, thing )
                 /* throws: */
             }
             return null;
-        }
+        };
         return fold_txns( db, find_ident, null );
     }
     else if( Array.isArray( thing ) && thing.length === 2 )

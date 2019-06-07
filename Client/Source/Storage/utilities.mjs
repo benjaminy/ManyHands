@@ -4,8 +4,8 @@
  * File comment
  */
 
-import assert from "../Utilities/assert";
-import * as L from "../Utilities/logging";
+import assert from "../Utilities/assert.mjs";
+import * as L from "../Utilities/logging.mjs";
 
 export function prependHeaderHook( opts, f )
 {

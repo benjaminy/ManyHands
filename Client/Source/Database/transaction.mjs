@@ -1,8 +1,8 @@
 /* Top Matter */
 
-import * as K  from "../Utilities/keyword";
-import * as DA from "./attribute";
-import * as DQ from "./query";
+import * as K  from "../Utilities/keyword.mjs";
+import * as DA from "./attribute.mjs";
+import * as DQ from "./query.mjs";
 
 export const addK     = K.key( ":db/add" );
 export const retractK = K.key( ":db/retract" );
