@@ -64,13 +64,13 @@ async function main(){
         test_03_double_where(),
         test_04_double_condition(),
         test_05_references(),
-        test_06_double_reference(),
+        test_06_double_reference(),*/
         test_07_many_hops(),
-        test_08_fanout(),
+        /*test_08_fanout(),
         test_09_fanout_many(),
         test_10_simpler_fanout(),
-        test_11_visualization(),*/
-        test_12_attribute_query()
+        test_11_visualization(),
+        test_12_attribute_query()*/
     ]);
 }
 /*
@@ -134,7 +134,22 @@ async function test_12_attribute_query(){
     });
 
     const r = await Q.runQuery(db, q, ":likes");
-    console.log("r12", r);
+    const expected = [
+        A.vtypeRef,
+        A.cardinalityMany,
+        'hor de door',
+        null,
+        false,
+        false,
+        false,
+        false
+    ];
+
+    assert(r.length === 1, `Length of result set is incorrect (expected 1, found ${r.length}`);
+    for(let i = 0; i < expected.length; i++){
+        assert(expected[i] === r[0][i], "A value was mismatched or wrong");
+        //+ ` (expected ${expected[i]}, found ${r[0][i]})`);
+    }
 }
 
 async function test_10_simpler_fanout(){
