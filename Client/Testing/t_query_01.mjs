@@ -61,7 +61,7 @@ async function main(){
         test_01_single_select(),
         test_02_double_select(),
         test_03_double_where(),
-        //test_04_double_condition(),
+        test_04_double_condition(),
         test_05_references(),
         test_06_double_reference(),
         test_07_many_hops(),
@@ -548,12 +548,6 @@ async function test_09_fanout_many(){
 
 }
 
-/*main().then(() => {
-    console.log( "t_query_01.mjs unit tests passed." );
-}, err => {
-    console.error(err);
-});*/
-
 async function timing(){
     return timing_test_01_just_records();
 }
@@ -587,8 +581,16 @@ async function timing_test_01_just_records(){
     console.log(results);
 }
 
-timing().then(() => {
+/*timing().then(() => {
 
+}, err => {
+    console.error(err);
+});
+*/
+
+
+main().then(() => {
+    console.log( "t_query_01.mjs unit tests passed." );
 }, err => {
     console.error(err);
 });

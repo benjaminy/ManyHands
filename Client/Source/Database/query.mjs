@@ -361,7 +361,22 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
     const bindingSet = new Set();
     const joins = new Set();
 
-    // TODO if( q.in.tag ===  )
+    const inParams = {};
+
+    console.log("IMPORTANT: IN TAG:", q);
+
+    let i = 0;
+    q.in.forEach(q_in => {
+        console.log(i);
+        if(q_in.tag === src_var_tag){
+            // TODO: allow several sources. right now we just use the db variable for everything
+        } else if(q_in.tag === variable_tag){
+            if(ins.length <= i){
+                throw Error(`Not enough variables provided (provided: ${ins.length})`);
+            }
+            inParams[q_in.name] = ins[i++];
+        }
+    });
 
     if( q.where.tag === where_clauses_tag )
     {
@@ -369,7 +384,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
         const whereResults = [];
         for( let i = 0; i < clauses.length; i++ )
         {
-            //console.log("CLAUSES:", clauses);
+            console.log("CLAUSES:", JSON.stringify(clauses));
             const clause = clauses[ i ].tuple;
 
             //console.log("CLAUSE :", clause);
@@ -424,21 +439,30 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                 bindings[revoked.name] = 'revoked';
             }
 
+            const get_constant = function(field){
+                if(constant_tags.has(field.tag)){
+                    return field.val;
+                } else if(field.tag === variable_tag && field.name in inParams){
+                    return inParams[field.name];
+                }
+                return undefined;
+            };
+
             //L.debug("Binding Set:", bindingSet);
             //L.debug("Joins:", joins);
 
             // is the tag for each field a constant? if so, it means we're "searching by" this field,
             // and we will pass this q object into our database to retrieve applicable datoms.
-            const q = {
-                entity: constant_tags.has(entity.tag) ? entity.val : undefined,
-                attribute: constant_tags.has(attribute.tag) ? attribute.val : undefined,
-                value: constant_tags.has(value.tag) ? value.val : undefined,
-                timestamp: constant_tags.has(timestamp.tag) ? timestamp.val : undefined,
-                revoked: constant_tags.has(revoked.tag) ? revoked.val : undefined
+            const in_query = {
+                entity: get_constant(entity),
+                attribute: get_constant(attribute),
+                value: get_constant(value),
+                timestamp: get_constant(timestamp),
+                revoked: get_constant(revoked)
             };
 
             // retrieve a set of datoms through the DB's efficient indexing and searching capabilities
-            const resultSet = db.find(q);
+            const resultSet = db.find(in_query);
             whereResults.push({bindings: bindings, results: resultSet});
         }
 
