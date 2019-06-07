@@ -28,7 +28,7 @@ export function init_simple_dict(initial_data=false){
         avet = doSort(data, 'attribute', 'value', 'entity');
         eavt = doSort(data, 'entity', 'attribute', 'value');
         aevt = doSort(data, 'attribute', 'entity', 'value');
-        vaet = doSort(data, 'value', 'entity', 'value');
+        vaet = doSort(data, 'value', 'attribute', 'entity');
     }
 
     populate_lists();
@@ -113,20 +113,30 @@ export function compareDatom(d1, d2){
  * Populate one of our data map "indices" with data-- we just sort the list and then
  *
  * @param data The data we'd like to insert into this map
- * @param sorts The order of how we're sorting-- strings which refer datom attributes
+ * @param sorts The order of how we're sorting-- strings which refer to datom attributes
  */
 function doSort(data, ...sorts){
     data.sort((self, other) => {
-        for(let sort of sorts){
+        for(let sort of sorts) {
             let ix;
-            if(sort === 'attribute'){
+            if (sort === 'attribute') { // TODO soon attribute will be a number
                 ix = K.compare(self[sort], other[sort]);
-            } else if(typeof(self[sort]) === "number"){
+            } else if (typeof (self[sort]) === "number" && "number" === typeof (other[sort])) {
                 ix = self[sort] - other[sort];
-            } else if(typeof(self[sort]) === "string"){
-                ix = self[sort].localeCompare(other[sort]);
+            } else if (typeof (self[sort]) === "string" && "string" === typeof (other[sort])) {
+                ix = self[sort].localeCompare(other[sort].toString());
+            } else if (self[sort] === null && null === other[sort]) {
+                return 0;
+            } else if (self[sort] === null) {
+                return 1;
+            } else if (other[sort] === null) {
+                return -1
             } else {
+                // TODO this is a bad catch-all
+                ix = self[sort].toString().localeCompare(other[sort].toString());
+                /*
                 throw new Error("Unimplemented");
+                */
             }
             if(ix !== 0){
                 return ix;

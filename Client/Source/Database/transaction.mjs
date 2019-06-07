@@ -16,9 +16,10 @@ function new_entity( db )
 
 export async function getAttribute( db, identName ) {
     const ident = K.key( identName );
-
-    if( !( ak in db.attributes ) )
+    /*
+    if( !( ident in db.attributes ) )
     {
+        TODO attribute retrieval and validation
         try {
             [ v, c, d, u, i, f, ic, n ] = await Q.runQuery( db, attrQuery, ak );
             db.attributes[ ak ] = DA.makeAttribute( ident, v, c, d, u, i, f, ic, n );
@@ -34,8 +35,9 @@ export async function getAttribute( db, identName ) {
             }
         }
     }
-
-    return db.attributes[ ak ];
+    */
+    //return db.attributes[ ak ];
+    return identName;
 }
 
 /* Input: an array of txn statements
@@ -47,6 +49,8 @@ export async function processTxn( db, stmts )
 
     var datoms = [];
     var temp_ids = {};
+
+    console.log("Processing transaction ", stmts);
 
     function getEntityId( e )
     {
@@ -61,19 +65,19 @@ export async function processTxn( db, stmts )
         }
         /* "else" */
 
-        try {
+        if(e in temp_ids) {
             return temp_ids[ e ];
         }
-        catch( err ) {
-            const eid = DB.new_entity( db );
-            temp_ids[ e ] = eid;
-            return eid
-        }
+        console.log("creating new entity");
+        //const eid = DB.new_entity( db );
+        //temp_ids[ e ] = eid;
+        //return eid TODO
+        return e;
     }
 
     function addDatom( e, a, v )
     {
-        var attribute = getAttribute( db, a );
+        /*var attribute = getAttribute( db, a );
         var value     = normalizeValue( attribute, v );
 
         if( attribute.unique )
@@ -97,25 +101,30 @@ export async function processTxn( db, stmts )
         var card = K.key( attribute.cardinality );
         if( card === DA.cardinalityOne )
         {
-            /* TODO: add retract if there is an existing value */
+            /* TODO: add retract if there is an existing value * /
         }
         else if( card === DA.cardinalityMany )
         {
-            /* TODO: nothing??? */
+            /* TODO: nothing??? * /
         }
         else
         {
             throw new Error( "Invalid attribute cardinality " + card.str );
-        }
+        }*/
 
-        datoms.push( [ e, attribute, value ] );
+        //datoms.push( [ e, attribute, value ] );
+        datoms.push([e,a,v]);
     }
 
     function processStmt( stmt, i ) {
+        console.log("processing statement");
         if( Array.isArray( stmt ) )
         {
             var kind = K.key( stmt[ 0 ] );
-            if( stmt[ 0 ] === addK ) {
+            console.log("Kind", kind);
+            if( K.compare(kind, addK) === 0 ) {
+                console.log("Adding datom", stmt[1], stmt[2], stmt[3]);
+                console.log("entity id", getEntityId(stmt[1]));
                 addDatom( getEntityId( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
             }
             else if( stmt[ 0 ] === retractK ) {
@@ -159,10 +168,11 @@ export async function processTxn( db, stmts )
     }
 
     try {
-        db.txns.forEach( processStmt );
+        stmts.forEach( processStmt );
     }
     catch( err ) {
     }
+    console.log("datoms", datoms);
 }
 
 

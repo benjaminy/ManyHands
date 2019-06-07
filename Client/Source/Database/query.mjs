@@ -9,6 +9,8 @@ import * as K  from "../Utilities/keyword.mjs";
 import * as S  from "../Utilities/set.mjs";
 import * as DA from "./attribute.mjs";
 
+import transit from "transit-js";
+
 export const findK  = K.key( ":find" );
 export const withK  = K.key( ":with" );
 export const inK    = K.key( ":in" );
@@ -28,7 +30,7 @@ const constant_tags     = new Set( [ type_keyword_tag, type_number_tag ] );
 const var_const_under_tags =
       S.union( new Set( [ variable_tag ] ), new Set( [ variable_tag ] ), constant_tags );
 
-const attrQuery = parseQuery( [
+export const attrQuery = parseQuery( [
     findK, [ "?vtype", "?card", "?doc", "?uniq", "?idx", "?ftxt", "?isComp", "?noHist" ],
     inK, "$", "?ident",
     whereK, [ "?attr", DA.identK,       "?ident" ],
@@ -336,11 +338,13 @@ function is_compatible( query_const, datom_value )
     return query_const.val === datom_value;
 }
 
-export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (database + :in clause)
+export async function runQuery( db, q, ...ins )
 {
     const vars = [];
 
-    if( q.find.tag === find_rel_tag )
+    //console.log(q);
+
+    if( q.find.tag === find_rel_tag || q.find.tag === find_tuple_tag )
     {
         q.find.elems.forEach( ( elem ) => {
             if( elem.tag === variable_tag )
@@ -361,7 +365,19 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
     const bindingSet = new Set();
     const joins = new Set();
 
-    // TODO if( q.in.tag ===  )
+    const inParams = {};
+
+    let i = 0;
+    q.in.forEach(q_in => {
+        if(q_in.tag === src_var_tag){
+            // TODO: allow several sources. right now we just use the db variable for everything
+        } else if(q_in.tag === variable_tag){
+            if(ins.length <= i){
+                throw Error(`Not enough variables provided (provided: ${ins.length})`);
+            }
+            inParams[q_in.name] = ins[i++];
+        }
+    });
 
     if( q.where.tag === where_clauses_tag )
     {
@@ -369,7 +385,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
         const whereResults = [];
         for( let i = 0; i < clauses.length; i++ )
         {
-            //console.log("CLAUSES:", clauses);
+            //console.log("CLAUSES:", JSON.stringify(clauses));
             const clause = clauses[ i ].tuple;
 
             //console.log("CLAUSE :", clause);
@@ -424,21 +440,30 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                 bindings[revoked.name] = 'revoked';
             }
 
+            const get_constant = function(field){
+                if(constant_tags.has(field.tag)){
+                    return field.val;
+                } else if(field.tag === variable_tag && field.name in inParams){
+                    return inParams[field.name];
+                }
+                return undefined;
+            };
+
             //L.debug("Binding Set:", bindingSet);
             //L.debug("Joins:", joins);
 
             // is the tag for each field a constant? if so, it means we're "searching by" this field,
             // and we will pass this q object into our database to retrieve applicable datoms.
-            const q = {
-                entity: constant_tags.has(entity.tag) ? entity.val : undefined,
-                attribute: constant_tags.has(attribute.tag) ? attribute.val : undefined,
-                value: constant_tags.has(value.tag) ? value.val : undefined,
-                timestamp: constant_tags.has(timestamp.tag) ? timestamp.val : undefined,
-                revoked: constant_tags.has(revoked.tag) ? revoked.val : undefined
+            const in_query = {
+                entity: get_constant(entity),
+                attribute: get_constant(attribute),
+                value: get_constant(value),
+                timestamp: get_constant(timestamp),
+                revoked: get_constant(revoked)
             };
 
             // retrieve a set of datoms through the DB's efficient indexing and searching capabilities
-            const resultSet = db.find(q);
+            const resultSet = db.find(in_query);
             whereResults.push({bindings: bindings, results: resultSet});
         }
 
@@ -569,7 +594,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
             // now we have all of our data collected and organized by their bindings-- build the final result set!
 
             const queryResults = [];
-            //console.log("FINAL:", final);
+            console.log("FINAL:", final);
 
             const compatible = function(a, o, connected){
                 let comp = true;
@@ -673,6 +698,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
                 vars.forEach((v) => {
                     result.push(obj[v]);
                     if(!(v in obj)){
+                        console.log("incomplete", v, obj);
                         incomplete = true;
                     }
                 });
