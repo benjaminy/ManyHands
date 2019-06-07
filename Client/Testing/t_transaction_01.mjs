@@ -10,10 +10,18 @@ import * as DC from "../Source/Database/common.mjs";
 import SM      from "../Source/Storage/in_memory.mjs";
 import * as SW from "../Source/Storage/wrappers.mjs";
 
+import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs";
+
 // // [ DT.addK, "bob", ":age", 42 ]
 
-async function main()
-{
+async function main() {
+    return Promise.all([
+        test_01_instantiate(),
+        test_02_add_datom()
+    ]);
+}
+
+async function test_01_instantiate(){
     const raw_storage = SM( { path_prefix: [ "bob", "misc" ] } );
     const storage = SW.authedPrivateWrapper( {}, raw_storage );
     const db = DB.newDB( storage );
@@ -30,8 +38,17 @@ async function main()
 // //     //db.add
 }
 
-main().then(() => {
+async function test_02_add_datom(){
+    const raw_storage = init_simple_dict();
 
+    const db = DB.newDB(raw_storage);
+
+    const transaction = [ DT.addK, "bob", ":age", 42 ];
+
+    db.commitTxn(db, [transaction]);
+}
+
+main().then(() => {
     console.log("Reached end of t_transaction_01.mjs");
 }, err => {
     console.error(err);
