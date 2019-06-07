@@ -4,18 +4,18 @@
  * File Comment
  */
 
-import assert from "assert";
-import T from "transit-js";
-import * as UM from "../Utilities/misc";
+import assert  from "assert";
+import T       from "transit-js";
+import * as UM from "../Utilities/misc.mjs";
 
-const plain_data_tag = Symbol ...;
-const mem_cache_tag = Symbol ...;
-const links_tag = Symbol ...;
-
-const tree_node_tag = Symbol ...;
-const dirty_tag = Symbol ...;
-const timestamp_tag = Symbol ...;
-const storage_tag = Symbol ...;
+const tree_node_tag   = T.symbol( "tree node" );
+const plain_data_tag  = T.symbol( "plain data" );
+const mem_cache_tag   = T.symbol( "memory cache" );
+const local_cache_tag = T.symbol( "local store cache" );
+// const links_tag      = Symbol ...;
+const dirty_tag       = T.symbol( "dirty" );
+const timestamp_tag   = T.symbol( "timestamp" );
+// const storage_tag = Symbol ...;
 
 const localPersistentDB = {};
 
@@ -58,7 +58,7 @@ function isValidTransitMapKey( thing )
 
 /* Nodes always have all their plain data values.  No laziness here. */
 
-/* public */ function getValue( node, key )
+export function getValue( node, key )
 {
     assert( isTreeNode( node ) );
     assert( isValidTransitMapKey( key ) );
@@ -67,7 +67,7 @@ function isValidTransitMapKey( thing )
 }
 
 /* WARNING: Must only be used read-only */
-/* public */ function getValues( node )
+export function getValues( node )
 {
     assert( isTreeNode( node ) );
 
@@ -75,7 +75,7 @@ function isValidTransitMapKey( thing )
 }
 
 /* NOTE: Returns a new node because of copy-on-first-write */
-/* public */ function setValue( node, key, value )
+export function setValue( node, key, value )
 {
     assert( isTreeNode( node ) );
     assert( isValidTransitMapKey( key ) );
@@ -87,7 +87,7 @@ function isValidTransitMapKey( thing )
 }
 
 /* NOTE: Returns a new node because of copy-on-first-write */
-/* public */ function deleteValue( node, key )
+export function deleteValue( node, key )
 {
     assert( isTreeNode( node ) );
     assert( isValidTransitMapKey( key ) );
@@ -99,7 +99,7 @@ function isValidTransitMapKey( thing )
 
 /* End plain old data part.  Begin tree children part */
 
-/* public */ function isChildInMemCache( node, key )
+export function isChildInMemCache( node, key )
 {
     assert( isTreeNode( node ) );
     assert( isValidTransitMapKey( key ) );
@@ -107,7 +107,7 @@ function isValidTransitMapKey( thing )
     return node[ mem_cache_tag ].has( key );
 }
 
-/* public */ function isChildInLocalCache( node, key )
+export function isChildInLocalCache( node, key )
 {
     assert( isTreeNode( node ) );
     assert( isValidTransitMapKey( key ) );
@@ -115,39 +115,39 @@ function isValidTransitMapKey( thing )
     return node[ local_cache_tag ].has( key );
 }
 
-/* private */ function dehydrate( node )
-{
-    d = T.map();
-    d.set( "p", node[ plain_data_tag ] );
-    d.set( "b", node[ blank_timestamp_tag ] );
-    d.set( "c", {} );
-    const links = node[ links_tag ];
-    const storage = node[ storage ];
-    for( [ key, link ] in links )
-    {
-        d.c.set( key, storage.dehydrateLink( link ) );
-    }
-    return d;
-}
+// /* private */ function dehydrate( node )
+// {
+//     d = T.map();
+//     d.set( "p", node[ plain_data_tag ] );
+//     d.set( "b", node[ blank_timestamp_tag ] );
+//     d.set( "c", {} );
+//     const links = node[ links_tag ];
+//     const storage = node[ storage ];
+//     for( [ key, link ] in links )
+//     {
+//         d.c.set( key, storage.dehydrateLink( link ) );
+//     }
+//     return d;
+// }
 
 /* private */ function rehydrate( parent, link, dehydrated, storage_cb )
 {
-    const pstorage = parent[ storage_tag ];
-    const cstorage = storage_cb ? storage_cb( pstorage ) : pstorage;
+    // const pstorage = parent[ storage_tag ];
+    // const cstorage = storage_cb ? storage_cb( pstorage ) : pstorage;
     const c = {};
     c[ tree_node_tag ]       = null;
-    c[ plain_data_tag ]      = dehydrated.p;
-    c[ blank_timestamp_tag ] = dehydrated.b;
+    c[ plain_data_tag ]      = dehydrated.get( "p" );
+    // c[ blank_timestamp_tag ] = dehydrated.b;
     const links = {};
     for( name in dehydrated.c )
     {
         links[ name ] = cstorage.rehydrateLink(
             parent, name, dehydrated.c[ name ] );
     }
-    c[ links_tag ]        = links;
-    c[ mem_cache_tag ]   = { has: () => false };
+    // c[ links_tag ]        = links;
+    c[ mem_cache_tag ]   = T.map();
     c[ local_cache_tag ] = { has: () => false };
-    c[ storage_tag ]     = cstorage;
+    // c[ storage_tag ]     = cstorage;
 
     if( "timestamp" in link )
     {
@@ -158,73 +158,76 @@ function isValidTransitMapKey( thing )
         c[ timestamp_tag ] = parent[ timestamp_tag ];
     }
 
+    c.toString = nodeToString;
     return c;
 }
 
-/* public */ async function getChild( parent, key )
-{
-    assert( isTreeNode( parent ) );
-    assert( isString( child_name ) );
+// /* public */ async function getChild( parent, key )
+// {
+//     assert( isTreeNode( parent ) );
+//     assert( isString( child_name ) );
 
-    const mem_cache = parent[ mem_cache_tag ];
-    if( mem_cache.has( child_name ) )
-    {
-        /* reminder: update cache timestamp */
-        return mem_cache.get( child_name )
-    }
+//     const mem_cache = parent[ mem_cache_tag ];
+//     if( mem_cache.has( child_name ) )
+//     {
+//         /* reminder: update cache timestamp */
+//         return mem_cache.get( child_name )
+//     }
 
-    if( !( child_name in parent[ links_tag ] ) )
-    {
-        throw new Error( "No child in node with name: " + child_name );
-    }
+//     if( !( child_name in parent[ links_tag ] ) )
+//     {
+//         throw new Error( "No child in node with name: " + child_name );
+//     }
 
-    const link = parent[ links_tag ][ child_name ];
-    // necessary? exposed outside lib? ... assert( links_tag in link );
+//     const link = parent[ links_tag ][ child_name ];
+//     // necessary? exposed outside lib? ... assert( links_tag in link );
 
-    const local_cache = parent[ local_cache_tag ];
-    if( await local_cache_cache.has( link.path ) )
-    {
-        /* reminder: update cache timestamp */
-        var dehydrated_child = await local_cache.get( link.path );
-    }
-    else
-    {
-        /* The Promise returned by download will reject, if network error */
-        const resp = await parent[ storage_tag ].download( child_link );
-        if( !resp.ok )
-        {
-            throw new Error( [ "Download failed", resp ] );
-        }
+//     const local_cache = parent[ local_cache_tag ];
+//     if( await local_cache_cache.has( link.path ) )
+//     {
+//         /* reminder: update cache timestamp */
+//         var dehydrated_child = await local_cache.get( link.path );
+//     }
+//     else
+//     {
+//         /* The Promise returned by download will reject, if network error */
+//         const resp = await parent[ storage_tag ].download( child_link );
+//         if( !resp.ok )
+//         {
+//             throw new Error( [ "Download failed", resp ] );
+//         }
 
-        var dehydrated_child = await resp.transit();
-        local_cache.insert( link, dehydrated_child );
-    }
+//         var dehydrated_child = await resp.transit();
+//         local_cache.insert( link, dehydrated_child );
+//     }
 
-    const child = rehydrate( parent, dehydrated_child, link );
-    mem_cache.insert( child_name, child );
-    return child;
-}
+//     const child = rehydrate( parent, dehydrated_child, link );
+//     mem_cache.insert( child_name, child );
+//     return child;
+// }
 
-function addToSet( obj, field, item )
-{
-    if( !( field in obj ) )
-    {
-        obj[ field ] = new Set();
-    }
-    obj[ field ].add( item );
-}
+// function addToSet( obj, field, item )
+// {
+//     if( !( field in obj ) )
+//     {
+//         obj[ field ] = new Set();
+//     }
+//     obj[ field ].add( item );
+// }
 
-/* public */ function deleteChild( parent, key )
+/* NOTE: It is the client code's responsibility to either save or delete
+ * all of child's children.  Otherwise they will become garbage. */
+export function deleteChild( parent, key )
 {
     assert( isTreeNode( parent ) );
     assert( isValidTransitMapKey( key ) );
 
-    if( !( ( key in parent[ links_tag ] ||
+    if( !( ( /*key in parent[ links_tag ] ||*/
              parent[ mem_cache_tag ].has( key ) ) ) )
     {
         throw new Error( "No child with name " + key );
     }
-    else if( !( key in parent[ links_tag ] ) )
+    else if( true /* !( key in parent[ links_tag ] ) */ )
     {
         /* mem cache kinda complicated ... */
         assert( dirty_tag in parent );
@@ -258,101 +261,115 @@ function addToSet( obj, field, item )
     assert( isValidTransitMapKey( key ) );
 
     parent = touchNode( parent );
-    if( parent[ links_tag ].has( child_name )
-        || parent[ mem_cache_tag ].has( child_name ) )
+    if( /*parent[ links_tag ].has( child_name )
+        ||*/ parent[ mem_cache_tag ].has( key ) )
     {
         parent = removeChild( parent, child_name );
     }
-    parent[ dirty_tag ].add( child_name );
-    parent[ mem_cache_tag ].set( child_name, child );
+    parent[ dirty_tag ].add( key );
+    parent[ mem_cache_tag ].set( key, child );
     return parent;
 }
 
-/* public */ function newChild( parent, key, storage_cb )
+export function newChild( parent, key, storage_cb )
 {
     assert( isTreeNode( parent ) );
     assert( isValidTransitMapKey( key ) );
 
-    const child = rehydrate( parent, {}, {} );
-    const pstorage = parent[ storage_tag ];
-    const child = touchNode( {} );
-    child[ plain_data_tag ] = {};
-    child[ links_tag ] = {};
-    return [ setChild( node, child_name, child, storage_options ), child ];
+    const dehydrated = T.map();
+    dehydrated.set( "p", T.map() );
+    const child = touchNode( rehydrate( parent, {}, dehydrated ) );
+    // const pstorage = parent[ storage_tag ];
+    return [ setChild( parent, key, child ), child ];
 }
 
-/* private */ async function writeNode( node )
+// /* private */ async function writeNode( node )
+// {
+//     if( !( dirty_tag in node ) )
+//     {
+//         return node;
+//     }
+//     const old_blanks = node[ blank_timsetamps_tag ];
+//     const links = node[ links_tag ];
+//     for( const child_name in node[ dirty_tag ] )
+//     {
+//         const [ child_link, garbage_nodes ] =
+//               writeNode( getChild( node, child_name ) );
+//         blank_timestamps.delete( child_name );
+//     }
+//     for( const child_name in blank_timestamps )
+//     {
+//         links[ child_name ].timestamp = node.timestamp;
+//     }
+//     const new_node = object.assign( {}, node );
+//     const node_to_write = {};
+//     node_to_write.p = node[ plain_data_tag ];
+//     node_to_write.c = ;
+    
+// }
+
+// async function writeTree( root )
+// {
+//     if( !( dirty_tag in root ) )
+//     {
+//         return;
+//     }
+//     const dirty_children = root[ dirty_tag ];
+//     const timetamps_to_update = root[ blank_timsetamps_tag ];
+//     for( child_name in dirty_children )
+//     {
+//         const child_fp = writeChild( root, child_name );
+//         root[ child_name ] = child_fp;
+//         timestamps_to_update.delete( child_name );
+//     }
+//     root[ blank_timsetamps_tag ] = dirty_children;
+//     for( child_name in timestamps_to_update )
+//     {
+//         root[ child_name ].timestamp = 
+//     }
+//     const root_ser = serialzeRoot( root );
+//     // TODO: Local storage save
+//     const resp = root.upload( "ROOT", root_ser );
+//     if( !resp.ok )
+//     {
+//         throw new Error( "upload failed" );
+//     }
+//     delete root[ dirty_tag ];
+// }
+
+
+
+// async function openRoot( storage, path )
+// {
+//     const root = {};
+//     root[ storage_tag ] = storage;
+// }
+
+/* public */ function nodeToString()
 {
-    if( !( dirty_tag in node ) )
-    {
-        return node;
-    }
-    const old_blanks = node[ blank_timsetamps_tag ];
-    const links = node[ links_tag ];
-    for( const child_name in node[ dirty_tag ] )
-    {
-        const [ child_link, garbage_nodes ] =
-              writeNode( getChild( node, child_name ) );
-        blank_timestamps.delete( child_name );
-    }
-    for( const child_name in blank_timestamps )
-    {
-        links[ child_name ].timestamp = node.timestamp;
-    }
-    const new_node = object.assign( {}, node );
-    const node_to_write = {};
-    node_to_write.p = node[ plain_data_tag ];
-    node_to_write.c = ;
+    assert( isTreeNode( this ) );
+    return "plain data: " + this[ plain_data_tag ].toString()
+        + " children: " + this[ mem_cache_tag ].toString();
     
 }
 
-async function writeTree( root )
+export function newRoot( plain_storage_stack, path )
 {
-    if( !( dirty_tag in root ) )
-    {
-        return;
-    }
-    const dirty_children = root[ dirty_tag ];
-    const timetamps_to_update = root[ blank_timsetamps_tag ];
-    for( child_name in dirty_children )
-    {
-        const child_fp = writeChild( root, child_name );
-        root[ child_name ] = child_fp;
-        timestamps_to_update.delete( child_name );
-    }
-    root[ blank_timsetamps_tag ] = dirty_children;
-    for( child_name in timestamps_to_update )
-    {
-        root[ child_name ].timestamp = 
-    }
-    const root_ser = serialzeRoot( root );
-    // TODO: Local storage save
-    const resp = root.upload( "ROOT", root_ser );
-    if( !resp.ok )
-    {
-        throw new Error( "upload failed" );
-    }
-    delete root[ dirty_tag ];
+    const dehydrated = T.map();
+    dehydrated.set( "p", T.map() );
+    const root = touchNode( rehydrate( {}, {}, dehydrated ) );
+    // root[ tree_node_tag ]   = null;
+    // root[ plain_data_tag ]  = ;
+    // root[ mem_cache_tag ]   = T.map();
+    // root[ local_cache_tag ] = { has: () => false };
+    // root.toString = nodeToString;
+    return root;
+// //     const stores = {}
+// //     root[ storage_tag ] = stores
+// //     stores.plain = plain_storage_stack;
+// //     stores.noOverwrite = plain_storage_stack.copy().pushDataBlobPhase( noOverwriteWrapper );
+// //     stores.root        = plain_storage_stack.copy().pushDataBlobPhase( atomicUpdateWrapper );
+// //     stores.node        = plain_storage_stack.copy().pushDataBlobPhase( randomNameWrapper );
+// //     const file_path = {}
+// //     const resp = storage.upload( path, { body: {} } )
 }
-
-
-
-async function openRoot( storage, path )
-{
-    const root = {};
-    root[ storage_tag ] = storage;
-}
-
-// /* The plain storage stack should have at least a network phase and an object encoding phase. */
-// async function newRoot( plain_storage_stack, path )
-// {
-//     const root = {};
-//     const stores = {}
-//     root[ storage_tag ] = stores
-//     stores.plain = plain_storage_stack;
-//     stores.noOverwrite = plain_storage_stack.copy().pushDataBlobPhase( noOverwriteWrapper );
-//     stores.root        = plain_storage_stack.copy().pushDataBlobPhase( atomicUpdateWrapper );
-//     stores.node        = plain_storage_stack.copy().pushDataBlobPhase( randomNameWrapper );
-//     const file_path = {}
-//     const resp = storage.upload( path, { body: {} } )
-// }
