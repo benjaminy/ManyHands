@@ -16,7 +16,7 @@ import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs";
 
 async function main() {
     return Promise.all([
-        test_01_instantiate(),
+        //test_01_instantiate(),
         test_02_add_datom()
     ]);
 }
@@ -43,9 +43,9 @@ async function test_02_add_datom(){
 
     const db = DB.newDB(raw_storage);
 
-    const transaction = [ DT.addK, "bob", ":age", 42 ];
+    const statement = [ DT.addK, "bob", ":age", 42 ];
 
-    db.commitTxn(db, [transaction]);
+    db.commitTxn(db, [statement]);
 }
 
 main().then(() => {

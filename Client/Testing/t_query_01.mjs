@@ -64,13 +64,13 @@ async function main(){
         test_03_double_where(),
         test_04_double_condition(),
         test_05_references(),
-        test_06_double_reference(),
+        test_06_double_reference(),*/
         test_07_many_hops(),
-        test_08_fanout(),
+        /*test_08_fanout(),
         test_09_fanout_many(),
         test_10_simpler_fanout(),
-        test_11_visualization(),*/
-        test_12_attribute_query()
+        test_11_visualization(),
+        test_12_attribute_query()*/
     ]);
 }
 /*

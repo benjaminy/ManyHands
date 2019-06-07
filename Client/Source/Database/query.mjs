@@ -370,11 +370,12 @@ export async function runQuery( db, q, ...ins )
     q.in.forEach(q_in => {
         if(q_in.tag === src_var_tag){
             // TODO: allow several sources. right now we just use the db variable for everything
+            // this won't actually be very difficult to do, eventually!
         } else if(q_in.tag === variable_tag){
             if(ins.length <= i){
                 throw Error(`Not enough variables provided (provided: ${ins.length})`);
             }
-            inParams[q_in.name] = ins[i++];
+            inParams.set(q_in.name, ins[i++]); // post-incrementation
         }
     });
 
@@ -398,61 +399,37 @@ export async function runQuery( db, q, ...ins )
             const bindings = {};
             // we build a map so we can get from the binding name to the field it represents
             // within a datom; for example, datom[bindings["?entitybound"]] === datom.entity
-            if(entity.tag === variable_tag) {
-                if(bindingSet.has(entity.name)){
-                    joins.add(entity.name);
-                } else {
-                    bindingSet.add(entity.name);
+
+            const setBindingsAndJoins = function(field, fieldName){
+                if(field.tag === variable_tag) {
+                    if(bindingSet.has(field.name)){
+                        joins.add(field.name);
+                    } else {
+                        bindingSet.add(field.name);
+                    }
+                    bindings[field.name] = fieldName;
                 }
-                bindings[entity.name] = 'entity';
-            }
-            if(attribute.tag === variable_tag) {
-                if(bindingSet.has(attribute.name)){
-                    joins.add(attribute.name);
-                } else {
-                    bindingSet.add(attribute.name);
-                }
-                bindings[attribute.name] = 'attribute';
-            }
-            if(value.tag === variable_tag) {
-                if(bindingSet.has(value.name)){
-                    joins.add(value.name);
-                } else {
-                    bindingSet.add(value.name);
-                }
-                bindings[value.name] = 'value';
-            }
-            if(timestamp.tag === variable_tag) {
-                if(bindingSet.has(timestamp.name)){
-                    joins.add(timestamp.name);
-                } else {
-                    bindingSet.add(timestamp.name);
-                }
-                bindings[timestamp.name] = 'timestamp';
-            }
-            if(revoked.tag === variable_tag) {
-                if(bindingSet.has(revoked.name)){
-                    joins.add(revoked.name);
-                } else {
-                    bindingSet.add(revoked.name);
-                }
-                bindings[revoked.name] = 'revoked';
-            }
+            };
+
+            setBindingsAndJoins(entity, "entity");
+            setBindingsAndJoins(attribute, "attribute");
+            setBindingsAndJoins(value, "value");
+            setBindingsAndJoins(timestamp, "timestamp");
+            setBindingsAndJoins(revoked, "revoked");
 
             const get_constant = function(field){
                 if(constant_tags.has(field.tag)){
                     return field.val;
-                } else if(field.tag === variable_tag && field.name in inParams){
-                    return inParams[field.name];
+                } else if(field.tag === variable_tag && inParams.has(field.name)){
+                    return inParams.get(field.name);
                 }
                 return undefined;
             };
 
-            //L.debug("Binding Set:", bindingSet);
-            //L.debug("Joins:", joins);
+            // in_query looks like a map from the name of the field to the constant specified.
+            // for example, if you search [1 :is ?hello], this will be {entity: 1, attribute: :is}
+            // and a search will be done on the specified fields.
 
-            // is the tag for each field a constant? if so, it means we're "searching by" this field,
-            // and we will pass this q object into our database to retrieve applicable datoms.
             const in_query = {
                 entity: get_constant(entity),
                 attribute: get_constant(attribute),
@@ -463,12 +440,12 @@ export async function runQuery( db, q, ...ins )
 
             // retrieve a set of datoms through the DB's efficient indexing and searching capabilities
             const resultSet = db.find(in_query);
+
+            // bindings keeps track of the names of variables, and the field they refer to
             whereResults.push({bindings: bindings, results: resultSet});
         }
 
-        // Now process the whereResults into an actual result set
         const results = [];
-        //L.debug("Where results: ", JSON.stringify(whereResults));
 
         if(whereResults.length === 1) {
             const res = whereResults[0];
@@ -485,59 +462,39 @@ export async function runQuery( db, q, ...ins )
         } else {
             const final = transit.map();
 
-            //console.log("WHERE RESULTS", whereResults);
-            //console.log("VARS:", vars);
-
             const joinResults = {};
 
             joins.forEach(join => {
                 let joinIntersection = null;
                 whereResults.forEach(singleResult => {
-                    //console.log("loop", join, singleResult.bindings);
                     if(!(join in singleResult.bindings)){
                         return; // continue loop
                     }
                     const singleSet = new Set();
                     singleResult.results.forEach(res => {
-                        //console.log("asdfasdfs", res, singleResult, join);
                         singleSet.add(res[singleResult.bindings[join]])
                     });
-                    //console.log("singleset", singleSet);
                     if(joinIntersection === null) {
                         joinIntersection = singleSet;
                     } else {
                         joinIntersection = new Set([...singleSet].filter(x => joinIntersection.has(x)));
                     }
                 });
-
-                //console.log("join intersection", join, joinIntersection);
-
                 joinResults[join] = joinIntersection;
-
-                //console.log("JOIN INTERSECTION", joinIntersection);
             });
 
             // now, for every intersection made, delete any non-matching results
-
-            //console.log("whereresults before filter", whereResults);
 
             whereResults.forEach(singleResult => {
                 Object.keys(joinResults).forEach(res => {
                     if(res in singleResult.bindings){
                         // joinResults[res] // is a list of acceptable values to not filter out
                         singleResult.results = singleResult.results.filter(x => {
-                            //console.log("adfadsfads", singleResult, joinResults[res]);
-                            //console.log("aaaaaa", x[singleResult.bindings[res]]);
                             return joinResults[res].has(x[singleResult.bindings[res]]);
-                            /*console.log("whereResults", whereResults);
-                            console.log("res", res);
-                            console.log("single", singleResult);*/
                         });
                     }
                 });
             });
-
-            //console.log("Whereresults after filter:", JSON.stringify(whereResults), vars);
 
             whereResults.forEach(({bindings, results}) => {
                 results.forEach(result => {
@@ -548,52 +505,24 @@ export async function runQuery( db, q, ...ins )
                             cat[j] = val;
                         }
                     });
-
-                    //console.log("cat", cat);
                     const idx = cat;
-
-                    //const current_entity = result[bindings[join]];
                     if (!final.has(idx)) {
                         final.set(idx, []);
                     }
-
-                    //console.log("result to build rs:", idx, bindings, results, result);
-
                     const rs = {};
 
                     vars.forEach(returned => {
-                        //console.log("result: ", result, bindings, returned, joins);
                         if(returned in bindings) {
 
                             rs[returned] = result[bindings[returned]];
-
-                            //console.log(`Piece of data we're adding: ${result[bindings[returned]]} ${JSON.stringify(final)} ${idx} ${returned}`);;
-
                         }
                     });
-                    //console.log("some stuff:", vars, final, final[idx], rs);
-
-                    /*
-                    console.log("some stuff:", vars, final, final[idx], rs);
-                    let merged = false;
-                    final[idx].forEach(attempt => {
-                        if(noConflict(attempt, rs)){
-                            merged = true;
-                            for(let i in rs){
-                                attempt[i] = rs
-                            }
-                        }
-                    });
-                     */
 
                     final.get(idx).push(rs);
                 });
             });
 
-            // now we have all of our data collected and organized by their bindings-- build the final result set!
-
             const queryResults = [];
-            //console.log("FINAL:", final);
 
             const compatible = function(a, o, connected){
                 let comp = true;
@@ -613,31 +542,21 @@ export async function runQuery( db, q, ...ins )
 
             const pair = function(running, start, final, ...prev){
 
-                //console.log("arguments", running, start, final, prev, "end arguemntns");
-
                 const results = [];
-
-                //console.log("FS", final, start);
-
-                //console.log("fs", running, start, final);
 
                 final.get(start).forEach(n => {
 
-                    //console.log(final, start);
                     const keys = Object.assign({}, n);
                     final.forEach((v, k) => {
+                        console.log("kv", k, v);
                         v.forEach(o => {
                             if (k === start || prev.indexOf(k) !== -1) {
                                 return;
                             }
-                            //console.log("ADFSJADFKHDSIFKADSI", running, JSON.parse(k));
                             if (compatible(running, k, true)) {
-                                //if (log) console.log(running, o);
-                                //console.log(`recursing on ${JSON.stringify(o)}, start ${start}. prev is ${prev}`);
                                 const pairings = pair({...k, ...running}, k, final, start, ...prev);
                                 pairings.forEach(pair => {
                                     for(let x in pair) {
-                                        //console.log("recursive pairing", x, pairings, final, o, x, keys);
                                         keys[x] = pair[x];
                                     }
                                 });
@@ -647,7 +566,6 @@ export async function runQuery( db, q, ...ins )
                     });
                     results.push(keys);
                 });
-                //console.log("A results", results);
 
                 // one last step: check all the combinations for merges/conflicts and return a final list
                 const collected = [];
@@ -667,23 +585,18 @@ export async function runQuery( db, q, ...ins )
                     collected.push(running_res);
                 }
 
-                //console.log("COLLECTED", collected);
-
                 return collected;
             };
+
 
             const rs = transit.set();
 
             final.forEach((v, k) => {
-                //console.log("i is", i);
                 const pairings = pair(k, k, final);
-                //console.log("pairing: ", pairings);
                 pairings.forEach(pair => {
                     rs.add(pair);
                 });
             });
-
-            //console.log("RSFIAL", rs, final);
 
             rs.forEach(entity => {
                 const result = [];
