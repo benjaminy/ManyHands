@@ -134,7 +134,22 @@ async function test_12_attribute_query(){
     });
 
     const r = await Q.runQuery(db, q, ":likes");
-    console.log("r12", r);
+    const expected = [
+        A.vtypeRef,
+        A.cardinalityMany,
+        'hor de door',
+        null,
+        false,
+        false,
+        false,
+        false
+    ];
+
+    assert(r.length === 1, `Length of result set is incorrect (expected 1, found ${r.length}`);
+    for(let i = 0; i < expected.length; i++){
+        assert(expected[i] === r[0][i], "A value was mismatched or wrong");
+        //+ ` (expected ${expected[i]}, found ${r[0][i]})`);
+    }
 }
 
 async function test_10_simpler_fanout(){
