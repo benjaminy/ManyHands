@@ -1,14 +1,14 @@
 /* Top Matter */
 
 import Path from "path";
-import assert  from "../Source/Utilities/assert";
-import * as K  from "../Source/Utilities/keyword";
-import * as DA from "../Source/Database/attribute";
-import * as DT from "../Source/Database/transaction";
-import * as DB from "../Source/Database/simple_txn_chain";
-import * as DC from "../Source/Database/common";
-import SM      from "../Source/Storage/in_memory";
-import * as SW from "../Source/Storage/wrappers";
+import assert  from "../Source/Utilities/assert.mjs";
+import * as K  from "../Source/Utilities/keyword.mjs";
+import * as DA from "../Source/Database/attribute.mjs";
+import * as DT from "../Source/Database/transaction.mjs";
+import * as DB from "../Source/Database/simple_txn_chain.mjs";
+import * as DC from "../Source/Database/common.mjs";
+import SM      from "../Source/Storage/in_memory.mjs";
+import * as SW from "../Source/Storage/wrappers.mjs";
 
 // // [ DT.addK, "bob", ":age", 42 ]
 
@@ -30,6 +30,9 @@ async function main()
 // //     //db.add
 }
 
-main();
+main().then(() => {
 
-console.log( "Reached end of t_transaction_01.mjs" );
+    console.log("Reached end of t_transaction_01.mjs");
+}, err => {
+    console.error(err);
+});

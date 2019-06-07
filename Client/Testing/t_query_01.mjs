@@ -559,28 +559,29 @@ async function timing(){
 }
 
 async function timing_test_01_just_records(){
-    let size = 10;
+    let size = 11;
     let timing = 0;
     const results = {};
     const attr = K.key(":assoc");
     const q = Q.parseQuery([Q.findK, "?entity", "?value",
         Q.whereK, ["?entity", attr, "?value"]]);
-    while(timing < 10000){
-        const db = init_simple_dict();
+    while(timing < 2000){
+        const rlist = [];
         for(let i = 0; i < size; i++){
-            db.add({
+            rlist.push({
                 entity: 1,
                 attribute: attr,
                 value: 1
             });
         }
+        const db = init_simple_dict(rlist);
         let start = (new Date()).getTime();
         const r = await Q.runQuery(db, q);
         let end = (new Date()).getTime();
         timing = end - start;
         console.log(end, start);
         results[size] = timing;
-        size += 50;
+        size *= 2;
         console.log("Completed one test: ", size, timing)
     }
     console.log(results);
