@@ -3,6 +3,7 @@
 import assert  from "../Source/Utilities/assert.mjs";
 import * as K  from "../Source/Utilities/keyword.mjs";
 import * as Q  from "../Source/Database/query.mjs";
+import * as A from "../Source/Database/attribute.mjs"
 import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs"
 
 const age   = K.key( ":age" );
@@ -58,7 +59,7 @@ db.add({
 
 async function main(){
     return Promise.all([
-        test_01_single_select(),
+        /*test_01_single_select(),
         test_02_double_select(),
         test_03_double_where(),
         test_04_double_condition(),
@@ -67,12 +68,35 @@ async function main(){
         test_07_many_hops(),
         test_08_fanout(),
         test_09_fanout_many(),
-        simpler_fanout(),
-        visualization()
+        test_10_simpler_fanout(),
+        test_11_visualization(),*/
+        test_12_attribute_query()
     ]);
 }
+/*
+    whereK, [ "?attr", DA.identK,       "?ident" ],
+            [ "?attr", DA.valueTypeK,   "?vtype" ],
+            [ "?attr", DA.cardinalityK, "?card" ],
+            [ "?attr", DA.docK,         "?doc" ],
+            [ "?attr", DA.uniqueK,      "?uniq" ],
+            [ "?attr", DA.indexK,       "?idx" ],
+            [ "?attr", DA.fulltextK,    "?ftxt" ],
+            [ "?attr", DA.isComponentK, "?isComp" ],
+            [ "?attr", DA.noHistoryK,   "?noHist" ] ] );
+ */
+async function test_12_attribute_query(){
+    const q = Q.attrQuery;
+    const db = init_simple_dict();
+    db.add({
+        entity: 10,
+        attribute: A.identK,
+        value: ":likes"
+    });
+    const r = await Q.runQuery(db, q, ":likes");
+    console.log("r12", );
+}
 
-async function simpler_fanout(){
+async function test_10_simpler_fanout(){
     const aKey = K.key(":a");
     const bKey = K.key(":b");
     const cKey = K.key(":c");
@@ -161,7 +185,7 @@ async function simpler_fanout(){
 
 }
 
-async function visualization(){
+async function test_11_visualization(){
 
     const aKey = K.key(":a");
     const bKey = K.key(":b");

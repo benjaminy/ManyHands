@@ -28,7 +28,7 @@ const constant_tags     = new Set( [ type_keyword_tag, type_number_tag ] );
 const var_const_under_tags =
       S.union( new Set( [ variable_tag ] ), new Set( [ variable_tag ] ), constant_tags );
 
-const attrQuery = parseQuery( [
+export const attrQuery = parseQuery( [
     findK, [ "?vtype", "?card", "?doc", "?uniq", "?idx", "?ftxt", "?isComp", "?noHist" ],
     inK, "$", "?ident",
     whereK, [ "?attr", DA.identK,       "?ident" ],
@@ -340,7 +340,9 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
 {
     const vars = [];
 
-    if( q.find.tag === find_rel_tag )
+    //console.log(q);
+
+    if( q.find.tag === find_rel_tag || q.find.tag === find_tuple_tag )
     {
         q.find.elems.forEach( ( elem ) => {
             if( elem.tag === variable_tag )
@@ -363,11 +365,8 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
 
     const inParams = {};
 
-    console.log("IMPORTANT: IN TAG:", q);
-
     let i = 0;
     q.in.forEach(q_in => {
-        console.log(i);
         if(q_in.tag === src_var_tag){
             // TODO: allow several sources. right now we just use the db variable for everything
         } else if(q_in.tag === variable_tag){
@@ -384,7 +383,7 @@ export async function runQuery( db, q, ...ins ) // TODO ins: in-parameters (data
         const whereResults = [];
         for( let i = 0; i < clauses.length; i++ )
         {
-            console.log("CLAUSES:", JSON.stringify(clauses));
+            //console.log("CLAUSES:", JSON.stringify(clauses));
             const clause = clauses[ i ].tuple;
 
             //console.log("CLAUSE :", clause);
