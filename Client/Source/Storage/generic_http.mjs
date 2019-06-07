@@ -5,9 +5,10 @@
  */
 
 import assert  from "assert";
-import * as UM from "../Utilities/misc.mjs";
-import * as SC from "./common.mjs";
 import P       from "path";
+import * as UM from "../Utilities/misc.mjs";
+import * as CB from "../Crypto/basics.mjs";
+import * as SC from "./common.mjs";
 
 export const ETAG = Symbol( "ETag" );
 
@@ -36,7 +37,7 @@ export async function noOverwrite( headers, options, upload )
     return response;
 }
 
-export async function newName( headers, path, options, upload )
+export async function newName( headers, link_start, options, upload )
 {
     overwriteHeader( headers, "If-None-Match", "*" );
     const retry_limit = 5;
@@ -45,11 +46,12 @@ export async function newName( headers, path, options, upload )
     {
         const bytes = CB.getRandomBytes( DEFAULT_BYTES_PER_NAME );
         const name = UM.toHexString( bytes );
-        const full_path = path.append( name );
-        const [ response, link ] = await upload( full_path );
+        console.log( "FOO", link_start.path, typeof( link_start.path ) );
+        link_start.path = link_start.path.concat( name );
+        const [ response, link ] = await upload( link_start.path );
         if( response.ok )
         {
-            return [ response, Object.assign( {}, link, { path: full_path } ) ]
+            return [ response, Object.assign( {}, link, { path: link_start.path } ) ]
         }
         else if( response.status === 412 )
         {
@@ -124,7 +126,7 @@ export async function upload( link_start, value, options, coreUpload )
         }
         else if( cond_upload === SC.COND_NEW_NAME )
         {
-            return newName( headers, options, uploadThen );
+            return newName( headers, cryptoed_link, options, uploadThen );
         }
         else
         {
