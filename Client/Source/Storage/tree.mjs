@@ -5,6 +5,7 @@
  */
 
 import assert  from "assert";
+import L       from "level";
 import T       from "transit-js";
 import * as UM from "../Utilities/misc.mjs";
 
@@ -162,12 +163,24 @@ export function isChildInLocalCache( node, key )
     return c;
 }
 
-// /* public */ async function getChild( parent, key )
-// {
-//     assert( isTreeNode( parent ) );
-//     assert( isString( child_name ) );
+export async function getChild( parent, key )
+{
+    assert( isTreeNode( parent ) );
+    assert( isValidTransitMapKey( key ) );
 
-//     const mem_cache = parent[ mem_cache_tag ];
+    try {
+        return getFromMemCache( parent, key );
+    }
+    catch( err )
+    {
+        // if(  )
+    }
+    if( isChildInMemCache( parent, key ) )
+    {
+        return 
+    }
+    
+    
 //     if( mem_cache.has( child_name ) )
 //     {
 //         /* reminder: update cache timestamp */
@@ -204,7 +217,7 @@ export function isChildInLocalCache( node, key )
 //     const child = rehydrate( parent, dehydrated_child, link );
 //     mem_cache.insert( child_name, child );
 //     return child;
-// }
+}
 
 // function addToSet( obj, field, item )
 // {
@@ -350,7 +363,6 @@ export function newChild( parent, key, storage_cb )
     assert( isTreeNode( this ) );
     return "plain data: " + this[ plain_data_tag ].toString()
         + " children: " + this[ mem_cache_tag ].toString();
-    
 }
 
 export function newRoot( plain_storage_stack, path )
