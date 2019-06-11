@@ -45,7 +45,9 @@ async function test_02_add_datom(){
 
     const statement = [ DT.addK, "bob", ":age", 42 ];
 
-    db.commitTxn(db, [statement]);
+    const res = await db.commitTxn(db, [statement]);
+
+    console.log(res);
 }
 
 main().then(() => {

@@ -172,7 +172,7 @@ export async function processTxn( db, stmts )
     }
     catch( err ) {
     }
-    console.log("datoms", datoms);
+    return [datoms, "some entity information apparently"];
 }
 
 

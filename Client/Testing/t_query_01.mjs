@@ -59,7 +59,7 @@ db.add({
 
 async function main(){
     return Promise.all([
-        test_01_single_select(),
+        /*test_01_single_select(),
         test_02_double_select(),
         test_03_double_where(),
         test_04_double_condition(),
@@ -69,7 +69,7 @@ async function main(){
         test_08_fanout(),
         test_09_fanout_many(),
         test_10_simpler_fanout(),
-        test_11_visualization(),
+        test_11_visualization(),*/
         test_12_attribute_query()
     ]);
 }
