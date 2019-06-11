@@ -5,6 +5,7 @@
  */
 
 import assert   from "assert";
+import T        from "transit-js";
 import * as SC  from "../../Source/Storage/common.mjs";
 import SM       from "../../Source/Storage/in_memory.mjs";
 import * as ST  from "../../Source/Storage/tree.mjs";
@@ -12,7 +13,9 @@ import * as ST  from "../../Source/Storage/tree.mjs";
 async function main()
 {
     const in_mem_storage = SM();
-    const options = { [SC.PATH_PREFIX]: "demo_app" };
+    const options = T.map();
+    options.set( SC.PATH_PREFIX, [ "demo_app" ] );
+    options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
     var r = ST.newRoot( [ "root" ], in_mem_storage, options );
     /* r is initially dirty */
     ST.setValue( r, 42, 45 );

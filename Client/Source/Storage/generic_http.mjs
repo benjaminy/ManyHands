@@ -6,6 +6,7 @@
 
 import assert  from "assert";
 import P       from "path";
+import * as L  from "../Utilities/logging.mjs";
 import * as UM from "../Utilities/misc.mjs";
 import * as CB from "../Crypto/basics.mjs";
 import * as SC from "./common.mjs";
@@ -92,6 +93,7 @@ export async function upload( link_start, value, options, coreUpload )
 
     async function uploadThen( path_arr )
     {
+        L.debug( "\u21aa generic_http.uploadThen", path_arr );
         var path = path_arr;
         if( options.has( SC.PATH_PREFIX ) )
         {

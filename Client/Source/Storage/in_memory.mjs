@@ -75,6 +75,7 @@ export default function init( options_init )
 
     async function upload( linkA, value, options )
     {
+        L.debug( "\u21aa in_memory.upload", linkA );
         const [ response, linkB ] =
               await GH.upload( linkA, value, options, coreUpload );
         return linkB;

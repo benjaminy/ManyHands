@@ -4,8 +4,9 @@
  * File comment
  */
 
-import assert from "assert";
-import T from "transit-js";
+import assert  from "assert";
+import T       from "transit-js";
+import * as L  from "../Utilities/logging.mjs";
 
 const sy = T.symbol;
 
@@ -47,6 +48,7 @@ var transit_writer, transit_reader;
 /* This function handles both plain data to text and text to byte array encoding. */
 export function encode( value, options )
 {
+    L.debug( "\u21aa common.encode", options.toString() );
     if( options.has( ENCODE_OBJ ) )
     {
         const object_encoding = options.get( ENCODE_OBJ );

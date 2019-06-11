@@ -5,9 +5,10 @@
  */
 
 import assert  from "assert";
-import L       from "level";
 import T       from "transit-js";
+import * as L  from "../Utilities/logging.mjs";
 import * as UM from "../Utilities/misc.mjs";
+import * as UT from "../Utilities/transit.mjs";
 import * as SC from "./common.mjs";
 
 const tree_node_tag        = T.symbol( "tree node" );
@@ -340,11 +341,11 @@ export async function writeTree( root )
 {
     assert( isTreeNode( root ) );
     assert( true /* TODO: isRoot */ );
+    L.debug( "\u21aa tree.writeTree", root[ path_tag ] );
     if( !( dirty_tag in root ) )
     {
         return root;
     }
-    console.log( "writing" );
 //     const dirty_children = root[ dirty_tag ];
 //     const timetamps_to_update = root[ blank_timsetamps_tag ];
 //     for( child_name in dirty_children )
@@ -359,7 +360,7 @@ export async function writeTree( root )
     //         root[ child_name ].timestamp = 
     //     }
     const storage = root[ storage_tag ];
-    const storage_options = new T.map( root[ storage_options_tag ] );
+    const storage_options = UT.shallowCopyMap( root[ storage_options_tag ] );
     if( UM.hasProp( root, prev_root_tag ) )
     {
         storage_options.set( SC.COND_UPLOAD, SC.COND_ATOMIC );
@@ -371,7 +372,7 @@ export async function writeTree( root )
     const dehydrated_root = dehydrate( root );
     // TODO: Local storage save
     const link = await storage.upload(
-        root[ path_tag ], dehydrated_root );
+        { path: root[ path_tag ] }, dehydrated_root, storage_options );
 //     if( !resp.ok )
 //     {
 //         throw new Error( "upload failed" );
@@ -401,6 +402,8 @@ export function newRoot( path, storage, storage_options )
     dehydrated.set( "l", T.map() );
     const root = touchNode( rehydrate(
         { [storage_tag]: storage }, {}, dehydrated ) );
+    root[ path_tag ] = path;
+    root[ storage_options_tag ] = storage_options;
     // root[ tree_node_tag ]   = null;
     // root[ plain_data_tag ]  = ;
     // root[ mem_cache_tag ]   = T.map();

@@ -49,4 +49,11 @@ tm.set( [ "a", 12 ], null );
 
 console.log( "entries::: ", tm.toString(), tm.entries() );
 
-tm.forEach( ( v, k ) => console.log( "iterate?", k, v ) )
+for( const blah of tm )
+{
+    console.log( "Shmerp", blah );
+}
+
+tm.forEach( ( v, k ) => console.log( "iterate?", k, v ) );
+
+console.log( "COPY?", ( new T.map( tm ) ).toString() );
