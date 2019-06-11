@@ -9,9 +9,9 @@ import * as UM from "../../Source/Utilities/misc.mjs";
 
 export async function test1( s ) {
     /* FIXME */
-    const options1 = {}
-    options1[ SC.ENCODE_OBJ ] = SC.ENCODE_TRANSIT;
-    options1[ SC.COND_UPLOAD ] = SC.COND_NEW_NAME;
+    const options1 = T.map();
+    options1.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
+    options1.set( SC.COND_UPLOAD, SC.COND_NEW_NAME );
 
     const map_orig = T.map();
     map_orig.set( "a", "42" );

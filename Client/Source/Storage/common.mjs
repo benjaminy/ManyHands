@@ -28,7 +28,7 @@ export const ERROR_ATOMIC_UPDATE_FAILED = sy( "storage error overwrite failed" )
 
 function mapAssocData( fn, v, options )
 {
-    if( ASSOC_DATA in options )
+    if( options.has( ASSOC_DATA ) )
     {
         return { secret: fn( v.secret ),
                  integrity_protected: fn( v.integrity_protected ) };
@@ -47,9 +47,9 @@ var transit_writer, transit_reader;
 /* This function handles both plain data to text and text to byte array encoding. */
 export function encode( value, options )
 {
-    if( ENCODE_OBJ in options )
+    if( options.has( ENCODE_OBJ ) )
     {
-        const object_encoding = options[ ENCODE_OBJ ];
+        const object_encoding = options.get( ENCODE_OBJ );
         if( ( !transit_writer ) && object_encoding === ENCODE_TRANSIT )
         {
             const w = T.writer( "json" );
@@ -66,7 +66,7 @@ export function encode( value, options )
         value = mapAssocData( encode_fn, value, options );
     }
 
-    if( ENCODE_OBJ in options || ENCODE_TEXT in options )
+    if( options.has( ENCODE_OBJ ) || options.has( ENCODE_TEXT ) )
     {
         /* NOTE: Apparently the overlords of the web think utf-8 is the only
          * text encoding that matters.  They might be right. */
@@ -83,7 +83,7 @@ export function encode( value, options )
 
 export function decode( value, options )
 {
-    if( ENCODE_OBJ in options || ENCODE_TEXT in options )
+    if( options.has( ENCODE_OBJ ) || options.has( ENCODE_TEXT ) )
     {
         if( !text_decoder )
         {
@@ -93,9 +93,9 @@ export function decode( value, options )
         value = mapAssocData( text_decoder, value, options );
     }
 
-    if( ENCODE_OBJ in options )
+    if( options.has( ENCODE_OBJ ) )
     {
-        const object_encoding = options[ ENCODE_OBJ ];
+        const object_encoding = options.get( ENCODE_OBJ );
         if( ( !transit_reader ) && object_encoding === ENCODE_TRANSIT )
         {
             const r = T.reader( "json" );

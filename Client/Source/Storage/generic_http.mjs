@@ -93,16 +93,16 @@ export async function upload( link_start, value, options, coreUpload )
     async function uploadThen( path_arr )
     {
         var path = path_arr;
-        if( SC.PATH_PREFIX in options )
+        if( options.has( SC.PATH_PREFIX ) )
         {
-            path = options[ SC.PATH_PREFIX ].concat( path );
+            path = options.get( SC.PATH_PREFIX ).concat( path );
         }
         path = UM.nestedArrayFlatten( path );
         assert( path.every( ( p ) => typeof( p ) === "string" ) );
         path = P.join( ...( path.map( encodeURIComponent ) ) );
         const response = await coreUpload( path, headers, cryptoed_value );
         const link_response = { path: path_arr };
-        if( true || SC.COND_UPLOAD in options && ( options[ SC.COND_UPLOAD ] === SC.COND_ATOMIC ) )
+        if( true || options.has( SC.COND_UPLOAD ) && ( options.get( SC.COND_UPLOAD ) === SC.COND_ATOMIC ) )
         {
             link_response[ ETAG ] = response.headers.get( "etag" );
             link_response.timestamp = response.headers.get( "Last-Modified" );
@@ -110,9 +110,9 @@ export async function upload( link_start, value, options, coreUpload )
         return [ response, link_response ];
     }
 
-    if( SC.COND_UPLOAD in options )
+    if( options.has( SC.COND_UPLOAD ) )
     {
-        const cond_upload = options[ SC.COND_UPLOAD ];
+        const cond_upload = options.get( SC.COND_UPLOAD );
         if( cond_upload === SC.COND_ATOMIC )
         {
             return atomicUpdate(
@@ -142,9 +142,9 @@ export async function upload( link_start, value, options, coreUpload )
 export async function download( link, options, coreDownload )
 {
     const link_mid = Object.assign( {}, link );
-    if( SC.PATH_PREFIX in options )
+    if( options.has( SC.PATH_PREFIX ) )
     {
-        link_mid.path = options[ SC.PATH_PREFIX ].concat( link_mid.path );
+        link_mid.path = options.get( SC.PATH_PREFIX ).concat( link_mid.path );
     }
     link_mid.path = UM.nestedArrayFlatten( link_mid.path );
     assert( link_mid.path.every( ( p ) => typeof( p ) === "string" ) );
