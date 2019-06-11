@@ -40,3 +40,13 @@ roundtrip( [ "45" ] );
 const m = roundtrip( { a: "42", b:42 } );
 
 console.log( m.get( "b" ) );
+
+const tm = T.map();
+
+tm.set( "alice", 42 );
+tm.set( 17, [ "drogon" ] );
+tm.set( [ "a", 12 ], null );
+
+console.log( "entries::: ", tm.toString(), tm.entries() );
+
+tm.forEach( ( v, k ) => console.log( "iterate?", k, v ) )

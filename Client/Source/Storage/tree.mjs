@@ -8,27 +8,33 @@ import assert  from "assert";
 import L       from "level";
 import T       from "transit-js";
 import * as UM from "../Utilities/misc.mjs";
+import * as SC from "./common.mjs";
 
-const tree_node_tag   = T.symbol( "tree node" );
-const plain_data_tag  = T.symbol( "plain data" );
-const mem_cache_tag   = T.symbol( "memory cache" );
-const local_cache_tag = T.symbol( "local store cache" );
-// const links_tag      = Symbol ...;
-const dirty_tag       = T.symbol( "dirty" );
-const timestamp_tag   = T.symbol( "timestamp" );
-// const storage_tag = Symbol ...;
+const tree_node_tag        = T.symbol( "tree node" );
+const plain_data_tag       = T.symbol( "plain data" );
+const mem_cache_tag        = T.symbol( "memory cache" );
+const local_cache_tag      = T.symbol( "local store cache" );
+const links_tag            = T.symbol( "links" );
+const dirty_tag            = T.symbol( "dirty" );
+const timestamp_tag        = T.symbol( "timestamp" );
+const blank_timestamps_tag = T.symbol( "blank timestamps" );
+const storage_tag          = T.symbol( "storage" );
+const path_tag             = T.symbol( "path" );
+const storage_options_tag  = T.symbol( "storage options" );
+const prev_root_tag        = T.symbol( "previous root" );
+
+const tree_err             = T.symbol( "tree error" );
+const missing_key_err      = T.symbol( "missing key" );
 
 const localPersistentDB = {};
 
 /* stored node fields:
  * - p - plain data
- * - c - children
+ * - l - links to children
  * - b - set of children with blank timestamps
  * - ??? something about garbage??? */
 
 /* is there any reason for nodes to "know" their own location? */
-
-/* Should a node have a timestamp if it's dirty? */
 
 
 /* Nodes are copy-on-first-write-since-last-tree-commit.
@@ -39,6 +45,7 @@ const localPersistentDB = {};
     {
         node = Object.assign( {}, node );
         node[ dirty_tag ] = new Set();
+        delete node[ timestamp_tag ];
     }
     return node;
 }
@@ -100,7 +107,7 @@ export function deleteValue( node, key )
 
 /* End plain old data part.  Begin tree children part */
 
-export function isChildInMemCache( node, key )
+export function isInMemCache( node, key )
 {
     assert( isTreeNode( node ) );
     assert( isValidTransitMapKey( key ) );
@@ -108,47 +115,72 @@ export function isChildInMemCache( node, key )
     return node[ mem_cache_tag ].has( key );
 }
 
-export function isChildInLocalCache( node, key )
+export function getfromMemCache( node, key )
 {
     assert( isTreeNode( node ) );
     assert( isValidTransitMapKey( key ) );
 
-    return node[ local_cache_tag ].has( key );
+    if( node[ mem_cache_tag ].has( key ) )
+    {
+        return node[ mem_cache_tag ].get( key );
+    }
+    else
+    {
+        throw { [tree_err]: missing_key_err };
+    }
 }
 
-// /* private */ function dehydrate( node )
-// {
-//     d = T.map();
-//     d.set( "p", node[ plain_data_tag ] );
-//     d.set( "b", node[ blank_timestamp_tag ] );
-//     d.set( "c", {} );
-//     const links = node[ links_tag ];
-//     const storage = node[ storage ];
-//     for( [ key, link ] in links )
-//     {
-//         d.c.set( key, storage.dehydrateLink( link ) );
-//     }
-//     return d;
-// }
+/* private */ function insertInMemCache( parent, key, child )
+{
+    assert( isTreeNode( parent ) );
+    assert( isValidTransitMapKey( key ) );
+    assert( isTreeNode( child ) );
+
+    /* TODO: check overwrite??? */
+    node[ mem_cache_tag ].set( key, child );
+}
+
+export function isInLocalCache( parent, key )
+{
+    assert( isTreeNode( parent ) );
+    assert( isValidTransitMapKey( key ) );
+
+    return parent[ local_cache_tag ].has( key );
+}
+
+/* private */ function dehydrate( node )
+{
+    const d = T.map();
+    d.set( "p", node[ plain_data_tag ] );
+    d.set( "b", node[ blank_timestamps_tag ] );
+    const links = node[ links_tag ];
+    const storage = node[ storage_tag ];
+    const dehydrated_links = T.map();
+    node[ links_tag ].forEach( ( link, key ) =>
+    {
+        dehydrated_links.set( key, storage.dehydrateLink( link ) );
+    } );
+    d.set( "l", dehydrated_links );
+    return d;
+}
 
 /* private */ function rehydrate( parent, link, dehydrated, storage_cb )
 {
-    // const pstorage = parent[ storage_tag ];
-    // const cstorage = storage_cb ? storage_cb( pstorage ) : pstorage;
+    const pstorage = parent[ storage_tag ];
+    const cstorage = storage_cb ? storage_cb( pstorage ) : pstorage;
     const c = {};
     c[ tree_node_tag ]       = null;
     c[ plain_data_tag ]      = dehydrated.get( "p" );
-    // c[ blank_timestamp_tag ] = dehydrated.b;
-    const links = {};
-    for( name in dehydrated.c )
-    {
-        links[ name ] = cstorage.rehydrateLink(
-            parent, name, dehydrated.c[ name ] );
-    }
-    // c[ links_tag ]        = links;
-    c[ mem_cache_tag ]   = T.map();
-    c[ local_cache_tag ] = { has: () => false };
-    // c[ storage_tag ]     = cstorage;
+    c[ blank_timestamps_tag ] = dehydrated.get( "b" );
+    c[ mem_cache_tag ]       = T.map();
+    const rehydrated_links = T.map();
+    dehydrated.get( "l" ).forEach( ( link_child, key ) => {
+        rehydrated_links.set( key, cstorage.rehydrateLink(
+            parent, name, link_child ) );
+    } );
+    c[ links_tag ]           = rehydrated_links;
+    c[ local_cache_tag ]     = { has: () => false };
+    c[ storage_tag ]         = cstorage;
 
     if( "timestamp" in link )
     {
@@ -168,55 +200,37 @@ export async function getChild( parent, key )
     assert( isTreeNode( parent ) );
     assert( isValidTransitMapKey( key ) );
 
-    try {
+    if( isInMemCache( parent, key ) )
+    {
+        /* reminder: update cache timestamp */
         return getFromMemCache( parent, key );
     }
-    catch( err )
-    {
-        // if(  )
-    }
-    if( isChildInMemCache( parent, key ) )
-    {
-        return 
-    }
     
-    
-//     if( mem_cache.has( child_name ) )
-//     {
-//         /* reminder: update cache timestamp */
-//         return mem_cache.get( child_name )
-//     }
+    if( !( parent[ links_tag ].has( key ) ) )
+    {
+        throw { [tree_err]: missing_key_err, key: key };
+    }
 
-//     if( !( child_name in parent[ links_tag ] ) )
-//     {
-//         throw new Error( "No child in node with name: " + child_name );
-//     }
+    const link = parent[ links_tag ].get( key );
+    // necessary? exposed outside lib? ... assert( links_tag in link );
 
-//     const link = parent[ links_tag ][ child_name ];
-//     // necessary? exposed outside lib? ... assert( links_tag in link );
+    if( await isInLocalCache( parent, link ) )
+    {
+        /* reminder: update cache timestamp */
+        var dehydrated_child = await local_cache.get( link.path );
+    }
+    else
+    {
+        /* The Promise returned by download will reject, if network error */
+        var [ dehydrated_child, link_d ] =
+            await parent[ storage_tag ].download( child_link );
 
-//     const local_cache = parent[ local_cache_tag ];
-//     if( await local_cache_cache.has( link.path ) )
-//     {
-//         /* reminder: update cache timestamp */
-//         var dehydrated_child = await local_cache.get( link.path );
-//     }
-//     else
-//     {
-//         /* The Promise returned by download will reject, if network error */
-//         const resp = await parent[ storage_tag ].download( child_link );
-//         if( !resp.ok )
-//         {
-//             throw new Error( [ "Download failed", resp ] );
-//         }
+        // local_cache.insert( link, dehydrated_child );
+    }
 
-//         var dehydrated_child = await resp.transit();
-//         local_cache.insert( link, dehydrated_child );
-//     }
-
-//     const child = rehydrate( parent, dehydrated_child, link );
-//     mem_cache.insert( child_name, child );
-//     return child;
+    const child = rehydrate( parent, dehydrated_child, link );
+    insertInMemCache( parent, key, child );
+    return child;
 }
 
 // function addToSet( obj, field, item )
@@ -291,6 +305,7 @@ export function newChild( parent, key, storage_cb )
 
     const dehydrated = T.map();
     dehydrated.set( "p", T.map() );
+    dehydrated.set( "l", T.map() );
     const child = touchNode( rehydrate( parent, {}, dehydrated ) );
     // const pstorage = parent[ storage_tag ];
     return [ setChild( parent, key, child ), child ];
@@ -321,12 +336,15 @@ export function newChild( parent, key, storage_cb )
     
 // }
 
-// async function writeTree( root )
-// {
-//     if( !( dirty_tag in root ) )
-//     {
-//         return;
-//     }
+export async function writeTree( root )
+{
+    assert( isTreeNode( root ) );
+    assert( true /* TODO: isRoot */ );
+    if( !( dirty_tag in root ) )
+    {
+        return root;
+    }
+    console.log( "writing" );
 //     const dirty_children = root[ dirty_tag ];
 //     const timetamps_to_update = root[ blank_timsetamps_tag ];
 //     for( child_name in dirty_children )
@@ -338,17 +356,28 @@ export function newChild( parent, key, storage_cb )
 //     root[ blank_timsetamps_tag ] = dirty_children;
 //     for( child_name in timestamps_to_update )
 //     {
-//         root[ child_name ].timestamp = 
-//     }
-//     const root_ser = serialzeRoot( root );
-//     // TODO: Local storage save
-//     const resp = root.upload( "ROOT", root_ser );
+    //         root[ child_name ].timestamp = 
+    //     }
+    const storage = root[ storage_tag ];
+    const storage_options = new T.map( root[ storage_options_tag ] );
+    if( UM.hasProp( root, prev_root_tag ) )
+    {
+        storage_options.set( SC.COND_UPLOAD, SC.COND_ATOMIC );
+    }
+    else
+    {
+        storage_options.set( SC.COND_UPLOAD, SC.COND_NO_OVERWRITE );
+    }
+    const dehydrated_root = dehydrate( root );
+    // TODO: Local storage save
+    const link = await storage.upload(
+        root[ path_tag ], dehydrated_root );
 //     if( !resp.ok )
 //     {
 //         throw new Error( "upload failed" );
 //     }
 //     delete root[ dirty_tag ];
-// }
+}
 
 
 
@@ -365,11 +394,13 @@ export function newChild( parent, key, storage_cb )
         + " children: " + this[ mem_cache_tag ].toString();
 }
 
-export function newRoot( plain_storage_stack, path )
+export function newRoot( path, storage, storage_options )
 {
     const dehydrated = T.map();
     dehydrated.set( "p", T.map() );
-    const root = touchNode( rehydrate( {}, {}, dehydrated ) );
+    dehydrated.set( "l", T.map() );
+    const root = touchNode( rehydrate(
+        { [storage_tag]: storage }, {}, dehydrated ) );
     // root[ tree_node_tag ]   = null;
     // root[ plain_data_tag ]  = ;
     // root[ mem_cache_tag ]   = T.map();
