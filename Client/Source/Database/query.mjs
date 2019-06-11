@@ -498,89 +498,102 @@ export async function runQuery( db, q, ...ins )
 
             whereResults.forEach(({bindings, results}) => {
                 results.forEach(result => {
-                    const cat = {};
+                    const cat = transit.map();
                     joins.forEach(j => {
                         const val = result[bindings[j]];
                         if(val !== undefined){
-                            cat[j] = val;
+                            cat.set(j, val);
                         }
                     });
                     const idx = cat;
                     if (!final.has(idx)) {
                         final.set(idx, []);
                     }
-                    const rs = {};
+                    const rs = transit.map();
 
                     vars.forEach(returned => {
                         if(returned in bindings) {
-
-                            rs[returned] = result[bindings[returned]];
+                            rs.set(returned, result[bindings[returned]]);
                         }
                     });
-
                     final.get(idx).push(rs);
                 });
             });
 
             const queryResults = [];
 
+
+            // TEMPORARY CODE related to https://github.com/cognitect/transit-js/issues/50
+            const final_FORLOOPS = transit.map([...final].flat());
+            //
+
             const compatible = function(a, o, connected){
                 let comp = true;
                 let hit = false;
-                Object.keys(a).forEach(x => {
-                    if(x in o){
+                a.forEach((xv, x) => {
+                    //console.log("OAXVX", o, a, xv, x);
+                    if(o.has(x)){
                         hit = true;
                     } else {
                         return;
                     }
-                    if(o[x] !== a[x]){
+                    if(o.get(x) !== xv){
+                        //console.log("incompatible", o, x, o.get(x), a.get(x));
                         comp = false;
                     }
                 });
+                //console.log("HCC", hit, connected, comp);
                 return (hit || !connected) && comp;
             };
 
-            const pair = function(running, start, final, ...prev){
+            const pair = function(running, start, ...prev){
 
                 const results = [];
 
                 final.get(start).forEach(n => {
 
-                    const keys = Object.assign({}, n);
-                    final.forEach((v, k) => {
-                        console.log("kv", k, v);
+                    const keys = transit.map([...n].flat());
+                    final_FORLOOPS.forEach((v, k) => {
+                        //console.log("F03", final._entries);
                         v.forEach(o => {
                             if (k === start || prev.indexOf(k) !== -1) {
                                 return;
                             }
                             if (compatible(running, k, true)) {
-                                const pairings = pair({...k, ...running}, k, final, start, ...prev);
+                                const pairings = pair(transit.map([...k, ...running].flat()), k, start, ...prev);
                                 pairings.forEach(pair => {
-                                    for(let x in pair) {
-                                        keys[x] = pair[x];
-                                    }
+                                    pair.forEach((y, x) => {
+                                        keys.set(x, y);
+                                    });
                                 });
-                                running = {...o, ...running};
+                                //console.log("adding to running:", o, running);
+                                running = transit.map([...o, ...running].flat());
+                                //console.log("running", running);
                             }
                         });
                     });
                     results.push(keys);
                 });
+                //console.log("F04", final._entries);
 
                 // one last step: check all the combinations for merges/conflicts and return a final list
                 const collected = [];
                 const visited = transit.set();
 
                 for(let i = 0; i < results.length; i++){
-                    let running_res = {...results[i]};
+                    //console.log("init running res", results[i]);
+                    let running_res = transit.map([...results[i]].flat());
+                    //console.log("done:", running_res);
                     if(visited.has(results[i])){
                         continue;
                     }
                     for(let j = 0; j < results.length; j++){
                         if(compatible(results[i], results[j], false)){
-                            running_res = {...running_res, ...results[j]};
+                            //console.log("running res", running_res, "j", results[j]);
+                            running_res = transit.map([...running_res, ...results[j]].flat());
                         }
                     }
+                    //console.log("visited", results[i], "collected", running_res);
                     visited.add(results[i]);
                     collected.push(running_res);
                 }
@@ -591,11 +604,19 @@ export async function runQuery( db, q, ...ins )
 
             const rs = transit.set();
 
-            final.forEach((v, k) => {
-                const pairings = pair(k, k, final);
+            final_FORLOOPS.forEach((v, k) => {
+                //console.log("kv", k, v);
+                //console.log("f1", final);
+                //console.log("final foreach", k, v);
+                const pairings = pair(k, k);
+                //console.log("pairing", pairings);
                 pairings.forEach(pair => {
                     rs.add(pair);
                 });
+                //console.log("problem?", final_noconvert._entries.length === 0);
+                //final.forEach((v, k) => {
+                //    console.log("does it work?");
+                //})
             });
 
             rs.forEach(entity => {
@@ -603,8 +624,9 @@ export async function runQuery( db, q, ...ins )
                 const obj = entity;
                 let incomplete = false;
                 vars.forEach((v) => {
-                    result.push(obj[v]);
-                    if(!(v in obj)){
+                    result.push(obj.get(v));
+                    if(!(obj.has(v))){
+                        //console.log("incomplate", obj, v);
                         incomplete = true;
                     }
                 });
