@@ -38,14 +38,14 @@ export const uniqueIdentity = K.key( ":db.unique/identity" );
 export const uniques = new Set( [ uniqueValue, uniqueIdentity ] );
 
 export function makeAttribute(
-    ident_, valueType_, cardinality_,
+    ident_, id_, valueType_, cardinality_,
     doc, unique, index, fulltext, isComponent, noHistory )
 {
     const ident       = K.key( ident_ );
     const valueType   = K.key( valueType_ );
     const cardinality = K.key( cardinality_ );
 
-    const attr       = {};
+    const attr       = {id: id_};
     attr.ident       = ident;
     attr.doc         = "";
     attr.unique      = null;
@@ -100,7 +100,9 @@ export function makeAttribute(
  */
 export function normalizeValue( attribute, value )
 {
+    console.log("attribute", attribute);
     var vType = K.key( attribute.valueType );
+    console.log(vType);
     if( vType === vtypeBigint )
         throw new Error( "Unimplemented" );
 
@@ -113,8 +115,8 @@ export function normalizeValue( attribute, value )
     else if( vType === vtypeUuid )
         throw new Error( "Unimplemented" );
 
-    else if( vType === vtypeUri )
-        throw new Error( "Unimplemented" );
+    /*else if( vType === vtypeUri )
+        throw new Error( "Unimplemented" );*/
 
     else if( vType === vtypeBytes )
         throw new Error( "Unimplemented" );

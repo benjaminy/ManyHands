@@ -34,6 +34,8 @@ const dbMethods =
         /* Might throw error: */
         console.log("Committing");
         [ txn.datoms, entity_id_info ] = await DT.processTxn( db, stmts );
+        console.log("adding datoms", txn.datoms);
+        db.storage.add(...txn.datoms);
         return Object.assign( {}, db, { txns: txn, entity_id_info: entity_id_info } );
     }
     ,
@@ -87,6 +89,8 @@ export function newDB( storage, options )
     db.last_up_txn    = null;
     db.last_up_ptr    = null;
     db.txns           = first_txn;
+    db.attributes     = T.map(); // cached attributes
+    db.find           = db.storage.find;
     /* TODO???: more initial txns */
     return db;
 }

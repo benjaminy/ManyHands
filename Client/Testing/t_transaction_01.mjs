@@ -3,7 +3,7 @@
 import Path from "path";
 import assert  from "../Source/Utilities/assert.mjs";
 import * as K  from "../Source/Utilities/keyword.mjs";
-import * as DA from "../Source/Database/attribute.mjs";
+import * as A from "../Source/Database/attribute.mjs";
 import * as DT from "../Source/Database/transaction.mjs";
 import * as DB from "../Source/Database/simple_txn_chain.mjs";
 import * as DC from "../Source/Database/common.mjs";
@@ -17,7 +17,8 @@ import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs";
 async function main() {
     return Promise.all([
         //test_01_instantiate(),
-        test_02_add_datom()
+        //test_02_add_datom(),
+        test_03_get_attribute()
     ]);
 }
 
@@ -48,6 +49,62 @@ async function test_02_add_datom(){
     const res = await db.commitTxn(db, [statement]);
 
     console.log(res);
+}
+
+async function test_03_get_attribute(){
+    const raw_storage = init_simple_dict();
+    raw_storage.add({ // don't try this at home kids
+        entity: 10,
+        attribute: A.identK,
+        value: ":likes"
+    });
+    raw_storage.add({
+        entity: 10,
+        attribute: A.valueTypeK,
+        value: A.vtypeString
+    });
+    raw_storage.add({
+        entity: 10,
+        attribute: A.cardinalityK,
+        value: A.cardinalityMany
+    });
+    raw_storage.add({
+        entity: 10,
+        attribute: A.docK,
+        value: "hor de door"
+    });
+    raw_storage.add({
+        entity: 10,
+        attribute: A.uniqueK,
+        value: null
+    });
+    raw_storage.add({
+        entity: 10,
+        attribute: A.indexK,
+        value: false
+    });
+    raw_storage.add({
+        entity: 10,
+        attribute: A.fulltextK,
+        value: false
+    });
+    raw_storage.add({
+        entity: 10,
+        attribute: A.isComponentK,
+        value: false
+    });
+    raw_storage.add({
+        entity: 10,
+        attribute: A.noHistoryK,
+        value: false
+    });
+    const db = DB.newDB(raw_storage);
+
+    const statement = [ DT.addK, "bob", ":likes", 42 ];
+
+    const res = await db.commitTxn(db, [statement]);
+    
+    assert(db.find({attribute: 10}).length === 1, "Attribute was not filled in correctly.");
 }
 
 main().then(() => {

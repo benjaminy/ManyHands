@@ -2,7 +2,7 @@
 
 import * as K  from "../Utilities/keyword.mjs";
 import * as DA from "./attribute.mjs";
-import * as DQ from "./query.mjs";
+import * as Q from "./query.mjs";
 
 export const addK     = K.key( ":db/add" );
 export const retractK = K.key( ":db/retract" );
@@ -16,28 +16,26 @@ function new_entity( db )
 
 export async function getAttribute( db, identName ) {
     const ident = K.key( identName );
-    /*
-    if( !( ident in db.attributes ) )
+
+    if( !( db.attributes.has(ident) ) )
     {
-        TODO attribute retrieval and validation
         try {
-            [ v, c, d, u, i, f, ic, n ] = await Q.runQuery( db, attrQuery, ak );
-            db.attributes[ ak ] = DA.makeAttribute( ident, v, c, d, u, i, f, ic, n );
+            const [ [ id, v, c, d, u, i, f, ic, n ] ] = await Q.runQuery( db, Q.attrQuery, identName ); // TODO: cardinality should flatten this
+            db.attributes.set( ident, DA.makeAttribute( ident, id, v, c, d, u, i, f, ic, n ) );
         }
         catch( err ) {
-            if( err === queryFailure )
+            /*if( err === DQ.queryFailure )
             {
                 throw new Error( "DB does not have attribute "+identName );
             }
             else
             {
                 throw err;
-            }
+            }*/
+            throw err;
         }
     }
-    */
-    //return db.attributes[ ak ];
-    return identName;
+    return db.attributes.get( ident );
 }
 
 /* Input: an array of txn statements
@@ -52,7 +50,7 @@ export async function processTxn( db, stmts )
 
     console.log("Processing transaction ", stmts);
 
-    function getEntityId( e )
+    async function getEntityId( e )
     {
         if( !e )
             return new_entity( db );
@@ -75,10 +73,12 @@ export async function processTxn( db, stmts )
         return e;
     }
 
-    function addDatom( e, a, v )
+    async function addDatom( e, a, v )
     {
-        /*var attribute = getAttribute( db, a );
-        var value     = normalizeValue( attribute, v );
+        var attribute = await getAttribute( db, a );
+        var value     = DA.normalizeValue( attribute, v );
+
+        console.log("atafsdfas", attribute);
 
         if( attribute.unique )
         {
@@ -97,26 +97,27 @@ export async function processTxn( db, stmts )
             else
                 throw new Error( "Invalid attribute uniqueness " + unique.toString() );
         }
+        console.log("adding datom");
 
         var card = K.key( attribute.cardinality );
         if( card === DA.cardinalityOne )
         {
-            /* TODO: add retract if there is an existing value * /
+            /* TODO: add retract if there is an existing value */
         }
         else if( card === DA.cardinalityMany )
         {
-            /* TODO: nothing??? * /
+            /* TODO: nothing??? */
         }
         else
         {
             throw new Error( "Invalid attribute cardinality " + card.str );
-        }*/
+        }
 
         //datoms.push( [ e, attribute, value ] );
-        datoms.push([e,a,v]);
+        datoms.push({entity: e, attribute: attribute.id, value: value});
     }
 
-    function processStmt( stmt, i ) {
+    async function processStmt( stmt, i ) {
         console.log("processing statement");
         if( Array.isArray( stmt ) )
         {
@@ -124,12 +125,12 @@ export async function processTxn( db, stmts )
             console.log("Kind", kind);
             if( K.compare(kind, addK) === 0 ) {
                 console.log("Adding datom", stmt[1], stmt[2], stmt[3]);
-                console.log("entity id", getEntityId(stmt[1]));
-                addDatom( getEntityId( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
+                console.log("entity id", await getEntityId(stmt[1]));
+                await addDatom( await getEntityId( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
             }
             else if( stmt[ 0 ] === retractK ) {
-                var e = getEntityId( stmt[ 1 ] );
-                var attribute = db.getAttribute( stmt[ 2 ] );
+                var e = await getEntityId( stmt[ 1 ] );
+                var attribute = await db.getAttribute( stmt[ 2 ] );
                 var value     = DA.normalizeValue( attribute, stmt[ 3 ] );
                 /* Check that v is e's value for attribute a? */
                 datoms.push( [ e, attribute, value, true ] );
@@ -139,7 +140,7 @@ export async function processTxn( db, stmts )
                 stmt.shift(); // remove function name
                 var fn_datoms = f.fn.apply( db, stmt );
                 fn_datoms.forEach( function( [ e, a, v ] ) {
-                    addDatom( getEntityId( e ), a, v );
+                    addDatom( getEntityId( e ), a, v ); // TODO PROMISE TROUBLE
                 } );
             }
         }
@@ -147,11 +148,11 @@ export async function processTxn( db, stmts )
         {
             const idS = K.str( idK );
             try {
-                var e = getEntityId( stmt[ idK ] );
+                var e = await getEntityId( stmt[ idK ] );
             }
             catch( err ) {
                 try {
-                    var e = getEntityId( stmt[ idS ] );
+                    var e = await getEntityId( stmt[ idS ] );
                 }
                 catch( err ) {
                     var e = DB.new_entity( db );
@@ -162,15 +163,16 @@ export async function processTxn( db, stmts )
                 const a = K.key( attr );
                 if( a === idK || a === idS )
                     continue;
-                addDatom( e, a, stmt[ attr ] );
+                await addDatom( e, a, stmt[ attr ] );
             }
         }
     }
 
     try {
-        stmts.forEach( processStmt );
+        await Promise.all(stmts.map(processStmt));
     }
     catch( err ) {
+        console.error(err);
     }
     return [datoms, "some entity information apparently"];
 }

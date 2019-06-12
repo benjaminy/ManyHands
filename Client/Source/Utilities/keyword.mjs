@@ -12,7 +12,6 @@ export function key( k )
         /* could check str.  Worth it??? */
         return k;
     }
-
     try {
         var name = String( k );
     }

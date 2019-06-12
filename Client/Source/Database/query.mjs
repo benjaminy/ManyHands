@@ -31,7 +31,7 @@ const var_const_under_tags =
       S.union( new Set( [ variable_tag ] ), new Set( [ variable_tag ] ), constant_tags );
 
 export const attrQuery = parseQuery( [
-    findK, [ "?vtype", "?card", "?doc", "?uniq", "?idx", "?ftxt", "?isComp", "?noHist" ],
+    findK, [ "?attr", "?vtype", "?card", "?doc", "?uniq", "?idx", "?ftxt", "?isComp", "?noHist" ],
     inK, "$", "?ident",
     whereK, [ "?attr", DA.identK,       "?ident" ],
             [ "?attr", DA.valueTypeK,   "?vtype" ],

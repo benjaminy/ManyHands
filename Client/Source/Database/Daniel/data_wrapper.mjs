@@ -44,17 +44,20 @@ export function init_simple_dict(initial_data=false){
     }
     */
 
-    ds.add = (datom) => {
-        datom.timestamp = (new Date).getTime();
-        datom.revoked = false;
-        assert('entity' in datom
-            && 'attribute' in datom
-            && 'value' in datom);
-        data.push(datom);
+    ds.add = (...datoms) => {
+        for(let i = 0; i < datoms.length; i++) {
+            const datom = datoms[i];
+            datom.timestamp = (new Date).getTime();
+            datom.revoked = false;
+            assert('entity' in datom
+                && 'attribute' in datom
+                && 'value' in datom);
+            data.push(datom);
+        }
         populate_lists();
-        return datom;
+        return datoms;
     };
-    ds.revoke = (datom) => {
+    ds.revoke = (datom) => { // TODO spread operator
         for(let i = 0; i < data.length; i++) {
             if (compareDatom(datom, data[i])) {
                 datom.revoked = true;
@@ -119,9 +122,11 @@ function doSort(data, ...sorts){
     data.sort((self, other) => {
         for(let sort of sorts) {
             let ix;
-            if (sort === 'attribute') { // TODO soon attribute will be a number
-                ix = K.compare(self[sort], other[sort]);
-            } else if (typeof (self[sort]) === "number" && "number" === typeof (other[sort])) {
+            /*if (sort === 'attribute') { // TODO attribute will be a number
+                //ix = K.compare(self[sort], other[sort]);
+                //ix = self[sort] - other[sort];
+                ix = K.compare()
+            } else */if (typeof (self[sort]) === "number" && "number" === typeof (other[sort])) {
                 ix = self[sort] - other[sort];
             } else if (typeof (self[sort]) === "string" && "string" === typeof (other[sort])) {
                 ix = self[sort].localeCompare(other[sort].toString());
