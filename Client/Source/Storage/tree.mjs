@@ -341,7 +341,7 @@ export async function writeTree( root )
 {
     assert( isTreeNode( root ) );
     assert( true /* TODO: isRoot */ );
-    L.debug( "\u21aa tree.writeTree", root[ path_tag ] );
+    L.debug( "\u21b3 tree.writeTree", root[ path_tag ] );
     if( !( dirty_tag in root ) )
     {
         return root;

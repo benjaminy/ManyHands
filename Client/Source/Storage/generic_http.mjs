@@ -93,7 +93,7 @@ export async function upload( link_start, value, options, coreUpload )
 
     async function uploadThen( path_arr )
     {
-        L.debug( "\u21aa generic_http.uploadThen", path_arr );
+        L.debug( "\u21b3 generic_http.uploadThen", path_arr );
         var path = path_arr;
         if( options.has( SC.PATH_PREFIX ) )
         {

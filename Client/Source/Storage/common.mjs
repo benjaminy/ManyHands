@@ -48,7 +48,7 @@ var transit_writer, transit_reader;
 /* This function handles both plain data to text and text to byte array encoding. */
 export function encode( value, options )
 {
-    L.debug( "\u21aa common.encode", options.toString() );
+    L.debug( "\u21b3 common.encode", options.toString() );
     if( options.has( ENCODE_OBJ ) )
     {
         const object_encoding = options.get( ENCODE_OBJ );

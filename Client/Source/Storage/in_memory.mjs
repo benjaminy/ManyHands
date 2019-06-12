@@ -75,7 +75,7 @@ export default function init( options_init )
 
     async function upload( linkA, value, options )
     {
-        L.debug( "\u21aa in_memory.upload", linkA );
+        L.debug( "\u21b3 in_memory.upload", linkA );
         const [ response, linkB ] =
               await GH.upload( linkA, value, options, coreUpload );
         return linkB;
@@ -105,7 +105,6 @@ export default function init( options_init )
     {
         return GH.download( link, options, coreDownload );
     }
-    
 
 //     mstorage.fpFromPlainData = async function fpFromPlainData( fp )
 //     {
