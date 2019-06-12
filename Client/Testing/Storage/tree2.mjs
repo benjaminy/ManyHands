@@ -21,6 +21,10 @@ async function main()
     ST.setValue( r, 42, 45 );
     ST.setValue( r, "alice", "bob" );
     var r2 = await ST.writeTree( r );
+
+    var r3 = await ST.openRoot( [ "root" ], in_mem_storage, options );
+    console.log( "ROOT???", r3.toString() );
+
     // ST.deleteValue( r, 42 );
     // const b = ST.getValue( r, "alice" );
     // console.log( b, r.toString() );

@@ -382,11 +382,14 @@ export async function writeTree( root )
 
 
 
-// async function openRoot( storage, path )
-// {
-//     const root = {};
-//     root[ storage_tag ] = storage;
-// }
+export async function openRoot( path, storage, storage_options )
+{
+    var [ dehydrated_root, link ] = await storage.download( { path: path }, storage_options );
+
+    const root = touchNode( rehydrate(
+        { [storage_tag]: storage }, link, dehydrated_root ) );
+    return root;
+}
 
 /* public */ function nodeToString()
 {
