@@ -57,3 +57,14 @@ for( const blah of tm )
 tm.forEach( ( v, k ) => console.log( "iterate?", k, v ) );
 
 console.log( "COPY?", ( new T.map( tm ) ).toString() );
+
+const s1 = T.set();
+const sym1 = T.symbol( "giraffe" );
+
+s1.add( [ 42 ] );
+s1.add( sym1 );
+
+console.log( "Set", s1.toString() );
+
+const d = T.map();
+console.log( "DELETE?", d.delete( 42 ) );
