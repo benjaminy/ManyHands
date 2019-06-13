@@ -54,57 +54,59 @@ async function test_02_add_datom(){
 async function test_03_get_attribute(){
     const raw_storage = init_simple_dict();
     raw_storage.add({ // don't try this at home kids
-        entity: 10,
+        entity: 100,
         attribute: A.dbSymbolMap.get(A.identK),
-        value: ":likes"
+        value: K.key(":likes")
     });
     raw_storage.add({
-        entity: 10,
+        entity: 100,
         attribute: A.dbSymbolMap.get(A.valueTypeK),
         value: A.dbSymbolMap.get(A.vtypeString)
     });
     raw_storage.add({
-        entity: 10,
+        entity: 100,
         attribute: A.dbSymbolMap.get(A.cardinalityK),
         value: A.dbSymbolMap.get(A.cardinalityMany)
     });
     raw_storage.add({
-        entity: 10,
+        entity: 100,
         attribute: A.dbSymbolMap.get(A.docK),
         value: "hor de door"
     });
     raw_storage.add({
-        entity: 10,
+        entity: 100,
         attribute: A.dbSymbolMap.get(A.uniqueK),
         value: null
     });
     raw_storage.add({
-        entity: 10,
+        entity: 100,
         attribute: A.dbSymbolMap.get(A.indexK),
         value: false
     });
     raw_storage.add({
-        entity: 10,
+        entity: 100,
         attribute: A.dbSymbolMap.get(A.fulltextK),
         value: false
     });
     raw_storage.add({
-        entity: 10,
+        entity: 100,
         attribute: A.dbSymbolMap.get(A.isComponentK),
         value: false
     });
     raw_storage.add({
-        entity: 10,
+        entity: 100,
         attribute: A.dbSymbolMap.get(A.noHistoryK),
         value: false
     });
     const db = DB.newDB(raw_storage);
 
+    console.log(db.find());
+
     const statement = [ DT.addK, "bob", ":likes", 42 ];
 
     const res = await db.commitTxn(db, [statement]);
     
-    assert(db.find({attribute: 10}).length === 1, "Attribute was not filled in correctly.");
+    assert(res && db.find({attribute: 100}).length === 1, "Attribute was not filled in correctly.");
 }
 
 main().then(() => {

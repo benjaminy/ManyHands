@@ -86,8 +86,8 @@ export function makeAttribute(
     doc, unique, index, fulltext, isComponent, noHistory )
 {
     const ident       = K.key( ident_ );
-    const valueType   = K.key( valueType_ );
-    const cardinality = K.key( cardinality_ );
+    const valueType   = dbIdMap.get( valueType_ );
+    const cardinality = dbIdMap.get( cardinality_ );
 
     const attr       = {id: id_};
     attr.builtin     = false;
@@ -114,7 +114,7 @@ export function makeAttribute(
 
     if( unique )
     {
-        unique = K.key( unique );
+        unique = dbIdMap.get( unique );
         if( !uniques.has( unique ) )
             throw new Error( "Invalid attribute uniqueness: " + unique.str );
         attr.uniqueAttr = unique;

@@ -23,22 +23,12 @@ export async function getAttribute( db, identName ) {
 
     if( !( db.attributes.has(ident) ) )
     {
-        try {
-            console.log("ident", ident, await Q.runQuery( db, Q.attrQuery, ident ));
-            const [ [ id, v, c, d, u, i, f, ic, n ] ] = await Q.runQuery( db, Q.attrQuery, ident ); // TODO: cardinality should flatten this
-            db.attributes.set( ident, DA.makeAttribute( ident, id, v, c, d, u, i, f, ic, n ) );
+        const qResult = await Q.runQuery( db, Q.attrQuery, ident );
+        if(qResult.length === 0){
+            throw new Error( "DB does not have attribute " + identName);
         }
-        catch( err ) {
-            /*if( err === DQ.queryFailure )
-            {
-                throw new Error( "DB does not have attribute "+identName );
-            }
-            else
-            {
-                throw err;
-            }*/
-            throw err;
-        }
+        const [ [ id, v, c, d, u, i, f, ic, n ] ] = qResult; // TODO: cardinality should flatten this from [[]] to []
+        db.attributes.set( ident, DA.makeAttribute( ident, id, v, c, d, u, i, f, ic, n ) );
     }
     return db.attributes.get( ident );
 }

@@ -8,6 +8,7 @@ import * as L  from "../Utilities/logging.mjs";
 import * as K  from "../Utilities/keyword.mjs";
 import * as S  from "../Utilities/set.mjs";
 import * as DA from "./attribute.mjs";
+import * as TX from "./transaction.mjs";
 
 import transit from "transit-js";
 
@@ -417,9 +418,16 @@ export async function runQuery( db, q, ...ins )
             setBindingsAndJoins(timestamp, "timestamp");
             setBindingsAndJoins(revoked, "revoked");
 
-            const get_constant = function(field){
+            console.log("attribute", attribute);
+
+            const get_constant = async function(field, is_value=false){
                 // TODO substitute out :keys for their ids
                 if(constant_tags.has(field.tag)){
+                    if(field.tag === type_keyword_tag){
+                        //console.log("tag sub", field.val, (await TX.getAttribute(db, field.val)).id);
+                        if(is_value) return field.val;
+                        return (await TX.getAttribute(db, field.val)).id; // TODO this affects the query, probably
+                    }
                     return field.val;
                 } else if(field.tag === variable_tag && inParams.has(field.name)){
                     return inParams.get(field.name);
@@ -431,13 +439,18 @@ export async function runQuery( db, q, ...ins )
             // for example, if you search [1 :is ?hello], this will be {entity: 1, attribute: :is}
             // and a search will be done on the specified fields.
 
+            let _attribute = await get_constant(attribute);
+
             const in_query = {
-                entity: get_constant(entity),
-                attribute: get_constant(attribute),
-                value: get_constant(value),
-                timestamp: get_constant(timestamp),
-                revoked: get_constant(revoked)
+                entity: await get_constant(entity),
+                attribute: _attribute,
+                // if ident, this may be an unsubstituted Symbol.
+                value: await get_constant(value, _attribute === DA.dbSymbolMap.get(DA.identK)),
+                timestamp: await get_constant(timestamp),
+                revoked: await get_constant(revoked)
             };
+
+            console.log("iitial query", in_query);
 
             // retrieve a set of datoms through the DB's efficient indexing and searching capabilities
             const resultSet = db.find(in_query);
@@ -522,7 +535,6 @@ export async function runQuery( db, q, ...ins )
             });
 
             const queryResults = [];
-
 
             // TEMPORARY CODE related to https://github.com/cognitect/transit-js/issues/50
             const final_FORLOOPS = transit.map([...final].flat());
