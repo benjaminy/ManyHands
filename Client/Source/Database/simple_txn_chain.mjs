@@ -34,9 +34,7 @@ const dbMethods =
         var entity_id_info = db.entity_id_info;
         const txn = { stmts: stmts, prev: db.txns };
         /* Might throw error: */
-        console.log("Committing");
         [ txn.datoms, entity_id_info ] = await DT.processTxn( db, stmts );
-        console.log("adding datoms", txn.datoms);
         db.storage.add(...txn.datoms);
         return Object.assign( {}, db, { txns: txn, entity_id_info: entity_id_info } );
     }

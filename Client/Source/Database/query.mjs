@@ -418,8 +418,6 @@ export async function runQuery( db, q, ...ins )
             setBindingsAndJoins(timestamp, "timestamp");
             setBindingsAndJoins(revoked, "revoked");
 
-            console.log("attribute", attribute);
-
             const get_constant = async function(field, is_value=false){
                 // TODO substitute out :keys for their ids
                 if(constant_tags.has(field.tag)){
@@ -427,7 +425,7 @@ export async function runQuery( db, q, ...ins )
                         //console.log("tag sub", field.val, (await TX.getAttribute(db, field.val)).id);
                         if(is_value) return field.val;
                         return (await TX.getAttribute(db, field.val)).id; // TODO this affects the query, probably
-                    }
+                    } // TODO reaching into the transaction file from query? I'd love for this to be much more agnostic
                     return field.val;
                 } else if(field.tag === variable_tag && inParams.has(field.name)){
                     return inParams.get(field.name);
@@ -449,8 +447,6 @@ export async function runQuery( db, q, ...ins )
                 timestamp: await get_constant(timestamp),
                 revoked: await get_constant(revoked)
             };
-
-            console.log("iitial query", in_query);
 
             // retrieve a set of datoms through the DB's efficient indexing and searching capabilities
             const resultSet = db.find(in_query);

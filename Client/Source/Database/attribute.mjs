@@ -145,9 +145,7 @@ export function makeAttribute(
  */
 export function normalizeValue( attribute, value )
 {
-    console.log("attribute", attribute);
-    var vType = K.key( attribute.valueType );
-    console.log(vType);
+    const vType = K.key( attribute.valueType );
     if( vType === vtypeBigint )
         throw new Error( "Unimplemented" );
 

@@ -45,11 +45,8 @@ export async function processTxn( db, stmts )
     const datoms = [];
     const temp_ids = {};
 
-    console.log("Processing transaction ", stmts);
-
     function getEntityId( e )
     {
-        console.log("getting entity id", e);
         if( !e )
             return new_entity( db );
         /* "else" */
@@ -57,7 +54,6 @@ export async function processTxn( db, stmts )
         if( Number.isInteger( e ) )
         {
             if(DA.dbIdMap.has(e)){
-                console.log("this hit:", e);
                 throw new Error("Cannot edit the entity of a builtin entity.");
             }
             if(e >= db.next_entity_id){
@@ -67,6 +63,8 @@ export async function processTxn( db, stmts )
             return e;
         }
         /* "else" */
+
+        // TODO allow for setting :ident and referring back to entity by key, rather than id.
 
         if(e in temp_ids) {
             return temp_ids[ e ];
@@ -118,13 +116,10 @@ export async function processTxn( db, stmts )
     }
 
     async function processStmt( stmt, i ) {
-        console.log("processing statement");
         if( Array.isArray( stmt ) )
         {
             var kind = K.key( stmt[ 0 ] );
-            console.log("Kind", kind);
             if( K.compare(kind, addK) === 0 ) {
-                console.log("stmt", stmt);
                 await addDatom( await getEntityId( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
             }
             else if( stmt[ 0 ] === retractK ) {
@@ -173,7 +168,7 @@ export async function processTxn( db, stmts )
     catch( err ) {
         console.error(err);
     }
-    return [datoms, "some entity information apparently"];
+    return [datoms, "extra entity information"];
 }
 
 

@@ -103,7 +103,7 @@ async function test_03_get_attribute(){
     });
     const db = DB.newDB(raw_storage);
 
-    console.log(db.find());
+    //console.log(db.find());
 
     const statement = [ DT.addK, "bob", ":likes", 42 ];
 
