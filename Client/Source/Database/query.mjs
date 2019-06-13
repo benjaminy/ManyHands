@@ -418,6 +418,7 @@ export async function runQuery( db, q, ...ins )
             setBindingsAndJoins(revoked, "revoked");
 
             const get_constant = function(field){
+                // TODO substitute out :keys for their ids
                 if(constant_tags.has(field.tag)){
                     return field.val;
                 } else if(field.tag === variable_tag && inParams.has(field.name)){

@@ -2,6 +2,8 @@
 
 import * as K  from "../Utilities/keyword.mjs";
 
+import transit from "transit-js";
+
 export const identK       = K.key( ":db/ident" );
 export const docK         = K.key( ":db/doc" );
 export const indexK       = K.key( ":db/index" );
@@ -37,6 +39,48 @@ export const uniqueValue    = K.key( ":db.unique/value" );
 export const uniqueIdentity = K.key( ":db.unique/identity" );
 export const uniques = new Set( [ uniqueValue, uniqueIdentity ] );
 
+/*
+export const dbKeys = new Set( [
+    identK, docK, indexK, fulltextK, noHistoryK, isComponentK,
+    cardinalityK, ...cardinalities, ...types, ...uniques] );
+*/
+
+export const dbIdMap = transit.map([
+    1,  identK         ,
+    2,  docK           ,
+    3,  indexK         ,
+    4,  fulltextK      ,
+    5,  noHistoryK     ,
+    6,  isComponentK   ,
+    7,  cardinalityK   ,
+    8,  cardinalityOne ,
+    9,  cardinalityMany,
+    10, valueTypeK     ,
+    11, vtypeKeyword   ,
+    12, vtypeString    ,
+    13, vtypeBoolean   ,
+    14, vtypeLong      ,
+    15, vtypeBigint    ,
+    16, vtypeFloat     ,
+    17, vtypeDouble    ,
+    18, vtypeBigdec    ,
+    19, vtypeRef       ,
+    20, vtypeInstant   ,
+    21, vtypeUuid      ,
+    22, vtypeBytes     ,
+    23, uniqueK        ,
+    24, uniqueValue    ,
+    25, uniqueIdentity
+]);
+
+export const dbSymbolMap = transit.map();
+for(let [k, v] of dbIdMap)
+    dbSymbolMap.set(v, k); // reverse lookup map
+
+export function makeBuiltin(ident_, id_){
+    return {id: id_, builtin: true, ident: K.key(ident_)};
+}
+
 export function makeAttribute(
     ident_, id_, valueType_, cardinality_,
     doc, unique, index, fulltext, isComponent, noHistory )
@@ -46,6 +90,7 @@ export function makeAttribute(
     const cardinality = K.key( cardinality_ );
 
     const attr       = {id: id_};
+    attr.builtin     = false;
     attr.ident       = ident;
     attr.doc         = "";
     attr.unique      = null;
@@ -54,7 +99,7 @@ export function makeAttribute(
     attr.isComponent = false;
     attr.noHistory   = false;
 
-    /* TODO: check that ident doesn"t break any naming rules */
+    /* TODO: check that ident doesn't break any naming rules */
 
     if( !types.has( valueType ) )
         throw new Error( "Invalid attribute valueType: " + valueType.str );

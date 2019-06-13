@@ -55,47 +55,47 @@ async function test_03_get_attribute(){
     const raw_storage = init_simple_dict();
     raw_storage.add({ // don't try this at home kids
         entity: 10,
-        attribute: A.identK,
+        attribute: A.dbSymbolMap.get(A.identK),
         value: ":likes"
     });
     raw_storage.add({
         entity: 10,
-        attribute: A.valueTypeK,
-        value: A.vtypeString
+        attribute: A.dbSymbolMap.get(A.valueTypeK),
+        value: A.dbSymbolMap.get(A.vtypeString)
     });
     raw_storage.add({
         entity: 10,
-        attribute: A.cardinalityK,
-        value: A.cardinalityMany
+        attribute: A.dbSymbolMap.get(A.cardinalityK),
+        value: A.dbSymbolMap.get(A.cardinalityMany)
     });
     raw_storage.add({
         entity: 10,
-        attribute: A.docK,
+        attribute: A.dbSymbolMap.get(A.docK),
         value: "hor de door"
     });
     raw_storage.add({
         entity: 10,
-        attribute: A.uniqueK,
+        attribute: A.dbSymbolMap.get(A.uniqueK),
         value: null
     });
     raw_storage.add({
         entity: 10,
-        attribute: A.indexK,
+        attribute: A.dbSymbolMap.get(A.indexK),
         value: false
     });
     raw_storage.add({
         entity: 10,
-        attribute: A.fulltextK,
+        attribute: A.dbSymbolMap.get(A.fulltextK),
         value: false
     });
     raw_storage.add({
         entity: 10,
-        attribute: A.isComponentK,
+        attribute: A.dbSymbolMap.get(A.isComponentK),
         value: false
     });
     raw_storage.add({
         entity: 10,
-        attribute: A.noHistoryK,
+        attribute: A.dbSymbolMap.get(A.noHistoryK),
         value: false
     });
     const db = DB.newDB(raw_storage);
