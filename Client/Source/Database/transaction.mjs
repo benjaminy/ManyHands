@@ -17,10 +17,15 @@ function new_entity( db )
 export async function getAttribute( db, identName ) {
     const ident = K.key( identName );
 
+    if(DA.dbSymbolMap.has(ident)){
+        return DA.makeBuiltin(ident, DA.dbSymbolMap.get(ident));
+    }
+
     if( !( db.attributes.has(ident) ) )
     {
         try {
-            const [ [ id, v, c, d, u, i, f, ic, n ] ] = await Q.runQuery( db, Q.attrQuery, identName ); // TODO: cardinality should flatten this
+            console.log("ident", ident, await Q.runQuery( db, Q.attrQuery, ident ));
+            const [ [ id, v, c, d, u, i, f, ic, n ] ] = await Q.runQuery( db, Q.attrQuery, ident ); // TODO: cardinality should flatten this
             db.attributes.set( ident, DA.makeAttribute( ident, id, v, c, d, u, i, f, ic, n ) );
         }
         catch( err ) {
