@@ -4,16 +4,29 @@ Storage Tree Stuff
 UWS requires a relatively simple storage server to save all state to.
 
 Data is stored as a tree of files.
+(Maybe this is a lie and it's really a DAG.
+That doesn't sound as good.)
 The root has a globally known name/path/location.
 All other files have randomly generated names; they should only ever be reached by following links from other tree nodes.
 Links to non-root files should not be stored elsewhere; they are all transient.
 
 ## Nodes
 
-Each node in the tree can contain two different kinds of fields:
+In its stored form, each node has the following fields:
 
-- Plain data values
-- Children
+- plain data (map: key -> primitive value)
+- links to children (map: key -> child link)
+- a set of children (really, keys) whose links have blank timestamps
+
+In its in-memory form, each node has the following fields in addition
+to the ones above:
+
+- memory cache information
+- local storage cache information
+- dirty children (set of keys)
+- children to delete (set of links)
+- the storage object
+- maybe some storage options
 
 Previously it seemed like having arrays of children as a primitive concept would be useful, but I haven't been able to think of a way in which that's actually better than leaving it up to client code to make up a naming scheme like "stuff-0", "stuff-1", etc.
 It might be worthwhile to make a convenience library for arrays of children.
@@ -46,3 +59,6 @@ Any links from newly written nodes to old/unmodified subtrees with empty/blank t
 
 Lazy automatic rehydration of the links??? Seems ok.
 Dehydration needs to be explicit.
+
+/* is there any reason for nodes to "know" their own location? */
+
