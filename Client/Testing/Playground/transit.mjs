@@ -58,6 +58,14 @@ tm.forEach( ( v, k ) => console.log( "iterate?", k, v ) );
 
 console.log( "COPY?", ( new T.map( tm ) ).toString() );
 
+function doesMapCloneWork()
+{
+    const tc = tm.clone();
+    tc.set( "blue", "red" );
+    console.log( "CLONE?", tm.toString(), tc.toString() );
+}
+doesMapCloneWork();
+
 const s1 = T.set();
 const sym1 = T.symbol( "giraffe" );
 
@@ -68,3 +76,15 @@ console.log( "Set", s1.toString() );
 
 const d = T.map();
 console.log( "DELETE?", d.delete( 42 ) );
+
+function doesSetCopyingWork()
+{
+    const sA = T.set();
+    sA.add( "42" );
+    const sB = sA.clone();
+    sA.add( 42 );
+    sB.add( 4.2 );
+    console.log( "sets the same?", sA.toString(), sB.toString() );
+}
+
+doesSetCopyingWork();

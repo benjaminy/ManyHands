@@ -76,6 +76,13 @@ const localPersistentDB = {};
     return node;
 }
 
+/* private */ function untouchNode( node )
+{
+    assert( dirty_tag in node );
+    assert( !( timestamp_tag in node ) );
+    delete node.dirty_tag;
+    delete node.to_delete_tag;
+}
 
 /* Begin plain old data part */
 
@@ -168,6 +175,20 @@ export function deleteValue( node, key )
     return d;
 }
 
+/* private */ function pushDownTimestamp( parent, link, child )
+{
+    /* TODO: if don't care about timestamp ... */
+    if( "timestamp" in link )
+    {
+        child[ timestamp_tag ] = link.timestamp;
+    }
+    else
+    {
+        child[ timestamp_tag ] = parent[ timestamp_tag ];
+    }
+
+}
+
 /* private */ function rehydrate( parent, link, dehydrated, storage_cb )
 {
     const pstorage = parent[ storage_tag ];
@@ -187,15 +208,7 @@ export function deleteValue( node, key )
     c[ local_cache_tag ]     = { has: () => false };
     c[ storage_tag ]         = cstorage;
 
-    /* TODO: if don't care about timestamp ... */
-    if( "timestamp" in link )
-    {
-        c[ timestamp_tag ] = link.timestamp;
-    }
-    else
-    {
-        c[ timestamp_tag ] = parent[ timestamp_tag ];
-    }
+    pushDownTimestamp( parent, link, c );
 
     c.toString = nodeToString;
     return c;
@@ -209,9 +222,14 @@ export async function getChild( parent, key )
     if( isInMemCache( parent, key ) )
     {
         /* reminder: update cache timestamp */
-        return getFromMemCache( parent, key );
+        const child = getFromMemCache( parent, key );
+        if( ( !( timestamp_tag in child ) ) && parent[ links_tag ].has( key ) )
+        {
+            pushDownTimestamp( parent, parent[ links_tag ].get( key ), child );
+        }
+        return child;
     }
-    
+
     if( !( parent[ links_tag ].has( key ) ) )
     {
         throw { [tree_err]: missing_key_err, key: key };
@@ -319,7 +337,7 @@ export function newChild( parent, key, storage_cb )
     const storage = node[ storage_tag ];
     const old_blanks = node[ blank_timsetamps_tag ];
     const new_blanks = T.set();
-    const all_delete = 
+    const all_delete = node[ to_delete_tag ].clone();
     if( dirty_tag in node )
     {
         for( const key in node[ dirty_tag ] )
@@ -369,7 +387,7 @@ export async function writeTree( root )
     //         root[ child_name ].timestamp = 
     //     }
     const storage = root[ storage_tag ];
-    const storage_options = UT.shallowCopyMap( root[ storage_options_tag ] );
+    const storage_options = root[ storage_options_tag ].clone();
     if( root[ prev_root_tag ] === null )
     {
         storage_options.set( SC.COND_UPLOAD, SC.COND_NO_OVERWRITE );

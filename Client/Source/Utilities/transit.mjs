@@ -6,12 +6,18 @@
 
 import T from "transit-js";
 
-export function shallowCopyMap( thing )
+export function setUnionModify( s1, s2 )
 {
-    const m = T.map();
-    for( const [ k, v ] of thing )
+    for( const thing of s2 )
     {
-        m.set( k, v );
+        s1.add( thing );
     }
-    return m;
+}
+
+export function setUnionNew( s1, s2 )
+{
+    const s = T.set();
+    setUnionModify( s, s1 );
+    setUnionModify( s, s2 );
+    return s;
 }
