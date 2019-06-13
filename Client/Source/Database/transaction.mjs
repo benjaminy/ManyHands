@@ -11,7 +11,9 @@ export const idK      = K.key( ":db/id" );
 function new_entity( db )
 {
     const eid = db.next_entity_id;
-    return [ eid, Object.assign( {}, db, { next_entity_id: eid + 1 } ) ];
+    db.next_entity_id++;
+    return eid;
+    //return [ eid, Object.assign( {}, db, { next_entity_id: eid + 1 } ) ];
 }
 
 export async function getAttribute( db, identName ) {
@@ -40,20 +42,28 @@ export async function processTxn( db, stmts )
     /* assert( typeof( db )  == database ) */
     /* assert( typeof( txn ) == array of statements ) */
 
-    var datoms = [];
-    var temp_ids = {};
+    const datoms = [];
+    const temp_ids = {};
 
     console.log("Processing transaction ", stmts);
 
-    async function getEntityId( e )
+    function getEntityId( e )
     {
+        console.log("getting entity id", e);
         if( !e )
             return new_entity( db );
         /* "else" */
 
         if( Number.isInteger( e ) )
         {
-            /* TODO: check that e is a valid entity id */
+            if(DA.dbIdMap.has(e)){
+                console.log("this hit:", e);
+                throw new Error("Cannot edit the entity of a builtin entity.");
+            }
+            if(e >= db.next_entity_id){
+                return new_entity(db);
+            }
+            // TODO make sure this entity exists in the db already.
             return e;
         }
         /* "else" */
@@ -61,19 +71,16 @@ export async function processTxn( db, stmts )
         if(e in temp_ids) {
             return temp_ids[ e ];
         }
-        console.log("creating new entity");
-        //const eid = DB.new_entity( db );
-        //temp_ids[ e ] = eid;
-        //return eid TODO
-        return e;
+        const eid = new_entity( db );
+        temp_ids[ e ] = eid;
+        return eid;
     }
 
     async function addDatom( e, a, v )
     {
-        var attribute = await getAttribute( db, a );
-        var value     = DA.normalizeValue( attribute, v );
-
-        console.log("atafsdfas", attribute);
+        const entity    = getEntityId( e );
+        const attribute = await getAttribute( db, a );
+        const value     = DA.normalizeValue( attribute, v );
 
         if( attribute.unique )
         {
@@ -92,9 +99,8 @@ export async function processTxn( db, stmts )
             else
                 throw new Error( "Invalid attribute uniqueness " + unique.toString() );
         }
-        console.log("adding datom");
 
-        var card = K.key( attribute.cardinality );
+        const card = K.key( attribute.cardinality );
         if( card === DA.cardinalityOne )
         {
             /* TODO: add retract if there is an existing value */
@@ -108,8 +114,7 @@ export async function processTxn( db, stmts )
             throw new Error( "Invalid attribute cardinality " + card.str );
         }
 
-        //datoms.push( [ e, attribute, value ] );
-        datoms.push({entity: e, attribute: attribute.id, value: value});
+        datoms.push({entity: entity, attribute: attribute.id, value: value});
     }
 
     async function processStmt( stmt, i ) {
@@ -119,8 +124,7 @@ export async function processTxn( db, stmts )
             var kind = K.key( stmt[ 0 ] );
             console.log("Kind", kind);
             if( K.compare(kind, addK) === 0 ) {
-                console.log("Adding datom", stmt[1], stmt[2], stmt[3]);
-                console.log("entity id", await getEntityId(stmt[1]));
+                console.log("stmt", stmt);
                 await addDatom( await getEntityId( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
             }
             else if( stmt[ 0 ] === retractK ) {

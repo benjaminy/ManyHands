@@ -13,6 +13,8 @@ import * as K  from "../Utilities/keyword.mjs";
 import * as SW from "../Storage/wrappers.mjs";
 import * as DC from "./common.mjs";
 import * as DT from "./transaction.mjs";
+import * as DA from "./attribute.mjs";
+
 
 
 /*
@@ -79,11 +81,12 @@ const dbMethods =
 export function newDB( storage, options )
 {
     const db = Object.assign( {}, dbMethods );
+    const first_entity = 1000; // TODO I am assuming we will not have 1000 builtins.
     const first_txn = {
         stmts : [],
         datoms : [],
         prev : null,
-        next_entity_id : 1
+        next_entity_id : first_entity
     };
     db.storage        = storage;
     db.last_up_txn    = null;
@@ -91,6 +94,7 @@ export function newDB( storage, options )
     db.txns           = first_txn;
     db.attributes     = T.map(); // cached attributes
     db.find           = db.storage.find;
+    db.next_entity_id = first_entity;
     /* TODO???: more initial txns */
     return db;
 }
