@@ -23,6 +23,10 @@ export const COND_ATOMIC                = sy( "atomic upload" );
 export const COND_NEW_NAME              = sy( "unique upload" );
 export const COND_NO_OVERWRITE          = sy( "no overwrite" );
 
+class StorageError extends Error
+class UnsupportedOptionError extends StorageError
+class OverwriteFailedrror extends StorageError
+class AtomicUpdateFailed extends StorageError
 export const ERROR_KIND                 = sy( "storage error kind" );
 export const ERROR_OVERWRITE_FAILED     = sy( "atomic update failed" );
 export const ERROR_ATOMIC_UPDATE_FAILED = sy( "storage error overwrite failed" );
