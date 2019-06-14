@@ -15,7 +15,7 @@ export const ETAG = Symbol( "ETag" );
 
 const DEFAULT_BYTES_PER_NAME = 10;
 
-export function overwriteHeader( headers, name, value )
+export function setHeader( headers, name, value )
 {
     if( headers.has( name ) )
     {
@@ -29,18 +29,18 @@ export function overwriteHeader( headers, name, value )
 
 export async function noOverwrite( headers, options, upload )
 {
-    overwriteHeader( headers, "If-None-Match", "*" );
+    setHeader( headers, "If-None-Match", "*" );
     const response = await upload();
     if( response.status === 412 )
     {
-        throw { [SC.ERROR_KIND]: SC.ERROR_OVERWRITE_FAILED }
+        return { failure: { [SC.ERROR_KIND]: SC.ERROR_OVERWRITE_FAILED } };
     }
-    return response;
+    return { success: response };
 }
 
 export async function newName( headers, link_start, options, upload )
 {
-    overwriteHeader( headers, "If-None-Match", "*" );
+    setHeader( headers, "If-None-Match", "*" );
     const retry_limit = 5;
     var retries = 0;
     while( ( !retry_limit ) || ( retries < retry_limit ) )
@@ -49,10 +49,15 @@ export async function newName( headers, link_start, options, upload )
         const name = UM.toHexString( bytes );
         console.log( "FOO", link_start.path, typeof( link_start.path ) );
         link_start.path = link_start.path.concat( name );
-        const [ response, link ] = await upload( link_start.path );
+        const ul_result = await upload( link_start.path );
+        if( !( "success" in ul_result ) )
+        {
+            return ul_result;
+        }
+        const [ response, link ] = ul_result.success;
         if( response.ok )
         {
-            return [ response, Object.assign( {}, link, { path: link_start.path } ) ]
+            return { success: [ response, Object.assign( {}, link, { path: link_start.path } ) ] };
         }
         else if( response.status === 412 )
         {
@@ -61,22 +66,27 @@ export async function newName( headers, link_start, options, upload )
         }
         else
         {
-            return [ response, {} ];
+            return { failure: { respons: response } };
         }
     }
-    throw { [SC.ERROR_KIND]: SC.ERROR_RETRY_LIMIT };
+    return { failure: { [SC.ERROR_KIND]: SC.ERROR_RETRY_LIMIT } }
 }
 
 export async function atomicUpdate( headers, link_start, options, upload )
 {
     assert( ETAG in link_start );
-    overwriteHeader( headers, "If-Match", link_start[ ETAG ] );
-    const [ response, link_finish ] = await upload( link_start );
+    setHeader( headers, "If-Match", link_start[ ETAG ] );
+    const ul_result = await upload( link_start );
+    if( !( "success" in ul_result ) )
+    {
+        return ul_result;
+    }
+    const [ response, link_finish ] = ul_result.success;
     if( response.status === 412 )
     {
-        throw { [SC.ERROR_KIND]: SC.ERROR_ATOMIC_UPDATE_FAILED };
+        return { failure: { [SC.ERROR_KIND]: SC.ERROR_ATOMIC_UPDATE_FAILED } };
     }
-    return [ response, link_finish ];
+    return { success: [ response, link_finish ] };
 }
 
 export async function upload( link_start, value, options, coreUpload )
@@ -102,7 +112,12 @@ export async function upload( link_start, value, options, coreUpload )
         path = UM.nestedArrayFlatten( path );
         assert( path.every( ( p ) => typeof( p ) === "string" ) );
         path = P.join( ...( path.map( encodeURIComponent ) ) );
-        const response = await coreUpload( path, headers, cryptoed_value );
+        const ul_result = await coreUpload( path, headers, cryptoed_value );
+        if( !( "success" in ul_result ) )
+        {
+            return ul_result;
+        }
+        const response = ul_result.success;
         const link_response = { path: path_arr };
         if( true || options.has( SC.COND_UPLOAD ) && ( options.get( SC.COND_UPLOAD ) === SC.COND_ATOMIC ) )
         {
