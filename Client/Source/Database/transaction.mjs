@@ -3,6 +3,7 @@
 import * as K  from "../Utilities/keyword.mjs";
 import * as DA from "./attribute.mjs";
 import * as Q from "./query.mjs";
+import * as A from "./attribute.mjs";
 
 export const addK     = K.key( ":db/add" );
 export const retractK = K.key( ":db/retract" );
@@ -26,8 +27,9 @@ export async function getAttribute( db, identName ) {
     if( !( db.attributes.has(ident) ) )
     {
         const qResult = await Q.runQuery( db, Q.attrQuery, ident );
+        // console.log(qResult, await Q.runQuery(db, Q.attrQuery, ident.str));
         if(qResult.length === 0){
-            throw new Error( "DB does not have attribute " + identName);
+            throw new Error( "DB does not have attribute " + ident.toString());
         }
         const [ [ id, v, c, d, u, i, f, ic, n ] ] = qResult; // TODO: cardinality should flatten this from [[]] to []
         db.attributes.set( ident, DA.makeAttribute( ident, id, v, c, d, u, i, f, ic, n ) );
@@ -44,6 +46,77 @@ export async function processTxn( db, stmts )
 
     const datoms = [];
     const temp_ids = {};
+
+
+    /*
+     * Convert "value" into the proper kind of value, as indicated by
+     * "attribute".valueType.
+     *
+     * If value is already the proper kind, just return value.
+     *
+     * If conversion is not possible (i.e. the input is bad), throw an Error.
+     */
+    function normalizeValue( attribute, value )
+    {
+        const vType = K.key( attribute.valueType );
+
+        let v;
+
+        console.log(attribute);
+
+        if( vType === A.vtypeBigint )
+            throw new Error( "Unimplemented" );
+
+        else if( vType === A.vtypeFloat )
+            throw new Error( "Unimplemented" );
+
+        /*else if( vType === A.vtypeInstant )
+            throw new Error( "Unimplemented" );
+        */
+        else if( vType === A.vtypeUuid )
+            throw new Error( "Unimplemented" );
+
+        /*else if( vType === A.vtypeUri )
+            throw new Error( "Unimplemented" );*/
+
+        else if( vType === A.vtypeBytes )
+            throw new Error( "Unimplemented" );
+
+        else if( vType === A.vtypeKeyword )
+            v = K.key( value );
+
+        else if( vType === A.vtypeDouble )
+            v = 0.0 + value;
+
+        else if( vType === A.vtypeString )
+            v = String( value );
+
+        else if( vType === A.vtypeBoolean )
+        {
+            if( value === true || value === false )
+                v = value;
+            else
+                throw new Error( "TODO" );
+        }
+
+        /* XXX stupid JavaScript numbers!  Only get 52 bits. */
+        else if( vType === A.vtypeLong )
+        {
+            v = 0.0 + value;
+            if( !Number.isInteger( v ) )
+                throw new Error( "TODO" );
+        }
+
+        else if( vType === A.vtypeRef )
+        {
+            return getEntityId( value );
+        }
+
+        else
+            throw new Error( "Invalid attribute valueType " + vType );
+
+        return v;
+    }
 
     function getEntityId( e )
     {
@@ -78,7 +151,7 @@ export async function processTxn( db, stmts )
     {
         const entity    = getEntityId( e );
         const attribute = await getAttribute( db, a );
-        const value     = DA.normalizeValue( attribute, v );
+        const value     = normalizeValue( attribute, v );
 
         if( attribute.unique )
         {
@@ -118,21 +191,21 @@ export async function processTxn( db, stmts )
     async function processStmt( stmt, i ) {
         if( Array.isArray( stmt ) )
         {
-            var kind = K.key( stmt[ 0 ] );
+            const kind = K.key( stmt[ 0 ] );
             if( K.compare(kind, addK) === 0 ) {
                 await addDatom( await getEntityId( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
             }
             else if( stmt[ 0 ] === retractK ) {
-                var e = await getEntityId( stmt[ 1 ] );
-                var attribute = await db.getAttribute( stmt[ 2 ] );
-                var value     = DA.normalizeValue( attribute, stmt[ 3 ] );
+                const e = await getEntityId( stmt[ 1 ] );
+                const attribute = await db.getAttribute( stmt[ 2 ] );
+                const value     = normalizeValue( attribute, stmt[ 3 ] );
                 /* Check that v is e's value for attribute a? */
                 datoms.push( [ e, attribute, value, true ] );
             }
             else {
-                var f = lookupFunction( db, K.key( stmt[ 0 ] ) );
+                const f = lookupFunction( db, K.key( stmt[ 0 ] ) );
                 stmt.shift(); // remove function name
-                var fn_datoms = f.fn.apply( db, stmt );
+                const fn_datoms = f.fn.apply( db, stmt );
                 fn_datoms.forEach( function( [ e, a, v ] ) {
                     addDatom( getEntityId( e ), a, v ); // TODO PROMISE TROUBLE
                 } );
@@ -141,15 +214,16 @@ export async function processTxn( db, stmts )
         else
         {
             const idS = K.str( idK );
+            let e;
             try {
-                var e = await getEntityId( stmt[ idK ] );
+                e = await getEntityId( stmt[ idK ] );
             }
             catch( err ) {
                 try {
-                    var e = await getEntityId( stmt[ idS ] );
+                    e = await getEntityId( stmt[ idS ] );
                 }
                 catch( err ) {
-                    var e = DB.new_entity( db );
+                    e = DB.new_entity( db );
                 }
             }
             for( const attr in stmt )

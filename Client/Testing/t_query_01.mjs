@@ -133,7 +133,7 @@ async function test_12_attribute_query(){
         value: false
     });
 
-    const r = await Q.runQuery(db, q, ":likes");
+    const r = await Q.runQuery(db, q, K.key(":likes"));
     const expected = [
         A.vtypeRef,
         A.cardinalityMany,
@@ -145,7 +145,7 @@ async function test_12_attribute_query(){
         false
     ];
 
-    assert(r.length === 1, `Length of result set is incorrect (expected 1, found ${r.length}`);
+    assert(r.length === 1, `Length of result set is incorrect (expected 1, found ${r.length})`);
     for(let i = 0; i < expected.length; i++){
         assert(expected[i] === r[0][i], "A value was mismatched or wrong");
         //+ ` (expected ${expected[i]}, found ${r[0][i]})`);

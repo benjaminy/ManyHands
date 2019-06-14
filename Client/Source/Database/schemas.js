@@ -100,11 +100,9 @@ const team_private =
        ':db.type/string',
        ':db.cardinality/one',
        "A user's name" ),
-]
+];
 
 const team_public =
 [
 
 ];
-
-} );

@@ -26,8 +26,11 @@ const where_clauses_tag = Symbol( "where_clauses" );
 const data_pattern_tag  = Symbol( "data_pattern" );
 const type_keyword_tag  = Symbol( "type_keyword" );
 const type_number_tag   = Symbol( "type_number" );
+const type_bool_tag     = Symbol("type_bool");
+const type_string_tag   = Symbol("type_string");
 
-const constant_tags     = new Set( [ type_keyword_tag, type_number_tag ] );
+const constant_tags     = new Set( [
+    type_keyword_tag, type_number_tag, type_bool_tag, type_string_tag ] );
 const var_const_under_tags =
       S.union( new Set( [ variable_tag ] ), new Set( [ variable_tag ] ), constant_tags );
 
@@ -218,11 +221,11 @@ export function parseQuery( q )
             return { tag: underbar_tag };
         }
         try {
-            return parseConstant( thing );
+            return parseVariable( thing );
         }
         catch( err ) {}
         try {
-            return parseVariable( thing );
+            return parseConstant( thing );
         }
         catch( err ) {}
         throw new Error( "Query: Expecting variable, constant or _.  Found: " + thing );
