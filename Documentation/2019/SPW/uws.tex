@@ -43,11 +43,14 @@ In this paper we analyze the reasons for the non-use of this technology and prop
 
 \textbf{A mystery}:
 As of early 2019, both \emph{secure} messaging and \emph{trust-the-service-provider} collaborative editing are widely used, \emph{mainstream} technologies.
-The core technology ingredients for \emph{secure} collaborative editing (CE) have existed for many years.
-A few research teams have even developed prototypes for secure CE systems.
-Yet, to the best of the authors' knowledge there is approximately zero mainstream use of secure CE systems.
+Yet, to the best of the authors' knowledge, the ``intersection'' of these techonologies -- secure collaborative editing (CE) -- has achieved approximately zero mainstream adoption.
+This despite the fact that the core technology ingredients for secure CE have existed for many years, and a few research teams have even developed prototypes for secure CE systems.
 
-We propose an explanation of this mystery: The \emph{centralized} system architecture that both popular secure messaging and trust-the-service-provider CE applications use has some problematic issues for secure CE.
+We propose an explanation of this mystery: The \emph{centralized} system architecture that effectively all mainstream internet-based services use works less well for secure CE than it does for secure messaging.
+(It may seem strange to call services like Signal and WhatsApp centralized, because they use end-to-end encryption protocols to hide user data from their servers.
+However, these services rely on central servers to forward messages from client to client, thus are still centralized in an infrastructure sense.)
+
+The  system architecture that both popular secure messaging and trust-the-service-provider CE applications use has some problematic issues for secure CE.
 In particular, the economics are challenging.
 Running a CE service is more costly than a messaging service, because of the storage and repeated querying costs.
 However, running any privacy-protecting service does not give the service provider the common business opportunity of deriving profit from users' data.
@@ -72,20 +75,19 @@ Of course, we aim for as much resistance to these kinds of attacks as is feasibl
 
 \section{Background and System Architecture}
 
-\subsection{Concurrent Edit Branch Merging}
+\subsection{Concurrent Edit Reconciliation}
 
-In any system that involves concurrent editing there exists the possibility of conficts that need to be resolved in some way.
-A wide reange of strategies for this conflicting branch resolution problem exist in different systems.
-To mention just a few: in version control systems like git, decisions about branching and merging are substantially manual with some automatic merging support for simple cases; in productivity apps like Office 365 and Google Docs a central service serializes edits and provides a backup user interface in case of conflicts; in proof-of-work blockchains like Bitcoin, a decentralized collection of clients vote with their compute cycles on which of the concurrent branches that exist should ``win'' and be considered canonical.
+In any system that allows users to edit concurrently, those edits need to be reconciled in some way, so that all users sharing some data maintain consistent views of that data.
+A wide range of strategies for concurrent edit reconciliation exist in different systems.
+To mention just a few: in version control systems like git, decisions about branching and merging are substantially manual with some automatic merging support for simple cases; in productivity apps like Office 365 and Google Docs a central service serializes edits and provides a backup user interface in case of conflicts; in proof-of-work blockchains like Bitcoin, a decentralized collection of clients vote with their compute cycles on which of the concurrent branches that exist should ``win''; in some decntralized chat applications inconsistent message ordering between clients is simply allowed to happen.
 
-This project aims to support a reasonably wide range of conflict resolution strategies.
-One piece of raw data that can be useful 
-An important observation we make here is that centralized systems can easily establish a temporal total order on edits.
-While such an order in itself is not a complete conflict resolution strategy, it can be a useful ingredient when there exists a true application semantics level conflict between concurrent edits.
-Conventional distributed systems can provide a partial order based on causality, but it is hard to order concurrent edits{\slash}messages{\slash}transactions in such systems.
-
---
-RXWSOF
+This project is \emph{not} aimed at any substantial innovation in CE reconciliation strategies.
+Rather, our goal is to make a decentralized framework upon which a wide range of strategies can be built.
+In particular, one of the advantages that centralized systems have is that it is easy to put edits in a reasonable total order; that is, the order that the central service commits them in.
+We propose new consistency protocol that uses both conventional distributed causal consistency concepts and server-provided wall-clock timestamps in a way that minimizes both user surprise at the final ordering and opportunities for malicious servers to cause mischief.
+We reemphasize that not all CE reconciliation strategies make use of a total ordering on the edits.
+Even those that do need additional logic to make a complete protocol for most applications.
+But a godo total order is a useful ingredient for some reasonable reconciliation strategies, and we seek to provide such an order as efficiently as possible.
 
 Collaborative editing applications help teams work and socialize together; some popular examples: Google Docs, Evernote, Etherpad, Slack, Trello.
 In all widely used collaborative editing (CE) applications, \emph{central services} process and store teammates' edits{\slash}transactions.
