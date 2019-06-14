@@ -76,11 +76,15 @@ export async function processTxn( db, stmts )
      */
     function normalizeValue( attribute, value )
     {
+        if(attribute.builtin === true){
+            return value; // TODO what do normalized values
+            // look like for some of the builtins?
+            // if they also had .valueType we could just
+            // delete this.
+        }
         const vType = K.key( attribute.valueType );
 
         let v;
-
-        console.log(attribute);
 
         if( vType === A.vtypeBigint )
             throw new Error( "Unimplemented" );
@@ -188,19 +192,15 @@ export async function processTxn( db, stmts )
             else
                 throw new Error( "Invalid attribute uniqueness " + unique.toString() );
         }
-
-        const card = K.key( attribute.cardinality );
-        if( card === DA.cardinalityOne )
-        {
-            /* TODO: add retract if there is an existing value */
-        }
-        else if( card === DA.cardinalityMany )
-        {
-            /* TODO: nothing??? */
-        }
-        else
-        {
-            throw new Error( "Invalid attribute cardinality " + card.str );
+        if( attribute.cardinality ) {
+            const card = K.key(attribute.cardinality);
+            if (card === DA.cardinalityOne) {
+                /* TODO: add retract if there is an existing value */
+            } else if (card === DA.cardinalityMany) {
+                /* TODO: nothing??? */
+            } else {
+                throw new Error("Invalid attribute cardinality " + card.str);
+            }
         }
 
         datoms.push({entity: entity, attribute: attribute.id, value: value});

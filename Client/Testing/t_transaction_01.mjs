@@ -73,9 +73,8 @@ async function setup(){
         )
     );
     const db = DB.newDB(raw_storage);
-    console.log("doing transaction", [...like_insert, ...name_insert]);
     await db.commitTxn(db, [...like_insert, ...name_insert]);
-    console.log("done");
+    console.log("Setup completed");
     return db;
 }
 
@@ -83,7 +82,16 @@ async function test_03_get_attribute(){
     const db = await setup();
     const statement = [ DT.addK, "bob", K.key(":name"), "Bobethy" ];
     const res = await db.commitTxn(db, [statement]);
-    assert(res && db.find({attribute: 101}).length === 1, "Attribute was not filled in correctly.");
+
+    const checkQuery = Q.parseQuery(
+        [Q.findK, "?a", "?name",
+            Q.whereK, ["?a", K.key(":name"), "?name"]]
+    );
+
+    const r = await Q.runQuery(db, checkQuery);
+
+    assert(r.length === 1 && r[0][1] === "Bobethy", "Attribute was not filled in correctly.");
+    console.log("test_03_get_attribute completed successfully");
 }
 
 async function test_04_many_statements(){
@@ -106,6 +114,7 @@ async function test_04_many_statements(){
 
     assert(r.length === 1, `Query failed to retrieve a record (found: ${r}).`);
     assert(r[0][1] === "Marticia", "Query returned invalid or incorrect result.");
+    console.log("test_04_many_statements completed successfully");
 }
 
 main().then(() => {
