@@ -27,8 +27,18 @@ const storage_tag          = T.symbol( "storage" );
 const storage_options_tag  = T.symbol( "storage options" );
 const prev_root_tag        = T.symbol( "previous root" );
 
-const tree_err             = T.symbol( "tree error" );
-const missing_key_err      = T.symbol( "missing key" );
+class TreeError extends Error
+{
+}
+
+class MissingKeyError extends TreeError
+{
+    constructor( key, msg )
+    {
+        super( msg ? msg : "Attempt to access nonexistent tree node field" );
+        this.key = key;
+    }
+}
 
 // const localPersistentDB = {};
 
@@ -141,7 +151,7 @@ export function deleteValue( node, key )
     }
     else
     {
-        throw { [tree_err]: missing_key_err, key: key };
+        throw new MissingKeyError( key );
     }
 }
 
@@ -228,12 +238,12 @@ export async function getChild( parent, key )
         {
             pushDownTimestamp( parent, parent[ links_tag ].get( key ), child );
         }
-        return child;
+        return { success: child };
     }
 
     if( !( parent[ links_tag ].has( key ) ) )
     {
-        throw { [tree_err]: missing_key_err, key: key };
+        return { failure: { missing_key: key } };
     }
 
     const link = parent[ links_tag ].get( key );
@@ -248,13 +258,15 @@ export async function getChild( parent, key )
     {
         const options = T.map(); /* TODO??? */
         const storage = parent[ storage_tag ];
-        try {
+        const dl_result = await storage.download( child_link, options  );
+        if( success in dl_result )
+        {
             var [ dehydrated_child, link_d ] =
-                await storage.download( child_link, options  );
         }
-        catch( err ) {
-            /* maybe throw a different kind of error? */
-            throw err;
+        else
+        {
+            /* maybe make a different kind of error? */
+            return dl_result;
         }
 
         // local_cache.insert( link, dehydrated_child );
@@ -262,7 +274,7 @@ export async function getChild( parent, key )
 
     const child = rehydrate( parent, link, dehydrated_child );
     insertIntoMemCache( parent, key, child );
-    return child;
+    return { success: child };
 }
 
 /* NOTE: It is the client code's responsibility to either save or delete
@@ -275,7 +287,7 @@ export function deleteChild( parent, key )
     if( !( ( parent[ links_tag ].has( key )
              || isInMemCache( parent, key ) ) ) )
     {
-        throw { [tree_err]: missing_key_err, key: key };
+        throw new MissingKeyError( key );
     }
     else if( !( parent[ links_tag ].has( key ) ) )
     {
