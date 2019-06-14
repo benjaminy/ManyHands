@@ -60,7 +60,7 @@ const missing_key_err      = T.symbol( "missing key" );
         node[ dirty_tag ]     = T.set();
         node[ to_delete_tag ] = T.set();
         node[ mem_cache_tag ] = node[ mem_cache_tag ].clone();
-        node[ links ]         = node[ links ].clone();
+        node[ links_tag ]     = node[ links_tag ].clone();
         delete node[ timestamp_tag ];
         if( isRoot( node ) )
         {
@@ -72,11 +72,12 @@ const missing_key_err      = T.symbol( "missing key" );
 
 /* private */ function untouchNode( node )
 {
+    assert( isTreeNode( node ) );
     assert( dirty_tag in node );
     assert( !( timestamp_tag in node ) );
-    const dirties = node[ dirty_tag ];
+    const dirties    = node[ dirty_tag ];
     const to_deletes = node[ to_delete_tag ];
-    const untouched = Object.assign( {}, node );
+    const untouched  = Object.assign( {}, node );
     delete untouched[ dirty_tag ];
     delete untouched[ to_delete_tag ];
     return [ untouched, dirties, to_deletes ];
@@ -132,7 +133,7 @@ export function deleteValue( node, key )
     return parent[ mem_cache_tag ].has( key );
 }
 
-/* private */ function getfromMemCache( parent, key )
+/* private */ function getFromMemCache( parent, key )
 {
     if( parent[ mem_cache_tag ].has( key ) )
     {
@@ -165,9 +166,11 @@ export function deleteValue( node, key )
     d.set( "b", node[ blank_timestamps_tag ] );
     const storage = node[ storage_tag ];
     const dehydrated_links = T.map();
-    for( [ key, link ] of node[ links_tag ] )
+    for( const [ key, link ] of node[ links_tag ] )
     {
-        dehydrated_links.set( key, storage.dehydrateLink( link ) );
+        console.log( "LINK", typeof( link ), link );
+        dehydrated_links.set( key, link );
+        // dehydrated_links.set( key, storage.dehydrateLink( link ) );
     }
     d.set( "l", dehydrated_links );
     return d;
@@ -258,7 +261,7 @@ export async function getChild( parent, key )
     }
 
     const child = rehydrate( parent, link, dehydrated_child );
-    insertInMemCache( parent, key, child );
+    insertIntoMemCache( parent, key, child );
     return child;
 }
 
@@ -307,7 +310,7 @@ export function setChild( parent, key, child )
     assert( isTreeNode( child ) );
 
     parent = touchNode( parent );
-    if( parent[ links_tag ].has( child_name )
+    if( parent[ links_tag ].has( key )
         || isInMemCache( parent, key ) )
     {
         deleteChild( parent, key );
@@ -325,7 +328,9 @@ export function newChild( parent, key, storage_cb )
     const dehydrated = T.map();
     dehydrated.set( "p", T.map() );
     dehydrated.set( "l", T.map() );
+    dehydrated.set( "b", T.set() );
     const child = touchNode( rehydrate( parent, {}, dehydrated ) );
+    child[ storage_options_tag ] = parent[ storage_options_tag ];
     // const pstorage = parent[ storage_tag ];
     return [ setChild( parent, key, child ), child ];
 }
@@ -335,26 +340,33 @@ export function newChild( parent, key, storage_cb )
     const [ subroot_clean, dirties, to_deletes ] = untouchNode( subroot );
 
     const storage = subroot_clean[ storage_tag ];
+    const storage_options = subroot_clean[ storage_options_tag ];
+    storage_options.set( SC.COND_UPLOAD, SC.COND_NEW_NAME );
     /* reminder: this set of blanks should be accurate (i.e. not
      * include newly written children) */
     const all_delete = to_deletes.clone();
     const links = subroot_clean[ links_tag ];
     for( const key of dirties )
     {
+        const child_dirty = await getChild( subroot_clean, key );
+        const child_link_pre = links.has( key ) ? links.get( key )
+              : { path:[] };
+        console.log( "CHILD LINK", child_link_pre );
         const [ child_clean, child_dehydrated, child_deletes ] =
-              writeSubtree( getChild( subroot_clean, links.get( key ) ) );
-        insertInMemCache( subroot_clean, key, child_clean );
-        const child_link = await storage.upload( link, dehydrated, T.map() );
+              await writeSubtree( child_dirty, child_link_pre );
+        insertIntoMemCache( subroot_clean, key, child_clean );
+        const child_link = await storage.upload(
+            child_link_pre, child_dehydrated, storage_options );
         links.set( key, child_link );
         UT.setUnionModify( all_delete, child_deletes );
     }
-    for( const child_key of subroot_clean[ blank_timsetamps_tag ] )
+    for( const child_key of subroot_clean[ blank_timestamps_tag ] )
     {
         links.get( child_key ).set( timestamp_tag, subroot_clean.timestamp );
     }
     
     const dehydrated = dehydrate( subroot_clean );
-    return [ dehydrated, all_delete ];
+    return [ subroot_clean, dehydrated, all_delete ];
  }
 
 export async function writeTree( root )
@@ -365,7 +377,7 @@ export async function writeTree( root )
     {
         return root;
     }
-    const [ dehydrated_root, to_delete ] = writeSubtree( root, {} );
+    const [ dehydrated_root, to_delete ] = await writeSubtree( root, {} );
     
     const storage = root[ storage_tag ];
     const storage_options = root[ storage_options_tag ].clone();
@@ -403,6 +415,7 @@ export function newRoot( path, storage, storage_options )
     const dehydrated = T.map();
     dehydrated.set( "p", T.map() );
     dehydrated.set( "l", T.map() );
+    dehydrated.set( "b", T.set() );
     const root = touchNode( rehydrate(
         { [storage_tag]: storage }, {}, dehydrated ) );
     root[ path_tag ] = path;

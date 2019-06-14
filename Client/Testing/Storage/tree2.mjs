@@ -20,6 +20,13 @@ async function main()
     /* r is initially dirty */
     ST.setValue( r, 42, 45 );
     ST.setValue( r, "alice", "bob" );
+    const [ ignore1, cRalph ] = ST.newChild( r, "ralph" );
+    const [ ignore2, cDonny ] = ST.newChild( r, [ "donny" ] );
+    ST.setValue( cRalph, "pets", [ "fido", "mittens" ] );
+    ST.setValue( cDonny, [[[]]], [ "Oswald", "Tingle" ] );
+    const [ ignore3, cDude ] = ST.newChild( r, "Look at her dance" );
+    ST.setValue( cDude, "bill", [ "law" ] );
+    console.log( "WHOLE TREE", r.toString() );
     var r2 = await ST.writeTree( r );
 
     var r3 = await ST.openRoot( [ "root" ], in_mem_storage, options );

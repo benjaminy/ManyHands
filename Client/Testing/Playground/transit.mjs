@@ -6,34 +6,45 @@
 
 import T from "transit-js";
 
-// console.log( T );
-
-const dk = T.keyword( "dog" );
-const ds = T.symbol( "dog" );
-const djs = Symbol( "dog" );
-const djs2 = Symbol( "dog" );
-
-console.log( "JS Symbol", djs, "type", typeof( djs ), "toStr", djs.toString(), djs == djs2 );
-
-console.log( "Transit keyword", dk, "type", typeof( dk ) );
-console.log( "Transit symbol", ds, "type", typeof( ds ) );
-
-const obj = {};
-
-obj[ djs ] = 123;
-obj[ djs2 ] = 456;
-
-console.log( "obj", obj );
-
 const reader = T.reader( "json" );
 const writer = T.writer( "json" );
 
+const rd = reader.read.bind( reader );
+const wr = writer.write.bind( writer );
+
+// console.log( T );
+
+
 function roundtrip( x ) {
-    const written = writer.write( x );
-    const read = reader.read( written );
+    const written = wr( x );
+    const read = rd( written );
     console.log( "Foo on you", x, written, read );
     return read;
 }
+
+function symbolsNSuch()
+{
+    const dk = T.keyword( "dog" );
+    const ds = T.symbol( "dog" );
+    const ds2 = T.symbol( "dog" );
+    const djs = Symbol( "dog" );
+    const djs2 = Symbol( "dog" );
+
+    console.log( "Transit symbols eq?", ds === ds2, ds === roundtrip( ds ) );
+
+    console.log( "JS Symbol", djs, "type", typeof( djs ), "toStr", djs.toString(), djs == djs2 );
+
+    console.log( "Transit keyword", dk, "type", typeof( dk ) );
+    console.log( "Transit symbol", ds, "type", typeof( ds ) );
+    const obj = {};
+
+    obj[ djs ] = 123;
+    obj[ djs2 ] = 456;
+
+    console.log( "obj", obj );
+    console.log( "symbol write", wr( dk ), wr( ds ), wr( ds2 ) );
+}
+symbolsNSuch();
 
 roundtrip( "45" );
 roundtrip( [ "45" ] );
