@@ -22,6 +22,7 @@ async function main() {
     ]);
 }
 
+/*
 async function test_01_instantiate(){
     const raw_storage = SM( { path_prefix: [ "bob", "misc" ] } );
     const storage = SW.authedPrivateWrapper( {}, raw_storage );
@@ -50,6 +51,8 @@ async function test_02_add_datom(){
 
     console.log(res);
 }
+
+*/
 
 async function test_03_get_attribute(){
     const raw_storage = init_simple_dict();
@@ -100,7 +103,7 @@ async function test_03_get_attribute(){
     });
     const db = DB.newDB(raw_storage);
 
-    console.log(db.find());
+    //console.log(db.find());
 
     const statement = [ DT.addK, "bob", ":likes", 42 ];
 
