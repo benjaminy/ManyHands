@@ -86,8 +86,8 @@ export function makeAttribute(
     doc, unique, index, fulltext, isComponent, noHistory )
 {
     const ident       = K.key( ident_ );
-    const valueType   = dbIdMap.get( valueType_ );
-    const cardinality = dbIdMap.get( cardinality_ );
+    const valueType   = typeof(valueType_) === "number" ? dbIdMap.get( valueType_ ) : valueType_;
+    const cardinality = typeof(cardinality_) === "number" ? dbIdMap.get( cardinality_ ) : cardinality_;
 
     const attr       = {id: id_};
     attr.builtin     = false;
@@ -102,11 +102,11 @@ export function makeAttribute(
     /* TODO: check that ident doesn't break any naming rules */
 
     if( !types.has( valueType ) )
-        throw new Error( "Invalid attribute valueType: " + valueType.str );
+        throw new Error( "Invalid attribute valueType: " + valueType.toString() );
     attr.valueType = valueType;
 
     if( !cardinalities.has( cardinality ) )
-        throw new Error( "Invalid attribute cardinality: " + cardinality.str );
+        throw new Error( "Invalid attribute cardinality: " + cardinality.toString() );
     attr.cardinality = cardinality;
 
     if( doc )

@@ -37,6 +37,24 @@ export async function getAttribute( db, identName ) {
     return db.attributes.get( ident );
 }
 
+/**
+ * Convert this attribute into a set of inserts
+ */
+export function insertAttribute( attr ){
+    const temp_id = attr.ident.toString();
+    return [
+        [addK, temp_id, A.identK, attr.ident],
+        [addK, temp_id, A.valueTypeK, attr.valueType],
+        [addK, temp_id, A.cardinalityK, attr.cardinality],
+        [addK, temp_id, A.docK, attr.doc],
+        [addK, temp_id, A.uniqueK, attr.unique],
+        [addK, temp_id, A.indexK, attr.index],
+        [addK, temp_id, A.fulltextK, attr.fulltext],
+        [addK, temp_id, A.isComponentK, attr.isComponent],
+        [addK, temp_id, A.noHistoryK, attr.noHistory]
+    ];
+}
+
 /* Input: an array of txn statements
  * Output: either throw an exception, or return an array of datoms */
 export async function processTxn( db, stmts )

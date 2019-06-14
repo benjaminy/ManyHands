@@ -54,99 +54,29 @@ async function test_02_add_datom(){
 
 async function setup(){
     const raw_storage = init_simple_dict();
-    // :likes
-    raw_storage.add({ // don't try this at home kids
-        entity: 100,
-        attribute: A.dbSymbolMap.get(A.identK),
-        value: K.key(":likes")
-    });
-    raw_storage.add({
-        entity: 100,
-        attribute: A.dbSymbolMap.get(A.valueTypeK),
-        value: A.dbSymbolMap.get(A.vtypeRef)
-    });
-    raw_storage.add({
-        entity: 100,
-        attribute: A.dbSymbolMap.get(A.cardinalityK),
-        value: A.dbSymbolMap.get(A.cardinalityMany)
-    });
-    raw_storage.add({
-        entity: 100,
-        attribute: A.dbSymbolMap.get(A.docK),
-        value: "Contains references to other entities this entity likes."
-    });
-    raw_storage.add({
-        entity: 100,
-        attribute: A.dbSymbolMap.get(A.uniqueK),
-        value: null
-    });
-    raw_storage.add({
-        entity: 100,
-        attribute: A.dbSymbolMap.get(A.indexK),
-        value: false
-    });
-    raw_storage.add({
-        entity: 100,
-        attribute: A.dbSymbolMap.get(A.fulltextK),
-        value: false
-    });
-    raw_storage.add({
-        entity: 100,
-        attribute: A.dbSymbolMap.get(A.isComponentK),
-        value: false
-    });
-    raw_storage.add({
-        entity: 100,
-        attribute: A.dbSymbolMap.get(A.noHistoryK),
-        value: false
-    });
-    // :name
-    raw_storage.add({
-        entity: 101,
-        attribute: A.dbSymbolMap.get(A.identK),
-        value: K.key(":name")
-    });
-    raw_storage.add({
-        entity: 101,
-        attribute: A.dbSymbolMap.get(A.valueTypeK),
-        value: A.dbSymbolMap.get(A.vtypeString)
-    });
-    raw_storage.add({
-        entity: 101,
-        attribute: A.dbSymbolMap.get(A.cardinalityK),
-        value: A.dbSymbolMap.get(A.cardinalityOne)
-    });
-    raw_storage.add({
-        entity: 101,
-        attribute: A.dbSymbolMap.get(A.docK),
-        value: "A person's single, full name"
-    });
-    raw_storage.add({
-        entity: 101,
-        attribute: A.dbSymbolMap.get(A.uniqueK),
-        value: null
-    });
-    raw_storage.add({
-        entity: 101,
-        attribute: A.dbSymbolMap.get(A.indexK),
-        value: false
-    });
-    raw_storage.add({
-        entity: 101,
-        attribute: A.dbSymbolMap.get(A.fulltextK),
-        value: false
-    });
-    raw_storage.add({
-        entity: 101,
-        attribute: A.dbSymbolMap.get(A.isComponentK),
-        value: false
-    });
-    raw_storage.add({
-        entity: 101,
-        attribute: A.dbSymbolMap.get(A.noHistoryK),
-        value: false
-    });
-    return DB.newDB(raw_storage);
+    const like_insert = DT.insertAttribute(
+        A.makeAttribute(
+            ":likes",
+            undefined,
+            A.vtypeRef,
+            A.cardinalityMany,
+            "Contains references to other entities this entity likes."
+        )
+    );
+    const name_insert = DT.insertAttribute(
+        A.makeAttribute(
+            ":name",
+            undefined,
+            A.vtypeString,
+            A.cardinalityOne,
+            "A person's single, full name"
+        )
+    );
+    const db = DB.newDB(raw_storage);
+    console.log("doing transaction", [...like_insert, ...name_insert]);
+    await db.commitTxn(db, [...like_insert, ...name_insert]);
+    console.log("done");
+    return db;
 }
 
 async function test_03_get_attribute(){
