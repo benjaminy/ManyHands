@@ -343,125 +343,346 @@ function is_compatible( query_const, datom_value )
 
 export async function runQuery( db, q, ...ins )
 {
-    const vars = [];
 
-    //console.log(q);
+    function identifyOutputVariables(q_find){
 
-    if( q.find.tag === find_rel_tag || q.find.tag === find_tuple_tag )
-    {
-        q.find.elems.forEach( ( elem ) => {
-            if( elem.tag === variable_tag )
-            {
-                vars.push( elem.name );
-            }
-            else
-            {
-                throw new Error( "Unimplemented" );
-            }
-        } );
+        const vars = [];
+
+        if( q_find.tag === find_rel_tag || q.find.tag === find_tuple_tag )
+        {
+            q.find.elems.forEach( ( elem ) => {
+                if( elem.tag === variable_tag )
+                {
+                    vars.push( elem.name );
+                }
+                else
+                {
+                    throw new Error( "Unimplemented" );
+                }
+            } );
+        }
+        else
+        {
+            throw new Error( "Unimplemented" );
+        }
+        return vars;
     }
-    else
-    {
-        throw new Error( "Unimplemented" );
+
+
+    function bindInParameters(q_ins, ...ins){
+        const inParams = transit.map();
+        let i = 0;
+        q_ins.forEach(q_in => {
+            if(q_in.tag === src_var_tag){
+                // TODO: allow several sources. right now we just use the db variable for everything
+                // this won't actually be very difficult to do, eventually!
+            } else if(q_in.tag === variable_tag){
+                if(ins.length <= i){
+                    throw new Error(`Not enough variables provided (provided: ${ins.length})`);
+                }
+                inParams.set(q_in.name, ins[i++]); // post-incrementation
+            }
+        });
+        return inParams;
     }
 
+    const vars = identifyOutputVariables(q.find);
+    const inParams = bindInParameters(q.in, ...ins);
+
+
+    // this is a set of all the parameters have been bound.
     const bindingSet = transit.set();
+
+    // if something is bound multiple times, we consider it a "joining point"
+    // and add it to this set.
     const joins = transit.set();
 
-    const inParams = transit.map();
+    async function naiveWhereClauseQuery(db, clause){
 
-    let i = 0;
-    q.in.forEach(q_in => {
-        if(q_in.tag === src_var_tag){
-            // TODO: allow several sources. right now we just use the db variable for everything
-            // this won't actually be very difficult to do, eventually!
-        } else if(q_in.tag === variable_tag){
-            if(ins.length <= i){
-                throw Error(`Not enough variables provided (provided: ${ins.length})`);
+        //console.log("CLAUSE :", clause);
+
+        const [entity={}, attribute={}, value={}, timestamp={}, revoked={}] = clause.tuple;
+        // these will either be empty, or have a `tag` attribute, and other optional
+        // attributes which are necessary for describing the tag.
+
+        //console.log("EAV", entity, attribute, value);
+
+        const bindings = {};
+        // we build a map so we can get from the binding name to the field it represents
+        // within a datom; for example, datom[bindings["?entitybound"]] === datom.entity
+
+        const setBindingsAndJoins = function(field, fieldName){
+            if(field.tag === variable_tag) {
+                if(bindingSet.has(field.name)){
+                    joins.add(field.name);
+                } else {
+                    bindingSet.add(field.name);
+                }
+                bindings[field.name] = fieldName;
             }
-            inParams.set(q_in.name, ins[i++]); // post-incrementation
+        };
+
+        setBindingsAndJoins(entity, "entity");
+        setBindingsAndJoins(attribute, "attribute");
+        setBindingsAndJoins(value, "value");
+        setBindingsAndJoins(timestamp, "timestamp");
+        setBindingsAndJoins(revoked, "revoked");
+
+        const get_constant = async function(field, is_value=false){
+            if(constant_tags.has(field.tag)){
+                if(field.tag === type_keyword_tag){
+                    //console.log("tag sub", field.val, (await TX.getAttribute(db, field.val)).id);
+                    if(is_value) return field.val;
+                    return (await TX.getAttribute(db, field.val)).id; // TODO this affects the query, probably
+                } // TODO reaching into the transaction file from query? I'd love for this to be much more agnostic
+                return field.val;
+            } else if(field.tag === variable_tag && inParams.has(field.name)){
+                return inParams.get(field.name);
+            }
+            return undefined;
+        };
+
+        // in_query looks like a map from the name of the field to the constant specified.
+        // for example, if you search [1 :is ?hello], this will be {entity: 1, attribute: :is}
+        // and a search will be done on the specified fields.
+
+        const _attribute = await get_constant(attribute);
+
+        const in_query = {
+            entity: await get_constant(entity),
+            attribute: _attribute,
+            // if ident, this may be an unsubstituted Symbol.
+            value: await get_constant(value, _attribute === DA.dbSymbolMap.get(DA.identK)),
+            timestamp: await get_constant(timestamp),
+            revoked: await get_constant(revoked)
+        };
+
+        // bindings keeps track of the names of variables, and the field they refer to
+        return {
+            bindings: bindings,
+            results: db.find(in_query)
+        };
+    }
+
+    
+    function filterIrrelevantResults(naiveWhereQueryResult){
+
+        const joinIntersections = transit.map();
+
+        joins.forEach(join => {
+            let joinIntersection = null;
+            naiveWhereQueryResult.forEach(singleResult => {
+                if(!(join in singleResult.bindings)){
+                    return; // continue loop
+                }
+                const singleSet = new Set();
+                singleResult.results.forEach(res => {
+                    singleSet.add(res[singleResult.bindings[join]])
+                });
+                if(joinIntersection === null) {
+                    joinIntersection = singleSet;
+                } else {
+                    joinIntersection = new Set([...singleSet].filter(x => joinIntersection.has(x)));
+                }
+            });
+            joinIntersections.set(join, joinIntersection);
+        });
+
+        // now, for every intersection made, delete any non-matching results
+
+        naiveWhereQueryResult.forEach(singleResult => {
+            joinIntersections.forEach((val, res) => {
+                if(res in singleResult.bindings){
+                    // val is a list of acceptable values to not filter out
+                    singleResult.results = singleResult.results.filter(x => {
+                        return val.has(x[singleResult.bindings[res]]);
+                    });
+                }
+            });
+        });
+    }
+
+
+    function buildMappedVariablesByConstraint(whereQueryResult) {
+        const mappedVariablesByConstraint = transit.map();
+        whereQueryResult.forEach(({bindings, results}) => {
+            results.forEach(result => {
+                const cat = transit.map();
+                joins.forEach(j => {
+                    const val = result[bindings[j]];
+                    if (val !== undefined) {
+                        cat.set(j, val);
+                    }
+                });
+                const idx = cat;
+                if (!mappedVariablesByConstraint.has(idx)) {
+                    mappedVariablesByConstraint.set(idx, []);
+                }
+                const rs = transit.map();
+
+                vars.forEach(returned => {
+                    if (returned in bindings) {
+                        rs.set(returned, result[bindings[returned]]);
+                    }
+                });
+                mappedVariablesByConstraint.get(idx).push(rs);
+            });
+        });
+        return mappedVariablesByConstraint;
+    }
+
+    function filterIncompleteResults(constructedRows){
+        const queryResults = [];
+        // finally, filter out any results that did not match ALL of the where criterion.
+        constructedRows.forEach(obj => {
+            const result = [];
+            let incomplete = false;
+            vars.forEach((v) => {
+                result.push(obj.get(v));
+                if(!(obj.has(v))){
+                    incomplete = true;
+                }
+            });
+            if(!incomplete) {
+                queryResults.push(result);
+            }
+        });
+        return queryResults;
+    }
+    /*
+   * Check if two objects are "compatible". By this we mean, there are no
+   * overlapping keys with different values.
+   *
+   * A few examples: compatible({a: 1, b: 2}, {a: 1, b: 2}) === true
+   * compatible({a: 1, b: 2}, {a: 1, c: 3}) === true
+   * compatible({a: 1, b: 2}, {a: 1, b: 3}) === false
+   *
+   * The "connected" specifies if we should constrain this notion to
+   * objects which have something in common, or not.
+   *
+   * compatible({a: 1, b: 2}, {c: 3, d: 4}, false) === true
+   * compatible({a: 1, b: 2}, {c: 3, d: 4}, true) === false
+   *
+   * In cases with overlap (i.e. the three above example cases), the
+   * connected flag has no effect.
+   */
+    function compatible(a, o, connected){
+        let comp = true;
+        let hit = false;
+        a.forEach((xv, x) => {
+            if(o.has(x)){
+                hit = true;
+            } else {
+                return;
+            }
+            if(o.get(x) !== xv){
+                comp = false;
+            }
+        });
+        return (hit || !connected) && comp;
+    }
+
+    /*
+     * The structure passed into this function is a little bit complex,
+     * but this function serves to couple up all results which are related by some factor.
+     *
+     * Consider this example set:
+     *
+     * mappedVariablesByConstraint = {
+     *  {a: 1}: [
+     *      {a: 1, b: 2},
+     *      {a: 1, b: 3}],
+     *  {a: 1, c: 3}: [
+     *      {a: 1, c: 3, d: 4},
+     *      {a: 1, c: 3, e: 5}
+     *  ]
+     * }
+     *
+     * Return: [{a: 1, b: 2, c: 3, d: 4, e: 5},
+     *          {a: 1, b: 3, c: 3, d: 4, e: 5}]
+     * TODO more thorough documentation and graph explanation
+     */
+    function pair(mappedVariablesByConstraint){
+
+        const resultSet = transit.set();
+
+        for(let [k, v] of mappedVariablesByConstraint){
+            const pairings = innerPair(k, k);
+            pairings.forEach(pair => {
+                resultSet.add(pair);
+            });
         }
-    });
+
+        function innerPair(running, start, ...prev) {
+            const results = [];
+            mappedVariablesByConstraint.get(start).forEach(n => {
+
+                const keys = transit.map([...n].flat());
+                for (let [k, v] of mappedVariablesByConstraint) {
+                    //console.log("F03", mappedVariablesByConstraint._entries);
+                    v.forEach(o => {
+                        if (k === start || prev.indexOf(k) !== -1) {
+                            return;
+                        }
+                        if (compatible(running, k, true)) {
+                            const pairings = innerPair(transit.map([...k, ...running].flat()), k, start, ...prev);
+                            pairings.forEach(pair => {
+                                pair.forEach((y, x) => {
+                                    keys.set(x, y);
+                                });
+                            });
+                            //console.log("adding to running:", o, running);
+                            running = transit.map([...o, ...running].flat());
+                            //console.log("running", running);
+                        }
+                    });
+                }
+                results.push(keys);
+            });
+            //console.log("F04", mappedVariablesByConstraint._entries);
+
+            // one last step: check all the combinations for merges/conflicts and return a mappedVariablesByConstraint list
+            const collected = [];
+            const visited = transit.set();
+
+            for (let i = 0; i < results.length; i++) {
+                //console.log("init running res", results[i]);
+                let running_res = transit.map([...results[i]].flat());
+                //console.log("done:", running_res);
+                if (visited.has(results[i])) {
+                    continue;
+                }
+                for (let j = 0; j < results.length; j++) {
+                    if (compatible(results[i], results[j], false)) {
+                        //console.log("running res", running_res, "j", results[j]);
+                        running_res = transit.map([...running_res, ...results[j]].flat());
+                    }
+                }
+                //console.log("visited", results[i], "collected", running_res);
+                visited.add(results[i]);
+                collected.push(running_res);
+            }
+
+            return collected;
+        }
+        return resultSet;
+    }
 
     if( q.where.tag === where_clauses_tag )
     {
         const clauses = q.where.clauses;
-        const whereResults = [];
+        const naiveWhereQueryResult = [];
         for( let i = 0; i < clauses.length; i++ )
         {
             //console.log("CLAUSES:", JSON.stringify(clauses));
-            const clause = clauses[ i ].tuple;
-
-            //console.log("CLAUSE :", clause);
-
-            const [entity={}, attribute={}, value={}, timestamp={}, revoked={}] = clause;
-            // these will either be empty, or have a `tag` attribute, and other optional
-            // attributes which are necessary for describing the tag.
-
-            //console.log("EAV", entity, attribute, value);
-
-            const bindings = {};
-            // we build a map so we can get from the binding name to the field it represents
-            // within a datom; for example, datom[bindings["?entitybound"]] === datom.entity
-
-            const setBindingsAndJoins = function(field, fieldName){
-                if(field.tag === variable_tag) {
-                    if(bindingSet.has(field.name)){
-                        joins.add(field.name);
-                    } else {
-                        bindingSet.add(field.name);
-                    }
-                    bindings[field.name] = fieldName;
-                }
-            };
-
-            setBindingsAndJoins(entity, "entity");
-            setBindingsAndJoins(attribute, "attribute");
-            setBindingsAndJoins(value, "value");
-            setBindingsAndJoins(timestamp, "timestamp");
-            setBindingsAndJoins(revoked, "revoked");
-
-            const get_constant = async function(field, is_value=false){
-                // TODO substitute out :keys for their ids
-                if(constant_tags.has(field.tag)){
-                    if(field.tag === type_keyword_tag){
-                        //console.log("tag sub", field.val, (await TX.getAttribute(db, field.val)).id);
-                        if(is_value) return field.val;
-                        return (await TX.getAttribute(db, field.val)).id; // TODO this affects the query, probably
-                    } // TODO reaching into the transaction file from query? I'd love for this to be much more agnostic
-                    return field.val;
-                } else if(field.tag === variable_tag && inParams.has(field.name)){
-                    return inParams.get(field.name);
-                }
-                return undefined;
-            };
-
-            // in_query looks like a map from the name of the field to the constant specified.
-            // for example, if you search [1 :is ?hello], this will be {entity: 1, attribute: :is}
-            // and a search will be done on the specified fields.
-
-            let _attribute = await get_constant(attribute);
-
-            const in_query = {
-                entity: await get_constant(entity),
-                attribute: _attribute,
-                // if ident, this may be an unsubstituted Symbol.
-                value: await get_constant(value, _attribute === DA.dbSymbolMap.get(DA.identK)),
-                timestamp: await get_constant(timestamp),
-                revoked: await get_constant(revoked)
-            };
-
-            // retrieve a set of datoms through the DB's efficient indexing and searching capabilities
-            const resultSet = db.find(in_query);
-
-            // bindings keeps track of the names of variables, and the field they refer to
-            whereResults.push({bindings: bindings, results: resultSet});
+            naiveWhereQueryResult.push(await naiveWhereClauseQuery(db, clauses[ i ]));
         }
 
-        const results = [];
-
-        if(whereResults.length === 1) {
-            const res = whereResults[0];
+        if(naiveWhereQueryResult.length === 1) {
+            // short-circuit shortcut where we don't have to worry
+            // about any joining.
+            const results = [];
+            const res = naiveWhereQueryResult[0];
 
             res.results.forEach((item) => {
                 const result = [];
@@ -470,186 +691,18 @@ export async function runQuery( db, q, ...ins )
                 });
                 results.push(result);
             });
-
             return results;
-        } else {
-            const final = transit.map();
-
-            const joinResults = {};
-
-            joins.forEach(join => {
-                let joinIntersection = null;
-                whereResults.forEach(singleResult => {
-                    if(!(join in singleResult.bindings)){
-                        return; // continue loop
-                    }
-                    const singleSet = new Set();
-                    singleResult.results.forEach(res => {
-                        singleSet.add(res[singleResult.bindings[join]])
-                    });
-                    if(joinIntersection === null) {
-                        joinIntersection = singleSet;
-                    } else {
-                        joinIntersection = new Set([...singleSet].filter(x => joinIntersection.has(x)));
-                    }
-                });
-                joinResults[join] = joinIntersection;
-            });
-
-            // now, for every intersection made, delete any non-matching results
-
-            whereResults.forEach(singleResult => {
-                Object.keys(joinResults).forEach(res => {
-                    if(res in singleResult.bindings){
-                        // joinResults[res] // is a list of acceptable values to not filter out
-                        singleResult.results = singleResult.results.filter(x => {
-                            return joinResults[res].has(x[singleResult.bindings[res]]);
-                        });
-                    }
-                });
-            });
-
-            whereResults.forEach(({bindings, results}) => {
-                results.forEach(result => {
-                    const cat = transit.map();
-                    joins.forEach(j => {
-                        const val = result[bindings[j]];
-                        if(val !== undefined){
-                            cat.set(j, val);
-                        }
-                    });
-                    const idx = cat;
-                    if (!final.has(idx)) {
-                        final.set(idx, []);
-                    }
-                    const rs = transit.map();
-
-                    vars.forEach(returned => {
-                        if(returned in bindings) {
-                            rs.set(returned, result[bindings[returned]]);
-                        }
-                    });
-                    final.get(idx).push(rs);
-                });
-            });
-
-            const queryResults = [];
-
-            // TEMPORARY CODE related to https://github.com/cognitect/transit-js/issues/50
-            const final_FORLOOPS = transit.map([...final].flat());
-            //
-
-            const compatible = function(a, o, connected){
-                let comp = true;
-                let hit = false;
-                a.forEach((xv, x) => {
-                    //console.log("OAXVX", o, a, xv, x);
-                    if(o.has(x)){
-                        hit = true;
-                    } else {
-                        return;
-                    }
-                    if(o.get(x) !== xv){
-                        //console.log("incompatible", o, x, o.get(x), a.get(x));
-                        comp = false;
-                    }
-                });
-                //console.log("HCC", hit, connected, comp);
-                return (hit || !connected) && comp;
-            };
-
-            const pair = function(running, start, ...prev){
-
-                const results = [];
-
-                final.get(start).forEach(n => {
-
-                    const keys = transit.map([...n].flat());
-                    final_FORLOOPS.forEach((v, k) => {
-                        //console.log("F03", final._entries);
-                        v.forEach(o => {
-                            if (k === start || prev.indexOf(k) !== -1) {
-                                return;
-                            }
-                            if (compatible(running, k, true)) {
-                                const pairings = pair(transit.map([...k, ...running].flat()), k, start, ...prev);
-                                pairings.forEach(pair => {
-                                    pair.forEach((y, x) => {
-                                        keys.set(x, y);
-                                    });
-                                });
-                                //console.log("adding to running:", o, running);
-                                running = transit.map([...o, ...running].flat());
-                                //console.log("running", running);
-                            }
-                        });
-                    });
-                    results.push(keys);
-                });
-                //console.log("F04", final._entries);
-
-                // one last step: check all the combinations for merges/conflicts and return a final list
-                const collected = [];
-                const visited = transit.set();
-
-                for(let i = 0; i < results.length; i++){
-                    //console.log("init running res", results[i]);
-                    let running_res = transit.map([...results[i]].flat());
-                    //console.log("done:", running_res);
-                    if(visited.has(results[i])){
-                        continue;
-                    }
-                    for(let j = 0; j < results.length; j++){
-                        if(compatible(results[i], results[j], false)){
-                            //console.log("running res", running_res, "j", results[j]);
-                            running_res = transit.map([...running_res, ...results[j]].flat());
-                        }
-                    }
-                    //console.log("visited", results[i], "collected", running_res);
-                    visited.add(results[i]);
-                    collected.push(running_res);
-                }
-
-                return collected;
-            };
-
-
-            const rs = transit.set();
-
-            final_FORLOOPS.forEach((v, k) => {
-                //console.log("kv", k, v);
-                //console.log("f1", final);
-                //console.log("final foreach", k, v);
-                const pairings = pair(k, k);
-                //console.log("pairing", pairings);
-                pairings.forEach(pair => {
-                    rs.add(pair);
-                });
-                //console.log("problem?", final_noconvert._entries.length === 0);
-                //final.forEach((v, k) => {
-                //    console.log("does it work?");
-                //})
-            });
-
-            rs.forEach(entity => {
-                const result = [];
-                const obj = entity;
-                let incomplete = false;
-                vars.forEach((v) => {
-                    result.push(obj.get(v));
-                    if(!(obj.has(v))){
-                        //console.log("incomplate", obj, v);
-                        incomplete = true;
-                    }
-                });
-                if(!incomplete) {
-                    queryResults.push(result);
-                }
-            });
-
-            return queryResults;
-
         }
+        // ELSE
+        
+        filterIrrelevantResults(naiveWhereQueryResult);
+        
+        const mappedVariablesByConstraint = buildMappedVariablesByConstraint(naiveWhereQueryResult);
+
+        const constructedRows = pair(mappedVariablesByConstraint);
+
+        return filterIncompleteResults(constructedRows);
+
     }
     else
     {
