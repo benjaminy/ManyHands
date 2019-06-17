@@ -20,6 +20,7 @@ export async function test1( s ) {
     map_orig.set( "a", "42" );
     map_orig.set( "b", 42 );
 
+    const link0 = T.map();
     const link1 = await s.upload( { path: [ "atom1" ] }, map_orig, options1 );
     console.log( "LINK1", link1 );
 

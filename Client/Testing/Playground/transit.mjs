@@ -5,6 +5,7 @@
  */
 
 import T from "transit-js";
+import * as UT from "../../Source/Utilities/transit.mjs";
 
 const reader = T.reader( "json" );
 const writer = T.writer( "json" );
@@ -67,16 +68,6 @@ for( const blah of tm )
 
 tm.forEach( ( v, k ) => console.log( "iterate?", k, v ) );
 
-console.log( "COPY?", ( new T.map( tm ) ).toString() );
-
-function doesMapCloneWork()
-{
-    const tc = tm.clone();
-    tc.set( "blue", "red" );
-    console.log( "CLONE?", tm.toString(), tc.toString() );
-}
-doesMapCloneWork();
-
 const s1 = T.set();
 const sym1 = T.symbol( "giraffe" );
 
@@ -97,5 +88,21 @@ function doesSetCopyingWork()
     sB.add( 4.2 );
     console.log( "sets the same?", sA.toString(), sB.toString() );
 }
-
 doesSetCopyingWork();
+
+function mapInit()
+{
+    const m1 = T.map();
+    m1.set( 1, 2 );
+    m1.set( "a", "b" );
+    const tuples = [ [ 5, 6 ], [ "y", "z" ] ]
+    const m2 = T.map( tuples ); /* BROKEN */
+    const m3 = UT.mapFromTuples( tuples );
+    const m4 = new T.map( m1 ); /* BROKEN */
+    const m5 = m1.clone();
+    console.log( "array init", m2.toString() );
+    console.log( "array init2", m3.toString() );
+    console.log( "new map", m4.toString() );
+    console.log( "clone", m5.toString() );
+}
+mapInit();

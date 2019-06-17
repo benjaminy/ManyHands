@@ -47,9 +47,10 @@ export async function newName( headers, link_start, options, upload )
     {
         const bytes = CB.getRandomBytes( DEFAULT_BYTES_PER_NAME );
         const name = UM.toHexString( bytes );
-        console.log( "FOO", link_start.path, typeof( link_start.path ) );
-        link_start.path = link_start.path.concat( name );
-        const [ response, link ] = await upload( link_start.path );
+        const path_orig = link_start.get( "path" );
+        // console.log( "FOO", path, typeof( path ) );
+        const path = path_orig.concat( name );
+        const [ response, link ] = await upload( path );
         if( response.ok )
         {
             return [ response, Object.assign( {}, link, { path: link_start.path } ) ]

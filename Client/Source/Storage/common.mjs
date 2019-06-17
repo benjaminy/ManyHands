@@ -37,7 +37,6 @@ function mapAssocData( fn, v, options )
     else
     {
         const r = fn( v );
-        // console.log( "MMEP", v, r  );
         return r;
     }
 }
@@ -102,7 +101,6 @@ export function decode( value, options )
         {
             const r = T.reader( "json" );
             transit_reader = r.read.bind( r );
-            // console.log( "XXX1", value, r.read( value ) );
         }
         const decode_fn =
               object_encoding === ENCODE_TRANSIT ? transit_reader

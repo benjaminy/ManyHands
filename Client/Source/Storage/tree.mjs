@@ -200,7 +200,7 @@ export function deleteValue( node, key )
     c[ blank_timestamps_tag ] = dehydrated.get( "b" );
     c[ mem_cache_tag ]        = T.map();
     const rehydrated_links = T.map();
-    for( [ key, child_link ] of dehydrated.get( "l" ) )
+    for( const [ key, child_link ] of dehydrated.get( "l" ) )
     {
         rehydrated_links.set( key, cstorage.rehydrateLink(
             parent, name, link_child ) );
