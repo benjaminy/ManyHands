@@ -44,13 +44,13 @@ export async function newName( headers, link_start, options, upload )
     overwriteHeader( headers, "If-None-Match", "*" );
     const retry_limit = 5;
     var retries = 0;
+    const path_start = link_start.get( "path" );
+    assert( true /* isPath( path_start ) */ );
     while( ( !retry_limit ) || ( retries < retry_limit ) )
     {
         const bytes = CB.getRandomBytes( DEFAULT_BYTES_PER_NAME );
         const name = UM.toHexString( bytes );
-        const path_orig = link_start.get( "path" );
-        // console.log( "FOO", path, typeof( path ) );
-        const path = path_orig.concat( name );
+        const path = path_start.concat( name );
         const [ response, link ] = await upload( path );
         if( response.ok )
         {
@@ -85,6 +85,7 @@ export async function atomicUpdate( headers, link_start, options, upload )
 
 export async function upload( link_start, value, options, coreUpload )
 {
+    L.debug( "\u21b3 generic_http.upload", link_start.toString(), options.toString() );
     const coded_value = SC.encode( value, options );
     /* TODO: compression */
     const [ cryptoed_value, crypto_link_info ] =

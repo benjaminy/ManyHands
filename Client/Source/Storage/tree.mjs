@@ -168,8 +168,9 @@ export function deleteValue( node, key )
     const dehydrated_links = T.map();
     for( const [ key, link ] of node[ links_tag ] )
     {
-        console.log( "LINK", typeof( link ), link );
+        console.log( "LINK", typeof( link ), link.toString() );
         dehydrated_links.set( key, link );
+        // TODO: !!!
         // dehydrated_links.set( key, storage.dehydrateLink( link ) );
     }
     d.set( "l", dehydrated_links );
@@ -192,6 +193,7 @@ export function deleteValue( node, key )
 
 /* private */ function rehydrate( parent, link, dehydrated, storage_cb )
 {
+    L.debug( "tree.rehydrate", dehydrated.toString() );
     const pstorage = parent[ storage_tag ];
     const cstorage = storage_cb ? storage_cb( pstorage ) : pstorage;
     const c = {};
@@ -202,9 +204,12 @@ export function deleteValue( node, key )
     const rehydrated_links = T.map();
     for( const [ key, child_link ] of dehydrated.get( "l" ) )
     {
-        rehydrated_links.set( key, cstorage.rehydrateLink(
-            parent, name, link_child ) );
+        rehydrated_links.set( key, child_link );
+        // TODO: !!!
+        // rehydrated_links.set( key, cstorage.rehydrateLink(
+        //    parent, key, child_link ) );
     }
+    console.log( "HUH", rehydrated_links.toString() );
     c[ links_tag ]           = rehydrated_links;
     c[ local_cache_tag ]     = { has: () => false };
     c[ storage_tag ]         = cstorage;
@@ -246,11 +251,12 @@ export async function getChild( parent, key )
     }
     else
     {
-        const options = T.map(); /* TODO??? */
+        const options = parent[ storage_options_tag ].clone();
+        // TODO: more storage options
         const storage = parent[ storage_tag ];
         try {
             var [ dehydrated_child, link_d ] =
-                await storage.download( child_link, options  );
+                await storage.download( link, options );
         }
         catch( err ) {
             /* maybe throw a different kind of error? */
@@ -261,6 +267,8 @@ export async function getChild( parent, key )
     }
 
     const child = rehydrate( parent, link, dehydrated_child );
+    // TODO: cleaner handling of storage options
+    child[ storage_options_tag ] = parent[ storage_options_tag ];
     insertIntoMemCache( parent, key, child );
     return child;
 }
@@ -350,8 +358,8 @@ export function newChild( parent, key, storage_cb )
     {
         const child_dirty = await getChild( subroot_clean, key );
         const child_link_pre = links.has( key ) ? links.get( key )
-              : { path:[] };
-        console.log( "CHILD LINK", child_link_pre );
+              : UT.mapFromTuples( [ [ "path", [] ] ] );
+        console.log( "CHILD LINK", child_link_pre.toString() );
         const [ child_clean, child_dehydrated, child_deletes ] =
               await writeSubtree( child_dirty, child_link_pre );
         insertIntoMemCache( subroot_clean, key, child_clean );
@@ -377,7 +385,7 @@ export async function writeTree( root )
     {
         return root;
     }
-    const [ dehydrated_root, to_delete ] = await writeSubtree( root, {} );
+    const [ rc, dehydrated_root, to_delete ] = await writeSubtree( root, {} );
     
     const storage = root[ storage_tag ];
     const storage_options = root[ storage_options_tag ].clone();
@@ -390,8 +398,10 @@ export async function writeTree( root )
         storage_options.set( SC.COND_UPLOAD, SC.COND_ATOMIC );
     }
     // TODO: Local storage save
+    const floop = UT.mapFromTuples( [ [ "path", root[ path_tag ] ] ] );
+    console.log( "DR", dehydrated_root.toString() );
     const link = await storage.upload(
-        { path: root[ path_tag ] }, dehydrated_root, storage_options );
+        floop, dehydrated_root, storage_options );
 //     if( !resp.ok )
 //     {
 //         throw new Error( "upload failed" );
@@ -399,14 +409,15 @@ export async function writeTree( root )
 //     delete root[ dirty_tag ];
 }
 
-
-
 export async function openRoot( path, storage, storage_options )
 {
-    var [ dehydrated_root, link ] = await storage.download( { path: path }, storage_options );
+    const link_get = UT.mapFromTuples( [ [ "path", path ] ] );
+    var [ dehydrated_root, link ] =
+        await storage.download( link_get, storage_options );
 
     const root = touchNode( rehydrate(
         { [storage_tag]: storage }, link, dehydrated_root ) );
+    root[ storage_options_tag ] = storage_options;
     return root;
 }
 
@@ -441,5 +452,6 @@ export function newRoot( path, storage, storage_options )
 {
     assert( isTreeNode( this ) );
     return "plain data: " + this[ plain_data_tag ].toString()
+        + " links:" + this[ links_tag ].toString()
         + " children: " + this[ mem_cache_tag ].toString();
 }

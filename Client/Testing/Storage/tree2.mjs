@@ -24,7 +24,7 @@ async function main()
     const [ ignore2, cDonny ] = ST.newChild( r, [ "donny" ] );
     ST.setValue( cRalph, "pets", [ "fido", "mittens" ] );
     ST.setValue( cDonny, [[[]]], [ "Oswald", "Tingle" ] );
-    const [ ignore3, cDude ] = ST.newChild( r, "Look at her dance" );
+    const [ ignore3, cDude ] = ST.newChild( cDonny, "Look at her dance" );
     ST.setValue( cDude, "bill", [ "law" ] );
     console.log( "WHOLE TREE", r.toString() );
     var r2 = await ST.writeTree( r );
@@ -32,6 +32,15 @@ async function main()
     var r3 = await ST.openRoot( [ "root" ], in_mem_storage, options );
     console.log( "ROOT???", r3.toString() );
 
+    const ccc1 = await ST.getChild( r3, "ralph" );
+    console.log( "Ralph???", ccc1.toString() );
+
+    const ccc2 = await ST.getChild( r3, [ "donny" ] );
+    console.log( "Donny???", ccc2.toString() );
+    
+    const ccc3 = await ST.getChild( ccc2, "Look at her dance" );
+    console.log( "Kristen???", ccc3.toString() );
+    
     // ST.deleteValue( r, 42 );
     // const b = ST.getValue( r, "alice" );
     // console.log( b, r.toString() );

@@ -1,6 +1,4 @@
-/*
- *
- */
+/* Top Matter */
 
 import assert  from "assert";
 import T       from "transit-js";
@@ -27,11 +25,11 @@ export async function test1( s ) {
 
     map_orig.set( "c", 4.2 );
     const link2 = await s.upload( link1, map_orig, options2 );
-    console.log( "LINK2", link1 );
+    console.log( "LINK2", link2.toString() );
 
     map_orig.set( "d", 4.2 );
     const link3 = await s.upload( link2, map_orig, options2 );
-    console.log( "LINK3", link1 );
+    console.log( "LINK3", link3.toString() );
 
     map_orig.set( "e", 4.2 );
     try {

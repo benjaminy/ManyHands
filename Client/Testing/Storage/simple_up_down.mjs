@@ -11,7 +11,7 @@ export async function just_upload( s ) {
     const options = T.map();
     const link_up = UT.mapFromTuples( [ [ "path", [ "sadf" ] ] ] );
     const link = await s.upload( link_up, new Uint8Array(6), options );
-    console.log( "just_upload", link );
+    console.log( "just_upload", link.toString() );
 }
 
 export async function up_down( s ) {
@@ -23,7 +23,7 @@ export async function up_down( s ) {
     map_orig.set( "c", new Uint8Array( 7 ) );
     const link_up = UT.mapFromTuples( [ [ "path", [ "t2" ] ] ] );
     var resp_u = await s.upload( link_up, map_orig, options );
-    console.log( "UPLOADED", resp_u );
+    console.log( "UPLOADED", resp_u.toString() );
     const link_down = UT.mapFromTuples( [ [ "path", [ "t2" ] ] ] );
     var [ map_down, l ] = await s.download( link_down, options );
     console.log( "up_down", map_orig.toString(), map_down.get( "c" ) );

@@ -1,8 +1,6 @@
 #!/usr/bin/env node --experimental-modules
 
-/*
- * Top Matter
- */
+/* Top Matter */
 
 import assert   from "assert";
 import SM       from "../../Source/Storage/in_memory.mjs";
