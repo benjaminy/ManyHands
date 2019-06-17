@@ -5,6 +5,8 @@ import * as K  from "../Source/Utilities/keyword.mjs";
 import * as Q  from "../Source/Database/query.mjs";
 import * as A from "../Source/Database/attribute.mjs"
 import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs"
+import * as DT from "../Source/Database/transaction.mjs";
+import * as DB from "../Source/Database/simple_txn_chain.mjs";
 
 const age   = K.key( ":age" );
 const likes = K.key( ":likes" );
@@ -59,8 +61,8 @@ db.add({
 
 async function main(){
     return Promise.all([
-        /*test_01_single_select(),
-        test_02_double_select(),
+        /*test_01_single_select(), TODO these all fail because
+        test_02_double_select(),   their attributes do not exist in the schema.
         test_03_double_where(),
         test_04_double_condition(),
         test_05_references(),
@@ -69,10 +71,62 @@ async function main(){
         test_08_fanout(),
         test_09_fanout_many(),
         test_10_simpler_fanout(),
-        test_11_visualization(),*/
-        test_12_attribute_query()
+        test_11_visualization(),
+        test_12_attribute_query(),*/
+        test_13_simple_txn()
     ]);
 }
+
+async function test_13_simple_txn()
+{
+    // initialize a new database
+    const raw_storage = init_simple_dict();
+    const db = DB.newDB(raw_storage);
+
+    // create the schema
+    const name_insert = DT.insertAttribute(
+        A.makeAttribute(
+            ":name",
+            undefined,
+            A.vtypeString,
+            A.cardinalityOne,
+            "A person's single, full name."
+        )
+    );
+    const likes_insert = DT.insertAttribute(
+        A.makeAttribute(
+            ":likes",
+            undefined,
+            A.vtypeRef,
+            A.cardinalityMany,
+            "The many entities that this entity likes."
+        )
+    );
+    await db.commitTxn(db, [...name_insert, ...likes_insert]);
+
+    // insert data
+    const statements = [
+        [ DT.addK, "bob", K.key(":name"), "Bobethy" ],
+        [ DT.addK, "bob", K.key(":likes"), "sandra" ],
+        [ DT.addK, "sandra", K.key(":name"), "Sandithan"]];
+
+    await db.commitTxn(db, statements);
+
+    // query the data
+    const q = Q.parseQuery(
+        [Q.findK, "?bobsName",
+            Q.inK, "$", "?sandrasname",
+            Q.whereK, ["?sandra", K.key(":name"), "?sandrasname"],
+                ["?bob", K.key(":likes"), "?sandra"],
+                ["?bob", K.key(":name"), "?bobsName"]]
+    );
+    const r = await Q.runQuery(db, q, "Sandithan");
+
+
+    console.log("r13", r);
+    assert(r.length === 1 && r[0][0] === "Bobethy", "Query returned an unexpected value");
+}
+
 /*
     whereK, [ "?attr", DA.identK,       "?ident" ],
             [ "?attr", DA.valueTypeK,   "?vtype" ],
