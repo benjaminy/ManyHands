@@ -16,44 +16,36 @@ const sally = 12345;
 const fred  = 12346;
 const ethel = 12347;
 
-const db = init_simple_dict();
-
-db.add({
+let db = init_simple_dict(
+).add({
     entity: sally,
     attribute: age,
     value: 21
-});
-db.add({
+}).add({
     entity: fred,
     attribute: age,
     value: 42
-});
-db.add({
+}).add({
     entity: ethel,
     attribute: age,
     value: 42
-});
-db.add({
+}).add({
     entity: fred,
     attribute: likes,
     value: "pizza"
-});
-db.add({
+}).add({
     entity: sally,
     attribute: likes,
     value: "opera"
-});
-db.add({
+}).add({
     entity: ethel,
     attribute: likes,
     value: "sushi"
-});
-db.add({
+}).add({
     entity: fred,
     attribute: annoys,
     value: ethel
-});
-db.add({
+}).add({
     entity: ethel,
     attribute: loves,
     value: sally
@@ -81,7 +73,7 @@ async function test_13_simple_txn()
 {
     // initialize a new database
     const raw_storage = init_simple_dict();
-    const db = DB.newDB(raw_storage);
+    let db = DB.newDB(raw_storage);
 
     // create the schema
     const name_insert = DT.insertAttribute(
@@ -102,7 +94,7 @@ async function test_13_simple_txn()
             "The many entities that this entity likes."
         )
     );
-    await db.commitTxn(db, [...name_insert, ...likes_insert]);
+    db = await db.commitTxn(db, [...name_insert, ...likes_insert]);
 
     // insert data
     const statements = [
@@ -110,7 +102,7 @@ async function test_13_simple_txn()
         [ DT.addK, "bob", K.key(":likes"), "sandra" ],
         [ DT.addK, "sandra", K.key(":name"), "Sandithan"]];
 
-    await db.commitTxn(db, statements);
+    db = await db.commitTxn(db, statements);
 
     // query the data
     const q = Q.parseQuery(
@@ -140,48 +132,40 @@ async function test_13_simple_txn()
  */
 async function test_12_attribute_query(){
     const q = Q.attrQuery;
-    const db = init_simple_dict();
-    db.add({
+    const db = init_simple_dict(
+    ).add({
         entity: 10,
         attribute: A.identK,
         value: ":likes"
-    });
-    db.add({
+    }).add({
         entity: 10,
         attribute: A.valueTypeK,
         value: A.vtypeRef
-    });
-    db.add({
+    }).add({
         entity: 10,
         attribute: A.cardinalityK,
         value: A.cardinalityMany
-    });
-    db.add({
+    }).add({
         entity: 10,
         attribute: A.docK,
         value: "hor de door"
-    });
-    db.add({
+    }).add({
         entity: 10,
         attribute: A.uniqueK,
         value: null
-    });
-    db.add({
+    }).add({
         entity: 10,
         attribute: A.indexK,
         value: false
-    });
-    db.add({
+    }).add({
         entity: 10,
         attribute: A.fulltextK,
         value: false
-    });
-    db.add({
+    }).add({
         entity: 10,
         attribute: A.isComponentK,
         value: false
-    });
-    db.add({
+    }).add({
         entity: 10,
         attribute: A.noHistoryK,
         value: false

@@ -52,18 +52,16 @@ export function init_simple_dict(initial_data=false){
             assert('entity' in datom
                 && 'attribute' in datom
                 && 'value' in datom);
-            data.push(datom);
         }
-        populate_lists();
-        return datoms;
+        return init_simple_dict([...data, ...datoms]);
     };
-    ds.revoke = (datom) => { // TODO spread operator
+    /*ds.revoke = (datom) => { // TODO spread operator
         for(let i = 0; i < data.length; i++) {
             if (compareDatom(datom, data[i])) {
                 datom.revoked = true;
             }
         }
-    };
+    };*/
 
     ds.find = (options) => {
         const {entity, attribute, value} = typeof(options) === 'object' ? options : {};
