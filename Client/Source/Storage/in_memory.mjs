@@ -75,7 +75,7 @@ export default function init( options_init )
 
     async function upload( linkA, value, options )
     {
-        L.debug( "\u21b3 in_memory.upload", linkA );
+        L.debug( "\u21b3 in_memory.upload", linkA.toString() );
         const [ response, linkB ] =
               await GH.upload( linkA, value, options, coreUpload );
         return linkB;
@@ -83,6 +83,8 @@ export default function init( options_init )
 
     async function coreDownload( path )
     {
+        L.debug( "\u21b3 in_memory.coreDownload", path );
+        // console.log( mstorage.files );
         if( path in mstorage.files )
         {
             const r = new Response( null, { status: 200 } );

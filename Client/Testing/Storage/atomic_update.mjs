@@ -6,6 +6,7 @@ import assert  from "assert";
 import T       from "transit-js";
 import * as SC from "../../Source/Storage/common.mjs";
 import * as UM from "../../Source/Utilities/misc.mjs";
+import * as UT from "../../Source/Utilities/transit.mjs";
 
 export async function test1( s ) {
     const options1 = T.map()
@@ -20,9 +21,9 @@ export async function test1( s ) {
     map_orig.set( "a", "42" );
     map_orig.set( "b", 42 );
 
-    const link0 = T.map();
-    const link1 = await s.upload( { path: [ "atom1" ] }, map_orig, options1 );
-    console.log( "LINK1", link1 );
+    const link0 = UT.mapFromTuples( [ [ "path", [ "atom1" ] ] ] );
+    const link1 = await s.upload( link0, map_orig, options1 );
+    console.log( "LINK1", link1.toString() );
 
     map_orig.set( "c", 4.2 );
     const link2 = await s.upload( link1, map_orig, options2 );

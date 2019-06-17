@@ -106,3 +106,13 @@ function mapInit()
     console.log( "clone", m5.toString() );
 }
 mapInit();
+
+function mapSpreadOp()
+{
+    const m1 = T.map();
+    m1.set( 1, 2 );
+    m1.set( "a", "b" );
+    m1.set( 3, "c" );
+    console.log( "spread", ...m1 );
+}
+mapSpreadOp();

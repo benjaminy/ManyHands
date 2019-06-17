@@ -8,6 +8,7 @@ import assert  from "assert";
 import P       from "path";
 import * as L  from "../Utilities/logging.mjs";
 import * as UM from "../Utilities/misc.mjs";
+import * as UT from "../Utilities/transit.mjs";
 import * as CB from "../Crypto/basics.mjs";
 import * as SC from "./common.mjs";
 
@@ -53,7 +54,9 @@ export async function newName( headers, link_start, options, upload )
         const [ response, link ] = await upload( path );
         if( response.ok )
         {
-            return [ response, Object.assign( {}, link, { path: link_start.path } ) ]
+            // const l = UT.mapFromTuples( [ ...link, [ "path", link_start.get( "path" ) ] ] );
+            const l = UT.mapFromTuples( [ ...link, [ "path", path ] ] );
+            return [ response, l ];
         }
         else if( response.status === 412 )
         {
@@ -62,7 +65,7 @@ export async function newName( headers, link_start, options, upload )
         }
         else
         {
-            return [ response, {} ];
+            return [ response, T.map() ];
         }
     }
     throw { [SC.ERROR_KIND]: SC.ERROR_RETRY_LIMIT };
@@ -70,8 +73,8 @@ export async function newName( headers, link_start, options, upload )
 
 export async function atomicUpdate( headers, link_start, options, upload )
 {
-    assert( ETAG in link_start );
-    overwriteHeader( headers, "If-Match", link_start[ ETAG ] );
+    assert( link_start.has( "ETAG" ) );
+    overwriteHeader( headers, "If-Match", link_start.get( "ETAG" ) );
     const [ response, link_finish ] = await upload( link_start );
     if( response.status === 412 )
     {
@@ -86,7 +89,7 @@ export async function upload( link_start, value, options, coreUpload )
     /* TODO: compression */
     const [ cryptoed_value, crypto_link_info ] =
           await SC.encrypto( coded_value, options );
-    const cryptoed_link = Object.assign( {}, link_start, crypto_link_info );
+    const cryptoed_link = UT.mapFromTuples( [ ...link_start, ...crypto_link_info ] );
 
     const headers = new Headers();
     headers.set( "Content-Type", "application/octet-stream" );
@@ -101,14 +104,15 @@ export async function upload( link_start, value, options, coreUpload )
             path = options.get( SC.PATH_PREFIX ).concat( path );
         }
         path = UM.nestedArrayFlatten( path );
-        assert( path.every( ( p ) => typeof( p ) === "string" ) );
+        path.every( ( p ) => assert( typeof( p ) === "string" ) );
+        // assert( path.every( ( p ) => typeof( p ) === "string" ) );
         path = P.join( ...( path.map( encodeURIComponent ) ) );
         const response = await coreUpload( path, headers, cryptoed_value );
-        const link_response = { path: path_arr };
+        const link_response = UT.mapFromTuples( [ [ "path", path_arr ] ] );
         if( true || options.has( SC.COND_UPLOAD ) && ( options.get( SC.COND_UPLOAD ) === SC.COND_ATOMIC ) )
         {
-            link_response[ ETAG ] = response.headers.get( "etag" );
-            link_response.timestamp = response.headers.get( "Last-Modified" );
+            link_response.set( "ETAG", response.headers.get( "etag" ) );
+            link_response.set( "timestamp", response.headers.get( "Last-Modified" ) );
         }
         return [ response, link_response ];
     }
@@ -120,12 +124,12 @@ export async function upload( link_start, value, options, coreUpload )
         {
             return atomicUpdate(
                 headers, cryptoed_link, options,
-                () => { return uploadThen( cryptoed_link.path ) } );
+                () => { return uploadThen( cryptoed_link.get( "path" ) ) } );
         }
         else if( cond_upload === SC.COND_NO_OVERWRITE )
         {
             return noOverwrite(
-                headers, options, () => { return uploadThen( cryptoed_link.path ); } )
+                headers, options, () => { return uploadThen( cryptoed_link.get( "path" ) ); } )
         }
         else if( cond_upload === SC.COND_NEW_NAME )
         {
@@ -138,22 +142,24 @@ export async function upload( link_start, value, options, coreUpload )
     }
     else
     {
-        return uploadThen( cryptoed_link.path );
+        return uploadThen( cryptoed_link.get( "path" ) );
     }
 }
 
 export async function download( link, options, coreDownload )
 {
-    const link_mid = Object.assign( {}, link );
+    const link_mid = link.clone();
     if( options.has( SC.PATH_PREFIX ) )
     {
-        link_mid.path = options.get( SC.PATH_PREFIX ).concat( link_mid.path );
+        link_mid.set( "path", options.get(
+            SC.PATH_PREFIX ).concat( link_mid.get( "path" ) ) );
     }
-    link_mid.path = UM.nestedArrayFlatten( link_mid.path );
-    assert( link_mid.path.every( ( p ) => typeof( p ) === "string" ) );
-    link_mid.path = P.join( ...( link_mid.path.map( encodeURIComponent ) ) );
+    link_mid.set( "path", UM.nestedArrayFlatten( link_mid.get( "path" ) ) );
+    assert( link_mid.get( "path" ).every( ( p ) => typeof( p ) === "string" ) );
+    link_mid.set( "path",  P.join(
+        ...( link_mid.get( "path" ).map( encodeURIComponent ) ) ) );
 
-    const response = await coreDownload( link_mid.path, options );
+    const response = await coreDownload( link_mid.get( "path" ), options );
     if( !response.ok )
     {
         throw { [SC.ERROR_KIND]: SC.ERROR_NOT_FOUND };

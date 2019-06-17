@@ -120,7 +120,7 @@ export function decode( value, options )
 /* This function handles both ciphering and authentication */
 export async function encrypto( value, options )
 {
-    return [ value, {} ];
+    return [ value, T.map() ];
 }
 
 export async function decrypto( value, link, options )
