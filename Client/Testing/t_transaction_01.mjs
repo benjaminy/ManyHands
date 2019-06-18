@@ -13,6 +13,7 @@ import * as DB from "../Source/Database/simple_txn_chain.mjs";
 
 async function main() {
     return Promise.all([
+        test_00_out_of_the_box(),
         //test_01_instantiate(),
         //test_02_add_datom(),
         test_03_get_attribute(),
@@ -72,16 +73,17 @@ async function setup(){
             "A person's single, full name"
         )
     );
-    const db = DB.newDB(raw_storage);
-    await db.commitTxn(db, [...like_insert, ...name_insert]);
+    let db = DB.newDB(raw_storage);
+    db = await db.commitTxn(db, [...like_insert, ...name_insert]);
+    console.log(db);
     console.log("Setup completed");
     return db;
 }
 
 async function test_03_get_attribute(){
-    const db = await setup();
+    let db = await setup();
     const statement = [ DT.addK, "bob", K.key(":name"), "Bobethy" ];
-    const res = await db.commitTxn(db, [statement]);
+    db = await db.commitTxn(db, [statement]);
 
     const checkQuery = Q.parseQuery(
         [Q.findK, "?a", "?name",
@@ -95,14 +97,14 @@ async function test_03_get_attribute(){
 }
 
 async function test_04_many_statements(){
-    const db = await setup();
+    let db = await setup();
     const likes = K.key(":likes");
     const name = K.key(":name");
     const statements = [
         [ DT.addK, "mary", name, "Marticia"],
         [ DT.addK, "susan", name, "Suzard"],
         [ DT.addK, "mary", likes, "susan" ] ];
-    const res = await db.commitTxn(db, statements);
+    db = await db.commitTxn(db, statements);
     const checkQuery = Q.parseQuery(
         [Q.findK, "?a", "?name",
             Q.whereK, ["?a", likes, "?b"],
@@ -115,6 +117,19 @@ async function test_04_many_statements(){
     assert(r.length === 1, `Query failed to retrieve a record (found: ${r}).`);
     assert(r[0][1] === "Marticia", "Query returned invalid or incorrect result.");
     console.log("test_04_many_statements completed successfully");
+}
+
+async function test_00_out_of_the_box(){
+    let raw = init_simple_dict([{
+        entity: 1,
+        attribute: 2,
+        value: 3,
+        timestamp: 4,
+        revoked: 5}]);
+    console.log(raw.find());
+    let db = DB.newDB(raw);
+    db = await db.commitTxn(db, [[ DT.addK, "mary", K.key(":db/ident"), "Marticia"]]);
+    console.log(db.find());
 }
 
 main().then(() => {
