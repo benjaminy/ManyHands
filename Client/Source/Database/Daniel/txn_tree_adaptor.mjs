@@ -1,25 +1,38 @@
-/* An interface which should be extended by data structures */
+#!/usr/bin/env node --experimental-modules
 
 import * as K from "../../Utilities/keyword.mjs";
 import assert  from "../../Utilities/assert.mjs";
+import * as ST  from "../../Storage/tree.mjs";
+import * as SC from "../../Storage/common.mjs";
+import T from "transit-js";
 
-export function init_simple_dict(initial_data=false){
+export function init_tree_adaptor(storage, initial_data=false){
     const ds = {};
-    const data = initial_data || [];
-
-    let avet;
-    let eavt;
-    let aevt;
-    let vaet;
-
-    function populate_lists(){
-        avet = doSort(data, 'attribute', 'value', 'entity');
-        eavt = doSort(data, 'entity', 'attribute', 'value');
-        aevt = doSort(data, 'attribute', 'entity', 'value');
-        vaet = doSort(data, 'value', 'attribute', 'entity');
+    let data = [];
+    if(Array.isArray(initial_data)){
+        data = initial_data;
     }
 
-    populate_lists();
+    function populate_lists(data){
+
+        const avet = doSort(data, 'attribute', 'value', 'entity');
+        const eavt = doSort(data, 'entity', 'attribute', 'value');
+        const aevt = doSort(data, 'attribute', 'entity', 'value');
+        const vaet = doSort(data, 'value', 'attribute', 'entity');
+
+        const options = T.map();
+        options.set( SC.PATH_PREFIX, [ "demo_app" ] );
+        options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
+
+        const root = ST.newRoot( "root", storage, options ); // dirty root
+        ST.setValue( root, "avet", avet );
+        ST.setValue( root, "eavt", eavt );
+        ST.setValue( root, "aevt", aevt );
+        ST.setValue( root, "vaet", vaet );
+        return ST.writeTree( root ); // a promise
+    }
+
+    populate_lists(data);
 
     // datom must be in the form:
     /*
@@ -33,7 +46,7 @@ export function init_simple_dict(initial_data=false){
     */
 
     ds.add = (...datoms) => {
-        for(let i = 0; i < datoms.length; i++) {
+        for (let i = 0; i < datoms.length; i++) {
             const datom = datoms[i];
             datom.timestamp = (new Date).getTime();
             datom.revoked = false;
@@ -41,17 +54,15 @@ export function init_simple_dict(initial_data=false){
                 && 'attribute' in datom
                 && 'value' in datom);
         }
-        return init_simple_dict([...data, ...datoms]);
+        return init_tree_adaptor(storage, [...data, ...datoms]);
     };
-    /*ds.revoke = (datom) => { // TODO spread operator
-        for(let i = 0; i < data.length; i++) {
-            if (compareDatom(datom, data[i])) {
-                datom.revoked = true;
-            }
-        }
-    };*/
 
     ds.find = (options) => {
+        const root = ST.openRoot( "root", storage, options );
+        const avet = ST.getValue( root, "avet" ),
+              eavt = ST.getValue( root, "eavt" ),
+              aevt = ST.getValue( root, "aevt" ),
+              vaet = ST.getValue( root, "vaet" );
         const {entity, attribute, value} = typeof(options) === 'object' ? options : {};
         if(entity === undefined && attribute === undefined && value === undefined){
             // doesn't matter what we use
@@ -87,13 +98,6 @@ export function init_simple_dict(initial_data=false){
         }
     };
     return ds;
-}
-
-
-export function compareDatom(d1, d2){
-    return d1.entity === d2.entity  // primitive number
-        && (K.compare(d1.attribute, d2.attribute) === 0)  // key
-        && d1.value === d2.value    // TODO transit number
 }
 
 
@@ -158,7 +162,7 @@ function sortedSearch(list, field, value){
  */
 function unsortedSearch(list, field, value){
     const results = [];
-    for(let record in list){
+    for(let record of list){
         if(list[record][field] === value){ // TODO: === is not the perfect comparison, this might not work on attributes
             results.push(list[record]);
         }

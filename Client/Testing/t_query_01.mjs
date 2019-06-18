@@ -3,10 +3,12 @@
 import assert  from "../Source/Utilities/assert.mjs";
 import * as K  from "../Source/Utilities/keyword.mjs";
 import * as Q  from "../Source/Database/query.mjs";
-import * as A from "../Source/Database/attribute.mjs"
-import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs"
+import * as A from "../Source/Database/attribute.mjs";
+import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs";
+import {init_tree_adaptor} from "../Source/Database/Daniel/txn_tree_adaptor.mjs"
 import * as DT from "../Source/Database/transaction.mjs";
 import * as DB from "../Source/Database/simple_txn_chain.mjs";
+import SM from "../Source/Storage/in_memory.mjs";
 
 const age   = K.key( ":age" );
 const likes = K.key( ":likes" );
@@ -72,7 +74,9 @@ async function main(){
 async function test_13_simple_txn()
 {
     // initialize a new database
-    const raw_storage = init_simple_dict();
+    // const raw_storage = init_simple_dict();
+    const in_mem_storage = SM();
+    const raw_storage = await init_tree_adaptor(in_mem_storage);
     let db = DB.newDB(raw_storage);
 
     // create the schema

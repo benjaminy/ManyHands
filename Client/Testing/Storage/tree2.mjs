@@ -9,6 +9,7 @@ import T        from "transit-js";
 import * as SC  from "../../Source/Storage/common.mjs";
 import SM       from "../../Source/Storage/in_memory.mjs";
 import * as ST  from "../../Source/Storage/tree.mjs";
+import * as K   from "../../Source/Utilities/keyword.mjs"
 
 async function main()
 {
@@ -21,7 +22,7 @@ async function main()
     ST.setValue( r, 42, 45 );
     ST.setValue( r, "alice", "bob" );
     const [ ignore1, cRalph ] = ST.newChild( r, "ralph" );
-    const [ ignore2, cDonny ] = ST.newChild( r, [ "donny" ] );
+    const [ ignore2, cDonny ] = ST.newChild( r, [ K.key(":donny") ] );
     ST.setValue( cRalph, "pets", [ "fido", "mittens" ] );
     ST.setValue( cDonny, [[[]]], [ "Oswald", "Tingle" ] );
     const [ ignore3, cDude ] = ST.newChild( cDonny, "Look at her dance" );
@@ -35,7 +36,7 @@ async function main()
     const ccc1 = await ST.getChild( r3, "ralph" );
     console.log( "Ralph???", ccc1.toString() );
 
-    const ccc2 = await ST.getChild( r3, [ "donny" ] );
+    const ccc2 = await ST.getChild( r3, [ K.key(":donny") ] );
     console.log( "Donny???", ccc2.toString() );
     
     const ccc3 = await ST.getChild( ccc2, "Look at her dance" );

@@ -5,7 +5,7 @@ import assert from "./assert.mjs";
 /* \w may not be the right choice here.  It's fine for now, though. */
 const regex = /^:\w+(?:(?:\.\w+)*\/\w+)?$/;
 
-export function key( k )
+/*export*/ function key( k )
 {
     if( typeof( k ) === typeof( Symbol() ) )
     {
@@ -25,7 +25,7 @@ export function key( k )
     return Symbol.for( k );
 }
 
-export function str( k )
+/*export*/ function str( k )
 {
     try {
         return Symbol.keyFor( k );
@@ -35,7 +35,7 @@ export function str( k )
     }
 }
 
-export function compare( k1, k2 )
+/*export*/ function compare( k1, k2 )
 {
     const key1 = key( k1 );
     const key2 = key( k2 );
