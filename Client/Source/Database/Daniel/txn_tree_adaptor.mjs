@@ -6,33 +6,34 @@ import * as ST  from "../../Storage/tree.mjs";
 import * as SC from "../../Storage/common.mjs";
 import T from "transit-js";
 
-export function init_tree_adaptor(storage, initial_data=false){
+export async function init_tree_adaptor(storage, initial_data=false){
     const ds = {};
     let data = [];
+
+    const options = T.map();
+    options.set( SC.PATH_PREFIX, [ "demo_app" ] );
+    options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
+
     if(Array.isArray(initial_data)){
         data = initial_data;
     }
 
-    function populate_lists(data){
+    async function populate_lists(data){
 
         const avet = doSort(data, 'attribute', 'value', 'entity');
         const eavt = doSort(data, 'entity', 'attribute', 'value');
         const aevt = doSort(data, 'attribute', 'entity', 'value');
         const vaet = doSort(data, 'value', 'attribute', 'entity');
 
-        const options = T.map();
-        options.set( SC.PATH_PREFIX, [ "demo_app" ] );
-        options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
-
         const root = ST.newRoot( "root", storage, options ); // dirty root
         ST.setValue( root, "avet", avet );
         ST.setValue( root, "eavt", eavt );
         ST.setValue( root, "aevt", aevt );
         ST.setValue( root, "vaet", vaet );
-        return ST.writeTree( root ); // a promise
+        return await ST.writeTree( root ); // a promise
     }
 
-    populate_lists(data);
+    await populate_lists(data);
 
     // datom must be in the form:
     /*
@@ -45,7 +46,7 @@ export function init_tree_adaptor(storage, initial_data=false){
     }
     */
 
-    ds.add = (...datoms) => {
+    ds.add = async (...datoms) => {
         for (let i = 0; i < datoms.length; i++) {
             const datom = datoms[i];
             datom.timestamp = (new Date).getTime();
@@ -54,16 +55,16 @@ export function init_tree_adaptor(storage, initial_data=false){
                 && 'attribute' in datom
                 && 'value' in datom);
         }
-        return init_tree_adaptor(storage, [...data, ...datoms]);
+        return await init_tree_adaptor(storage, [...data, ...datoms]);
     };
 
-    ds.find = (options) => {
-        const root = ST.openRoot( "root", storage, options );
+    ds.find = async (query) => {
+        const root = await ST.openRoot( "root", storage, options );
         const avet = ST.getValue( root, "avet" ),
               eavt = ST.getValue( root, "eavt" ),
               aevt = ST.getValue( root, "aevt" ),
               vaet = ST.getValue( root, "vaet" );
-        const {entity, attribute, value} = typeof(options) === 'object' ? options : {};
+        const {entity, attribute, value} = typeof(query) === 'object' ? query : {};
         if(entity === undefined && attribute === undefined && value === undefined){
             // doesn't matter what we use
             return [...data];

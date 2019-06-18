@@ -1,15 +1,20 @@
 /* Top Matter */
 
 import assert from "./assert.mjs";
+import T from "transit-js";
 
 /* \w may not be the right choice here.  It's fine for now, though. */
 const regex = /^:\w+(?:(?:\.\w+)*\/\w+)?$/;
 
-/*export*/ function key( k )
+export function key( k )
 {
-    if( typeof( k ) === typeof( Symbol() ) )
+    if (T.isSymbol(k)){
+        return k;
+    }
+    return T.symbol(k);
+    /*if( typeof( k ) === typeof( Symbol() ) )
     {
-        /* could check str.  Worth it??? */
+        /* could check str.  Worth it??? * /
         return k;
     }
     try {
@@ -23,19 +28,23 @@ const regex = /^:\w+(?:(?:\.\w+)*\/\w+)?$/;
         throw new Error( "keyword: Invalid format ( " + k + " )" );
 
     return Symbol.for( k );
+    */
 }
 
-/*export*/ function str( k )
+export function str( k )
 {
+    return k.toString();
+    /*
     try {
         return Symbol.keyFor( k );
     }
     catch( err ) {
         throw new Error( "keyword: Unable to get str for: " + k );
     }
+    */
 }
 
-/*export*/ function compare( k1, k2 )
+export function compare( k1, k2 )
 {
     const key1 = key( k1 );
     const key2 = key( k2 );

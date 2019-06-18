@@ -82,7 +82,7 @@ async function test_13_simple_txn()
     // create the schema
     const name_insert = DT.insertAttribute(
         A.makeAttribute(
-            ":name",
+            K.key(":name"),
             undefined,
             A.vtypeString,
             A.cardinalityOne,
@@ -91,7 +91,7 @@ async function test_13_simple_txn()
     );
     const likes_insert = DT.insertAttribute(
         A.makeAttribute(
-            ":likes",
+            K.key(":likes"),
             undefined,
             A.vtypeRef,
             A.cardinalityMany,

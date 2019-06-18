@@ -11,7 +11,7 @@ import SM       from "../../Source/Storage/in_memory.mjs";
 import * as ST  from "../../Source/Storage/tree.mjs";
 import * as K   from "../../Source/Utilities/keyword.mjs"
 
-async function main()
+async function test_01_branching()
 {
     const in_mem_storage = SM();
     const options = T.map();
@@ -54,6 +54,34 @@ async function main()
     // console.log( r.toString() );
     // ST.deleteChild( r, "bobby" );
     // console.log( r.toString() );
+}
+
+async function test_02_simple_dict()
+{
+    const in_mem_storage = SM();
+    const options = T.map();
+    options.set( SC.PATH_PREFIX, [ "demo_app" ] );
+    options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
+    var r = ST.newRoot( [ "root" ], in_mem_storage, options );
+    /* r is initially dirty */
+    ST.setValue( r, 42, 45 );
+    ST.setValue( r, "alice", "bob" );
+    ST.setValue( r, K.key(":alicekey"), K.key(":bobkey"));
+    var r2 = await ST.writeTree( r );
+
+    var r3 = await ST.openRoot( [ "root" ], in_mem_storage, options );
+
+    assert(ST.getValue(r3, 42) === 45, "Getting value from root was unsuccessful");
+    assert(ST.getValue(r3, "alice") === "bob", "Getting string value from root was unsuccessful");
+    assert(T.equals(ST.getValue(r3, K.key(":alicekey")), K.key(":bobkey")))
+    console.log("test_02_simple_dict completed successfully");
+}
+
+async function main(){
+    return Promise.all([
+        test_01_branching(),
+        test_02_simple_dict()
+    ]);
 }
 
 main().then( () => { console.log( "FINISHED" ) } );

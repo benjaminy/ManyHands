@@ -35,7 +35,7 @@ const dbMethods =
         const txn = { stmts: stmts, prev: db.txns };
         /* Might throw error: */
         [ txn.datoms, entity_id_info ] = await DT.processTxn( db, stmts );
-        const new_storage = db.storage.add(...txn.datoms);
+        const new_storage = await db.storage.add(...txn.datoms);
         return Object.assign( {}, db,{ find: new_storage.find, storage: new_storage, txns: {txn}, entity_id_info: entity_id_info } );
     }
     ,

@@ -200,7 +200,7 @@ export function parseQuery( q )
             return { tag: type_number_tag, val: thing };
         // Long, Bigint, Float, Double, Bigdec
 
-        if( typeof( thing ) === "symbol" )
+        if( transit.isSymbol( thing ) ) // TODO T not transit
             return { tag: type_keyword_tag, val: thing };
 
         if( typeof( thing ) === "string" )
@@ -460,7 +460,7 @@ export async function runQuery( db, q, ...ins )
         // bindings keeps track of the names of variables, and the field they refer to
         return {
             bindings: bindings,
-            results: db.find(in_query)
+            results: await db.find(in_query)
         };
     }
 
