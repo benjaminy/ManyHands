@@ -42,11 +42,24 @@ In this paper we analyze the reasons for the non-use of this technology and prop
 \section{Introduction}
 
 \textbf{A mystery}:
-As of early 2019, both \emph{secure} messaging and \emph{trust-the-service-provider} collaborative editing are widely used, \emph{mainstream} technologies.
+As of early 2019, both \emph{secure} messaging and \emph{trust-the-service-provider} collaborative editing are \emph{mainstream} technologies.
 Yet, to the best of the authors' knowledge, the ``intersection'' of these techonologies -- secure collaborative editing (CE) -- has achieved approximately zero mainstream adoption.
 This despite the fact that the core technology ingredients for secure CE have existed for many years, and a few research teams have even developed prototypes for secure CE systems.
 
-We propose an explanation of this mystery: The \emph{centralized} system architecture that effectively all mainstream internet-based services use works less well for secure CE than it does for secure messaging.
+We believe that the explanation for this mystery has to do with network architecture, economics and legal issues.
+Mainstream secure messaging services (e.g. Signal and WhatsApp) use the same \emph{centralized} network architecture used by conventional trust-the-service-provider systems.
+Of course, CE systems could use a centralized architecture as well; Sporc\cite{} was a research project that did exactly this.
+However, CE services are substantially more expensive to operate than messaging services.
+First, there is the cost of the actual storage itself; messaging services require only a modest amount of storage capacity for temporarily keeping messages as they are forwarded from one client to another.
+Second, CE clients typically re-request edits{\slash}messages multiple times as documents are edited.
+
+Secure services deny themselves the use of users' private data for profit making
+Without the ability to mon
+
+In addition to the direct economic costs of operating a CE service, there are the legal issues that come with a service provider in some sense storing data for clients.
+Even if the data is encrypted with keys that the service providers do not possess, courts and governments may assign some responisibility to the service provider for data stored by their service.
+
+We propose an explanation of this mystery: The \emph{centralized} system architecture that effectively all mainstream internet-based services (both secure and trust-the-service-provider) use works less well for secure CE than it does for secure messaging.
 (It may seem strange to call services like Signal and WhatsApp centralized, because they use end-to-end encryption protocols to hide user data from their servers.
 However, these services rely on central servers to forward messages from client to client, thus are still centralized in an infrastructure sense.)
 
@@ -276,7 +289,7 @@ When teammates update their own storage trees, they can store references to thei
 This sharing idea relies on teammates trusting each other to not delete their part of the team's shared data.
 In other words, if a team is sharing the storage cost, it would be easy for a teammate to do a denial of service attack by removing their data.
 
-\section{Supporting a Range of Merging Strategies}
+\section{Concurrent Edit Reconciliation}
 
 As mentioned in the introduction, there is a wide range of strategies for resolving inconsistencies between concurrent edits.
 Our goal with UWS is to provide a foundation upon which application and middleware programmers can implement a wide range of strategies.
