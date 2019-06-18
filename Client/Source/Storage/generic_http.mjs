@@ -6,13 +6,14 @@
 
 import assert  from "assert";
 import P       from "path";
+import T       from "transit-js";
 import * as L  from "../Utilities/logging.mjs";
 import * as UM from "../Utilities/misc.mjs";
 import * as UT from "../Utilities/transit.mjs";
 import * as CB from "../Crypto/basics.mjs";
 import * as SC from "./common.mjs";
 
-export const ETAG = Symbol( "ETag" );
+export const ETAG = T.keyword( "ETag" );
 
 const DEFAULT_BYTES_PER_NAME = 10;
 
@@ -110,7 +111,8 @@ export async function upload( link_start, value, options, coreUpload )
         path = P.join( ...( path.map( encodeURIComponent ) ) );
         const response = await coreUpload( path, headers, cryptoed_value );
         const link_response = UT.mapFromTuples( [ [ "path", path_arr ] ] );
-        if( true || options.has( SC.COND_UPLOAD ) && ( options.get( SC.COND_UPLOAD ) === SC.COND_ATOMIC ) )
+        if( options.has( SC.COND_UPLOAD )
+            && ( options.get( SC.COND_UPLOAD ) === SC.COND_ATOMIC ) )
         {
             link_response.set( "ETAG", response.headers.get( "etag" ) );
             link_response.set( "timestamp", response.headers.get( "Last-Modified" ) );
@@ -168,4 +170,12 @@ export async function download( link, options, coreDownload )
     const value = await SC.decrypto( await response.arrayBuffer(), link, options );
     const value_decoded = SC.decode( value, options );
     return [ value_decoded, {} ];
+}
+
+export function dehydrateLink( link, options )
+{
+}
+
+export function rehydrateLink( link, options )
+{
 }

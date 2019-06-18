@@ -11,24 +11,26 @@ import * as UM from "../Utilities/misc.mjs";
 import * as UT from "../Utilities/transit.mjs";
 import * as SC from "./common.mjs";
 
-const tree_node_tag        = T.symbol( "tree node" );
+const kw = T.keyword;
 
-const plain_data_tag       = T.symbol( "plain data" );
-const links_tag            = T.symbol( "links" );
-const blank_timestamps_tag = T.symbol( "blank timestamps" );
+const tree_node_tag        = kw( "tree node" );
 
-const mem_cache_tag        = T.symbol( "memory cache" );
-const local_cache_tag      = T.symbol( "local store cache" );
-const dirty_tag            = T.symbol( "dirty" );
-const to_delete_tag        = T.symbol( "to delete" );
-const timestamp_tag        = T.symbol( "timestamp" );
-const path_tag             = T.symbol( "path" );
-const storage_tag          = T.symbol( "storage" );
-const storage_options_tag  = T.symbol( "storage options" );
-const prev_root_tag        = T.symbol( "previous root" );
+const plain_data_tag       = kw( "plain data" );
+const links_tag            = kw( "links" );
+const blank_timestamps_tag = kw( "blank timestamps" );
 
-const tree_err             = T.symbol( "tree error" );
-const missing_key_err      = T.symbol( "missing key" );
+const mem_cache_tag        = kw( "memory cache" );
+const local_cache_tag      = kw( "local store cache" );
+const dirty_tag            = kw( "dirty" );
+const to_delete_tag        = kw( "to delete" );
+const timestamp_tag        = kw( "timestamp" );
+const path_tag             = kw( "path" );
+const storage_tag          = kw( "storage" );
+const storage_options_tag  = kw( "storage options" );
+const prev_root_tag        = kw( "previous root" );
+
+const tree_err             = kw( "tree error" );
+const missing_key_err      = kw( "missing key" );
 
 // const localPersistentDB = {};
 

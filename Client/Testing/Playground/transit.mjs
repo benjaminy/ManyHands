@@ -31,7 +31,8 @@ function symbolsNSuch()
     const djs = Symbol( "dog" );
     const djs2 = Symbol( "dog" );
 
-    console.log( "Transit symbols eq?", ds === ds2, ds === roundtrip( ds ) );
+    console.log( "Transit symbols eq?", T.equals( ds, ds2 ), ds === roundtrip( ds ) );
+    console.log( "JS symbols eq?", djs === djs2 );
 
     console.log( "JS Symbol", djs, "type", typeof( djs ), "toStr", djs.toString(), djs == djs2 );
 
@@ -44,6 +45,9 @@ function symbolsNSuch()
 
     console.log( "obj", obj );
     console.log( "symbol write", wr( dk ), wr( ds ), wr( ds2 ) );
+
+    console.log( "RK", dk, roundtrip( dk ), T.equals( roundtrip( dk ), dk ) );
+    console.log( "RS", ds, roundtrip( ds ), T.equals( roundtrip( ds ), ds2 ) );
 }
 symbolsNSuch();
 

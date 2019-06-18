@@ -7,25 +7,31 @@
 import assert  from "assert";
 import T       from "transit-js";
 import * as L  from "../Utilities/logging.mjs";
+import * as CB from "../Crypto/basics.mjs";
+const WCS = CB.CS;
 
-const sy = T.symbol;
+const kw = T.keyword;
 
-export const PATH_PREFIX                = sy( "path prefix" );
+export const PATH_PREFIX                = kw( "path prefix" );
 
-export const ENCODE_OBJ                 = sy( "obj" );
-export const ENCODE_TRANSIT             = sy( "transit" );
-export const ENCODE_JSON                = sy( "json" );
-export const ENCODE_TEXT                = sy( "text encoding" );
-export const ASSOC_DATA                 = sy( "associated data" );
+export const ENCODE_OBJ                 = kw( "obj" );
+export const ENCODE_TRANSIT             = kw( "transit" );
+export const ENCODE_JSON                = kw( "json" );
+export const ENCODE_TEXT                = kw( "text encoding" );
 
-export const COND_UPLOAD                = sy( "conditional upload" );
-export const COND_ATOMIC                = sy( "atomic upload" );
-export const COND_NEW_NAME              = sy( "unique upload" );
-export const COND_NO_OVERWRITE          = sy( "no overwrite" );
+export const ASSOC_DATA                 = kw( "associated data" );
+export const ENCRYPT_DATA               = kw( "encrypt data" );
+export const GEN_KEY                    = kw( "generate key" );
+export const EXTRENAL_KEY               = kw( "generate key" );
 
-export const ERROR_KIND                 = sy( "storage error kind" );
-export const ERROR_OVERWRITE_FAILED     = sy( "atomic update failed" );
-export const ERROR_ATOMIC_UPDATE_FAILED = sy( "storage error overwrite failed" );
+export const COND_UPLOAD                = kw( "conditional upload" );
+export const COND_ATOMIC                = kw( "atomic upload" );
+export const COND_NEW_NAME              = kw( "unique upload" );
+export const COND_NO_OVERWRITE          = kw( "no overwrite" );
+
+export const ERROR_KIND                 = kw( "storage error kind" );
+export const ERROR_OVERWRITE_FAILED     = kw( "atomic update failed" );
+export const ERROR_ATOMIC_UPDATE_FAILED = kw( "storage error overwrite failed" );
 
 function mapAssocData( fn, v, options )
 {
@@ -120,7 +126,26 @@ export function decode( value, options )
 /* This function handles both ciphering and authentication */
 export async function encrypto( value, options )
 {
-    return [ value, T.map() ];
+    if( options.has( ENCRYPT_DATA ) )
+    {
+        if( options.has( GEN_KEY ) )
+        {
+            // TODO: const algo = options.get( GEN_KEY );
+            var k = await WCS.generateKey(
+                { name: "AES-GCM", length:256 }, true, [ "encrypt", "decrypt" ] );
+        }
+        else
+        {
+            var k = options.get( EXTERNAL_KEY );
+        }
+        if( options.has( ASSOC_DATA ) )
+        {
+        }
+    }
+    else
+    {
+        return [ value, T.map() ];
+    }
 }
 
 export async function decrypto( value, link, options )
@@ -128,3 +153,12 @@ export async function decrypto( value, link, options )
     // console.log( "HUH", typeof value, value );
     return value;
 }
+
+// async function dehydrateLink( fp )
+// {
+//     return { keyC: await WCS.exportKey( "jwk", fp.keyC ),
+//              iv  : fp.iv,
+//              keyS: await WCS.exportKey( "jwk", fp.keyS ) };
+// }
+
+// }

@@ -108,18 +108,20 @@ export default function init( options_init )
         return GH.download( link, options, coreDownload );
     }
 
-//     mstorage.fpFromPlainData = async function fpFromPlainData( fp )
-//     {
-//         return { path: fp.path };
-//     }
+    function dehydrateLink( link, options )
+    {
+        return GH.dehydrateLink( link, options );
+    }
 
-//     mstorage.fpToPlainData = async function fpToPlainData( fp )
-//     {
-//         return { path: fp.path };
-//     }
+    function rehydrateLink( link, options )
+    {
+        return GH.rehydrateLink( link, options );
+    }
 
-    mstorage.files    = {};
-    mstorage.upload   = upload;
-    mstorage.download = download;
+    mstorage.files         = {};
+    mstorage.upload        = upload;
+    mstorage.download      = download;
+    mstorage.dehydrateLink = dehydrateLink;
+    mstorage.rehydrateLink = rehydrateLink;
     return mstorage;
 }
