@@ -377,7 +377,20 @@ export function newChild( parent, key, storage_cb )
     
     const dehydrated = dehydrate( subroot_clean );
     return [ subroot_clean, dehydrated, all_delete ];
- }
+}
+
+async function deleteFiles( root, files )
+{
+    const storage = root[ storage_tag ];
+    const storage_options = root[ storage_options_tag ].clone();
+    const deletes = [];
+    for( const link of files )
+    {
+        deletes.push( storage.deleteFile( link, storage_options ) );
+    }
+    // TODO: better failure handling
+    return Pomise.all( deletes );
+}
 
 export async function writeTree( root )
 {
