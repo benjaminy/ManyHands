@@ -16,7 +16,7 @@ export function tree_adaptor_wrapper(storage){
     options.set( SC.PATH_PREFIX, [ "demo_app" ] );
     options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
 
-    const root = ST.newRoot( "root", storage, options ); // dirty root
+    let root = ST.newRoot( "root", storage, options ); // dirty root
 
     return async function init_tree_adaptor(initial_data=[]){
         const ds = {};
@@ -38,7 +38,7 @@ export function tree_adaptor_wrapper(storage){
             ST.setValue( root, "eavt", eavt );
             ST.setValue( root, "aevt", aevt );
             ST.setValue( root, "vaet", vaet );
-            //return ST.writeTree( root ); // a promise
+            return ST.writeTree( root ); // a promise
         }
 
         await populate_lists(data);
@@ -63,7 +63,7 @@ export function tree_adaptor_wrapper(storage){
         };
 
         ds.find = async (query) => {
-            //const root = await ST.openRoot( "root", storage, options );
+            root = await ST.openRoot( "root", storage, options );
             const avet = ST.getValue( root, "avet" ),
                 eavt = ST.getValue( root, "eavt" ),
                 aevt = ST.getValue( root, "aevt" ),
