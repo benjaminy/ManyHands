@@ -1,3 +1,5 @@
+#!/usr/bin/env node --experimental-modules
+
 /* Top Matter */
 
 import assert from "../Source/Utilities/assert.mjs";

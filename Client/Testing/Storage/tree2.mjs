@@ -13,6 +13,7 @@ import * as K   from "../../Source/Utilities/keyword.mjs"
 
 async function test_01_branching()
 {
+    console.log( "*** test_01_branching ***" );
     const in_mem_storage = SM();
     const options = T.map();
     options.set( SC.PATH_PREFIX, [ "demo_app" ] );
@@ -41,7 +42,10 @@ async function test_01_branching()
     
     const ccc3 = await ST.getChild( ccc2, "Look at her dance" );
     console.log( "Kristen???", ccc3.toString() );
-    
+
+    const r4 = ST.setValue( r3, "New one", 1.7 );
+    const r5 = await ST.writeTree( r4 );
+
     // ST.deleteValue( r, 42 );
     // const b = ST.getValue( r, "alice" );
     // console.log( b, r.toString() );
@@ -58,6 +62,7 @@ async function test_01_branching()
 
 async function test_02_simple_dict()
 {
+    console.log( "*** test_02_simple_dict ***" );
     const in_mem_storage = SM();
     const options = T.map();
     options.set( SC.PATH_PREFIX, [ "demo_app" ] );
@@ -77,11 +82,10 @@ async function test_02_simple_dict()
     console.log("test_02_simple_dict completed successfully");
 }
 
-async function main(){
-    return Promise.all([
-        test_01_branching(),
-        test_02_simple_dict()
-    ]);
+async function main()
+{
+    await test_01_branching();
+    await test_02_simple_dict();
 }
 
 main().then( () => { console.log( "FINISHED" ) } );

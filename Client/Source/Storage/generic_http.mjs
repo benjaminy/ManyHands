@@ -169,7 +169,10 @@ export async function download( link, options, coreDownload )
     }
     const value = await SC.decrypto( await response.arrayBuffer(), link, options );
     const value_decoded = SC.decode( value, options );
-    return [ value_decoded, {} ];
+    const link_back = T.map();
+    // TODO: If atomic
+    link_back.set( "ETAG", response.headers.get( "etag" ) );
+    return [ value_decoded, link_back ];
 }
 
 export function dehydrateLink( link, options )

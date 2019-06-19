@@ -391,6 +391,9 @@ export async function writeTree( root )
     
     const storage = root[ storage_tag ];
     const storage_options = root[ storage_options_tag ].clone();
+    console.log( "NEW ROOT???", root[ prev_root_tag ] === null );
+    // TODO: Local storage save
+    const floop = UT.mapFromTuples( [ [ "path", root[ path_tag ] ] ] );
     if( root[ prev_root_tag ] === null )
     {
         storage_options.set( SC.COND_UPLOAD, SC.COND_NO_OVERWRITE );
@@ -398,9 +401,8 @@ export async function writeTree( root )
     else
     {
         storage_options.set( SC.COND_UPLOAD, SC.COND_ATOMIC );
+        floop.set( "ETAG", root[ prev_root_tag ].ETAG );
     }
-    // TODO: Local storage save
-    const floop = UT.mapFromTuples( [ [ "path", root[ path_tag ] ] ] );
     console.log( "DR", dehydrated_root.toString() );
     const link = await storage.upload(
         floop, dehydrated_root, storage_options );
@@ -413,13 +415,20 @@ export async function writeTree( root )
 
 export async function openRoot( path, storage, storage_options )
 {
+    const so = storage_options.clone();
+    so.set( SC.COND_UPLOAD, SC.COND_ATOMIC );
+    
     const link_get = UT.mapFromTuples( [ [ "path", path ] ] );
     var [ dehydrated_root, link ] =
-        await storage.download( link_get, storage_options );
+        await storage.download( link_get, so );
 
-    const root = touchNode( rehydrate(
-        { [storage_tag]: storage }, link, dehydrated_root ) );
+    console.log( "LINK ROOT DOWN", link.toString() );
+    const root = rehydrate(
+        { [storage_tag]: storage }, link, dehydrated_root );
+    root.ETAG = link.get( "ETAG" );
+    root[ path_tag ] = path;
     root[ storage_options_tag ] = storage_options;
+    root[ prev_root_tag ] = null;
     return root;
 }
 

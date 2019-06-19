@@ -27,6 +27,7 @@ export default function init( options_init )
             const file = mstorage.files[ path ];
             if( headers.has( "If-None-Match" ) )
             {
+                L.debug( "If-None-Match", headers.get( "If-None-Match" ) );
                 if( !( headers.get( "If-None-Match" ) === "*" ) )
                 {
                     throw new Error( "Unimplemented" );
@@ -37,7 +38,7 @@ export default function init( options_init )
             if( headers.has( "If-Match" )
                 && !( headers.get( "If-Match" ) === file.etag ) )
             {
-                /* Atomicity failure */
+                L.debug( "Atomicity failure", headers.get( "If-Match" ) );
                 return resp_fail;
             }
         }
@@ -45,7 +46,7 @@ export default function init( options_init )
         {
             if( headers.has( "If-Match" ) )
             {
-                /* Not sure what this failure is about */
+                L.debug( "Not sure what this failure is about", headers.get( "If-Match" ) );
                 return resp_fail;
             }
         }
@@ -55,6 +56,7 @@ export default function init( options_init )
     async function coreUpload( path, headers, body )
     {
         /* assert mstorage.files is ok */
+        L.debug( "\u21b3 in_memory.coreUpload", path, path in mstorage.files );
         const response_precond = preconditionCheck( path, headers );
         if( response_precond )
         {
