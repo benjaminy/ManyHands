@@ -11,12 +11,17 @@ export const VALUE = 2;
 export const TIMESTAMP = 3;
 export const REVOKED = 4;
 
-export function tree_adaptor_wrapper(storage){
+export async function tree_adaptor_wrapper(storage){
     const options = T.map();
     options.set( SC.PATH_PREFIX, [ "demo_app" ] );
     options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
 
     let root = ST.newRoot( "root", storage, options ); // dirty root
+    ST.setValue( root, "avet", [] );
+    ST.setValue( root, "eavt", [] );
+    ST.setValue( root, "aevt", [] );
+    ST.setValue( root, "vaet", [] );
+    root = await ST.writeTree( root );
 
     return async function init_tree_adaptor(initial_data=[]){
         const ds = {};
@@ -27,21 +32,27 @@ export function tree_adaptor_wrapper(storage){
             data = initial_data;
         }
 
-        function populate_lists(data){
+        const avet = doSort(data, ATTRIBUTE, VALUE, ENTITY);
+        const eavt = doSort(data, ENTITY, ATTRIBUTE, VALUE);
+        const aevt = doSort(data, ATTRIBUTE, ENTITY, VALUE);
+        const vaet = doSort(data, VALUE, ATTRIBUTE, ENTITY);
 
-            const avet = doSort(data, ATTRIBUTE, VALUE, ENTITY);
-            const eavt = doSort(data, ENTITY, ATTRIBUTE, VALUE);
-            const aevt = doSort(data, ATTRIBUTE, ENTITY, VALUE);
-            const vaet = doSort(data, VALUE, ATTRIBUTE, ENTITY);
+        root = await ST.openRoot("root", storage, options);
 
-            ST.setValue( root, "avet", avet );
-            ST.setValue( root, "eavt", eavt );
-            ST.setValue( root, "aevt", aevt );
-            ST.setValue( root, "vaet", vaet );
-            return ST.writeTree( root ); // a promise
-        }
+        ST.setValue( root, "avet", avet );
+        ST.setValue( root, "eavt", eavt );
+        ST.setValue( root, "aevt", aevt );
+        ST.setValue( root, "vaet", vaet );
 
-        await populate_lists(data);
+        console.log("hopefully this writes", avet);
+
+        root = await ST.writeTree( root ); // a promise
+
+        //// TESTING
+
+        console.log("my avet?", ST.getValue(await ST.openRoot("root", storage, options), "avet"));
+
+        //// END TESTING
 
         ds.add = async (...datoms) => {
             const t_datoms = [];
@@ -68,6 +79,9 @@ export function tree_adaptor_wrapper(storage){
                 eavt = ST.getValue( root, "eavt" ),
                 aevt = ST.getValue( root, "aevt" ),
                 vaet = ST.getValue( root, "vaet" );
+
+            console.log("does this root contain the stuff I wanted?", avet);
+
             const {entity, attribute, value} = typeof(query) === 'object' ? query : {};
             if(entity === undefined && attribute === undefined && value === undefined){
                 // doesn't matter what we use

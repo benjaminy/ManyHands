@@ -78,14 +78,42 @@ async function test_02_simple_dict()
 
     assert(ST.getValue(r3, 42) === 45, "Getting value from root was unsuccessful");
     assert(ST.getValue(r3, "alice") === "bob", "Getting string value from root was unsuccessful");
-    assert(T.equals(ST.getValue(r3, K.key(":alicekey")), K.key(":bobkey")))
+    assert(T.equals(ST.getValue(r3, K.key(":alicekey")), K.key(":bobkey")));
     console.log("test_02_simple_dict completed successfully");
+}
+
+async function test_03_many_writes()
+{
+    console.log( "*** test_03_many_writes ***" );
+    const in_mem_storage = SM();
+    const options = T.map();
+    options.set( SC.PATH_PREFIX, [ "demo_app" ] );
+    options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
+    var r = ST.newRoot( [ "root" ], in_mem_storage, options );
+    /* r is initially dirty */
+    ST.setValue( r, 42, 45 );
+    var r2 = await ST.writeTree( r );
+
+    var r3 = await ST.openRoot( [ "root" ], in_mem_storage, options );
+
+    assert(ST.getValue(r3, 42) === 45, "Getting value from root was unsuccessful");
+
+    ST.setValue(r3, 42, 46);
+    var r4 = await ST.writeTree( r3 );
+
+    var r5 = await ST.openRoot( [ "root" ], in_mem_storage, options );
+
+    assert(ST.getValue(r5, 42) === 46,
+        `Value was not updated during second setValue call (expected 46, found ${ST.getValue(r5, 42)})`);
+
+    console.log("test_03_many_writes completed successfully");
 }
 
 async function main()
 {
     await test_01_branching();
     await test_02_simple_dict();
+    await test_03_many_writes();
 }
 
 main().then( () => { console.log( "FINISHED" ) } );

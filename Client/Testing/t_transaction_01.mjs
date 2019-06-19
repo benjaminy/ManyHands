@@ -58,7 +58,7 @@ async function test_02_add_datom(){
 */
 
 async function setup(){
-    const raw_storage = await tree_adaptor_wrapper(SM())();
+    const raw_storage = await (await tree_adaptor_wrapper(SM()))();
     const like_insert = DT.insertAttribute(
         A.makeAttribute(
             ":likes",
