@@ -1,6 +1,5 @@
 #!/usr/bin/env node --experimental-modules
 
-import * as K from "../../Utilities/keyword.mjs";
 import assert  from "../../Utilities/assert.mjs";
 import * as ST  from "../../Storage/tree.mjs";
 import * as SC from "../../Storage/common.mjs";
@@ -12,106 +11,101 @@ export const VALUE = 2;
 export const TIMESTAMP = 3;
 export const REVOKED = 4;
 
-export async function init_tree_adaptor(storage, initial_data=[]){
-    const ds = {};
-    let data = [];
-
+export function tree_adaptor_wrapper(storage){
     const options = T.map();
     options.set( SC.PATH_PREFIX, [ "demo_app" ] );
     options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
 
-    if(Array.isArray(initial_data)){
-        data = initial_data;
-    }
+    const root = ST.newRoot( "root", storage, options ); // dirty root
 
-    async function populate_lists(data){
+    return async function init_tree_adaptor(initial_data=[]){
+        const ds = {};
+        let data = [];
 
-        const avet = doSort(data, ATTRIBUTE, VALUE, ENTITY);
-        const eavt = doSort(data, ENTITY, ATTRIBUTE, VALUE);
-        const aevt = doSort(data, ATTRIBUTE, ENTITY, VALUE);
-        const vaet = doSort(data, VALUE, ATTRIBUTE, ENTITY);
 
-        const root = ST.newRoot( "root", storage, options ); // dirty root
-        ST.setValue( root, "avet", avet );
-        ST.setValue( root, "eavt", eavt );
-        ST.setValue( root, "aevt", aevt );
-        ST.setValue( root, "vaet", vaet );
-        return await ST.writeTree( root ); // a promise
-    }
-
-    await populate_lists(data);
-
-    // datom must be in the form:
-    /*
-    {
-       entity: id,
-       attribute: K.key(':attr'),
-       value: Transit data "primitive",
-       timestamp: TODO,
-       revoked: boolean
-    }
-    */
-
-    ds.add = async (...datoms) => {
-        const t_datoms = [];
-        for (let i = 0; i < datoms.length; i++) {
-            const datom = datoms[i];
-            assert('entity' in datom
-                && 'attribute' in datom
-                && 'value' in datom);
-            const t_datom = [
-                datom["entity"],
-                datom["attribute"],
-                datom["value"],
-                (new Date).getTime(),
-                false
-            ];
-            t_datoms.push(t_datom);
+        if(Array.isArray(initial_data)){
+            data = initial_data;
         }
-        return await init_tree_adaptor(storage, [...data, ...t_datoms]);
-    };
 
-    ds.find = async (query) => {
-        const root = await ST.openRoot( "root", storage, options );
-        const avet = ST.getValue( root, "avet" ),
-              eavt = ST.getValue( root, "eavt" ),
-              aevt = ST.getValue( root, "aevt" ),
-              vaet = ST.getValue( root, "vaet" );
-        const {entity, attribute, value} = typeof(query) === 'object' ? query : {};
-        if(entity === undefined && attribute === undefined && value === undefined){
-            // doesn't matter what we use
-            return [...data];
+        function populate_lists(data){
+
+            const avet = doSort(data, ATTRIBUTE, VALUE, ENTITY);
+            const eavt = doSort(data, ENTITY, ATTRIBUTE, VALUE);
+            const aevt = doSort(data, ATTRIBUTE, ENTITY, VALUE);
+            const vaet = doSort(data, VALUE, ATTRIBUTE, ENTITY);
+
+            ST.setValue( root, "avet", avet );
+            ST.setValue( root, "eavt", eavt );
+            ST.setValue( root, "aevt", aevt );
+            ST.setValue( root, "vaet", vaet );
+            //return ST.writeTree( root ); // a promise
         }
-        if(entity === undefined && attribute === undefined && value !== undefined){
-            // VAET
-            return sortedSearch(vaet, 'value', value);
-        }
-        if(entity === undefined && attribute !== undefined && value === undefined){
-            // AVET or AEVT
-            return sortedSearch(aevt, 'attribute', attribute);
-        }
-        if(entity === undefined && attribute !== undefined && value !== undefined){
-            // AVET or VAET
-            const vet = sortedSearch(avet, 'attribute', attribute);
-            return sortedSearch(vet, 'value', value);
-        }
-        if(entity !== undefined){
-            // EAVT is the only index with an entity in it
-            const avt = sortedSearch(eavt, 'entity', entity);
-            if(attribute !== undefined){
-                const vt = sortedSearch(avt, 'attribute', attribute);
-                if(value !== undefined){
-                    return sortedSearch(vt, 'value', value);
+
+        await populate_lists(data);
+
+        ds.add = async (...datoms) => {
+            const t_datoms = [];
+            for (let i = 0; i < datoms.length; i++) {
+                const datom = datoms[i];
+                assert('entity' in datom
+                    && 'attribute' in datom
+                    && 'value' in datom);
+                const t_datom = [
+                    datom["entity"],
+                    datom["attribute"],
+                    datom["value"],
+                    (new Date).getTime(),
+                    false
+                ];
+                t_datoms.push(t_datom);
+            }
+            return await init_tree_adaptor([...data, ...t_datoms]);
+        };
+
+        ds.find = async (query) => {
+            //const root = await ST.openRoot( "root", storage, options );
+            const avet = ST.getValue( root, "avet" ),
+                eavt = ST.getValue( root, "eavt" ),
+                aevt = ST.getValue( root, "aevt" ),
+                vaet = ST.getValue( root, "vaet" );
+            const {entity, attribute, value} = typeof(query) === 'object' ? query : {};
+            if(entity === undefined && attribute === undefined && value === undefined){
+                // doesn't matter what we use
+                return [...data];
+            }
+            if(entity === undefined && attribute === undefined && value !== undefined){
+                // VAET
+                return sortedSearch(vaet, VALUE, value);
+            }
+            if(entity === undefined && attribute !== undefined && value === undefined){
+                // AVET or AEVT
+                return sortedSearch(aevt, ATTRIBUTE, attribute);
+            }
+            if(entity === undefined && attribute !== undefined && value !== undefined){
+                // AVET or VAET
+                const vet = sortedSearch(avet, ATTRIBUTE, attribute);
+                return sortedSearch(vet, VALUE, value);
+            }
+            if(entity !== undefined){
+                // EAVT is the only index with an entity in it
+                const avt = sortedSearch(eavt, ENTITY, entity);
+                if(attribute !== undefined){
+                    const vt = sortedSearch(avt, ATTRIBUTE, attribute);
+                    if(value !== undefined){
+                        return sortedSearch(vt, VALUE, value);
+                    }
+                    return vt;
                 }
-                return vt;
+                if(value !== undefined){ // TODO do we want an index for this particular case?
+                    return unsortedSearch(avt, VALUE, value);
+                }
+                return avt;
             }
-            if(value !== undefined){ // TODO do we want an index for this particular case?
-                return unsortedSearch(avt, 'value', value);
-            }
-            return avt;
-        }
-    };
-    return ds;
+        };
+        return ds;
+    }
+
+
 }
 
 

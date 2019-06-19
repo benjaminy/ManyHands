@@ -14,6 +14,12 @@ async function p2( y )
     return await p1( y );
 }
 
+async function p6( y ) {
+    var ret = p1(y);
+    console.log(ret);
+    return new Promise((s,f) => {s(ret)});
+}
+
 async function p3( z )
 {
     return p1( z );
