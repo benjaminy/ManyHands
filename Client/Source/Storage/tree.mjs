@@ -410,7 +410,8 @@ export async function writeTree( root )
 //     {
 //         throw new Error( "upload failed" );
 //     }
-//     delete root[ dirty_tag ];
+    rc[ prev_root_tag ] = null;
+    return rc;
 }
 
 export async function openRoot( path, storage, storage_options )
