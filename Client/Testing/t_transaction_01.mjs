@@ -95,6 +95,7 @@ async function test_03_get_attribute(){
     );
 
     const r = await Q.runQuery(db, checkQuery);
+    console.log("r03:", r);
 
     assert(r.length === 1 && r[0][1] === "Bobethy", "Attribute was not filled in correctly.");
     console.log("test_03_get_attribute completed successfully");

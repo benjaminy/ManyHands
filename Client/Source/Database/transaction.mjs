@@ -4,6 +4,7 @@ import * as K  from "../Utilities/keyword.mjs";
 import * as DA from "./attribute.mjs";
 import * as Q from "./query.mjs";
 import * as A from "./attribute.mjs";
+import T from "transit-js";
 
 export const addK     = K.key( ":db/add" );
 export const retractK = K.key( ":db/retract" );
@@ -86,34 +87,34 @@ export async function processTxn( db, stmts )
 
         let v;
 
-        if( vType === A.vtypeBigint )
+        if( T.equals(vType, A.vtypeBigint) )
             throw new Error( "Unimplemented" );
 
-        else if( vType === A.vtypeFloat )
+        else if( T.equals(vType, A.vtypeFloat) )
             throw new Error( "Unimplemented" );
 
-        /*else if( vType === A.vtypeInstant )
+        /*else if( vType, A.vtypeInstant )
             throw new Error( "Unimplemented" );
         */
-        else if( vType === A.vtypeUuid )
+        else if( T.equals(vType, A.vtypeUuid ) )
             throw new Error( "Unimplemented" );
 
-        /*else if( vType === A.vtypeUri )
+        /*else if( vType, A.vtypeUri )
             throw new Error( "Unimplemented" );*/
 
-        else if( vType === A.vtypeBytes )
+        else if( T.equals(vType, A.vtypeBytes ) )
             throw new Error( "Unimplemented" );
 
-        else if( vType === A.vtypeKeyword )
+        else if( T.equals(vType, A.vtypeKeyword ) )
             v = K.key( value );
 
-        else if( vType === A.vtypeDouble )
+        else if( T.equals(vType, A.vtypeDouble ) )
             v = 0.0 + value;
 
-        else if( vType === A.vtypeString )
+        else if( T.equals(vType, A.vtypeString ) )
             v = String( value );
 
-        else if( vType === A.vtypeBoolean )
+        else if( T.equals(vType, A.vtypeBoolean ) )
         {
             if( value === true || value === false )
                 v = value;
@@ -122,14 +123,14 @@ export async function processTxn( db, stmts )
         }
 
         /* XXX stupid JavaScript numbers!  Only get 52 bits. */
-        else if( vType === A.vtypeLong )
+        else if( T.equals(vType, A.vtypeLong ) )
         {
             v = 0.0 + value;
             if( !Number.isInteger( v ) )
                 throw new Error( "TODO" );
         }
 
-        else if( vType === A.vtypeRef )
+        else if( T.equals(vType, A.vtypeRef ) )
         {
             return getEntityId( value );
         }
@@ -179,12 +180,12 @@ export async function processTxn( db, stmts )
         {
             var unique = K.key( attribute.unique );
 
-            if( unique === DA.uniqueValue )
+            if( T.equals(unique, DA.uniqueValue) )
             {
                 throw new Error( "Unimplemented" );
             }
 
-            else if( unique === DA.uniqueIdentity )
+            else if( T.equals(unique, DA.uniqueIdentity) )
             {
                 throw new Error( "Unimplemented" );
             }
@@ -194,12 +195,12 @@ export async function processTxn( db, stmts )
         }
         if( attribute.cardinality ) {
             const card = K.key(attribute.cardinality);
-            if (card === DA.cardinalityOne) {
+            if (T.equals(card, DA.cardinalityOne)) {
                 /* TODO: add retract if there is an existing value */
-            } else if (card === DA.cardinalityMany) {
+            } else if (T.equals(card, DA.cardinalityMany)) {
                 /* TODO: nothing??? */
             } else {
-                throw new Error("Invalid attribute cardinality " + card.str);
+                throw new Error("Invalid attribute cardinality " + card.toString());
             }
         }
 
@@ -213,7 +214,7 @@ export async function processTxn( db, stmts )
             if( K.compare(kind, addK) === 0 ) {
                 await addDatom( await getEntityId( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
             }
-            else if( stmt[ 0 ] === retractK ) {
+            else if( T.equals(stmt[ 0 ], retractK) ) {
                 const e = await getEntityId( stmt[ 1 ] );
                 const attribute = await db.getAttribute( stmt[ 2 ] );
                 const value     = normalizeValue( attribute, stmt[ 3 ] );

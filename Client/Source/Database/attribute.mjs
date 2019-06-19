@@ -14,7 +14,7 @@ export const isComponentK = K.key( ":db/isComponent" );
 export const cardinalityK    = K.key( ":db/cardinality" );
 export const cardinalityOne  = K.key( ":db.cardinality/one" );
 export const cardinalityMany = K.key( ":db.cardinality/many" );
-const cardinalities = new Set( [ cardinalityOne, cardinalityMany ] );
+const cardinalities = transit.set( [ cardinalityOne, cardinalityMany ] );
 
 export const valueTypeK   = K.key( ":db/valueType" );
 export const vtypeKeyword = K.key( ":db.type/keyword" ); // interned
@@ -29,7 +29,7 @@ export const vtypeRef     = K.key( ":db.type/ref" );
 export const vtypeInstant = K.key( ":db.type/ref" );     // library???
 export const vtypeUuid    = K.key( ":db.type/uuid" );    // library???
 export const vtypeBytes   = K.key( ":db.type/uuid" );    // huh.
-const types = new Set( [
+const types = transit.set( [
     vtypeKeyword, vtypeString, vtypeBoolean, vtypeLong, vtypeBigint,
     vtypeFloat, vtypeDouble, vtypeBigdec, vtypeRef, vtypeInstant,
     vtypeUuid, vtypeBytes ] );
@@ -37,7 +37,7 @@ const types = new Set( [
 export const uniqueK        = K.key( ":db/unique" );
 export const uniqueValue    = K.key( ":db.unique/value" );
 export const uniqueIdentity = K.key( ":db.unique/identity" );
-export const uniques = new Set( [ uniqueValue, uniqueIdentity ] );
+export const uniques = transit.set( [ uniqueValue, uniqueIdentity ] );
 
 /*
 export const dbKeys = new Set( [

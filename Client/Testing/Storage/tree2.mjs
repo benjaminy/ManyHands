@@ -98,7 +98,7 @@ async function test_03_many_writes()
 
     assert(ST.getValue(r3, 42) === 45, "Getting value from root was unsuccessful");
 
-    ST.setValue(r3, 42, 46);
+    r3 = ST.setValue(r3, 42, 46);
     var r4 = await ST.writeTree( r3 );
 
     var r5 = await ST.openRoot( [ "root" ], in_mem_storage, options );

@@ -39,10 +39,10 @@ export async function tree_adaptor_wrapper(storage){
 
         root = await ST.openRoot("root", storage, options);
 
-        ST.setValue( root, "avet", avet );
-        ST.setValue( root, "eavt", eavt );
-        ST.setValue( root, "aevt", aevt );
-        ST.setValue( root, "vaet", vaet );
+        root = ST.setValue( root, "avet", avet );
+        root = ST.setValue( root, "eavt", eavt );
+        root = ST.setValue( root, "aevt", aevt );
+        root = ST.setValue( root, "vaet", vaet );
 
         console.log("hopefully this writes", avet);
 
