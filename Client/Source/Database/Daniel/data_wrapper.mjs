@@ -4,7 +4,7 @@ import * as K from "../../Utilities/keyword.mjs";
 import assert  from "../../Utilities/assert.mjs";
 import T from "transit-js";
 
-export function init_simple_dict(initial_data=false){
+export async function init_simple_dict(initial_data=false){
     const ds = {};
     const data = initial_data || [];
 
@@ -13,14 +13,14 @@ export function init_simple_dict(initial_data=false){
     let aevt;
     let vaet;
 
-    function populate_lists(){
+    async function populate_lists(){
         avet = doSort(data, 'attribute', 'value', 'entity');
         eavt = doSort(data, 'entity', 'attribute', 'value');
         aevt = doSort(data, 'attribute', 'entity', 'value');
         vaet = doSort(data, 'value', 'attribute', 'entity');
     }
 
-    populate_lists();
+    await populate_lists();
 
     // datom must be in the form:
     /*
@@ -33,7 +33,7 @@ export function init_simple_dict(initial_data=false){
     }
     */
 
-    ds.add = (...datoms) => {
+    ds.add = async (...datoms) => {
         for(let i = 0; i < datoms.length; i++) {
             const datom = datoms[i];
             datom.timestamp = (new Date).getTime();
@@ -42,7 +42,7 @@ export function init_simple_dict(initial_data=false){
                 && 'attribute' in datom
                 && 'value' in datom);
         }
-        return init_simple_dict([...data, ...datoms]);
+        return await init_simple_dict([...data, ...datoms]);
     };
     /*ds.revoke = (datom) => { // TODO spread operator
         for(let i = 0; i < data.length; i++) {
@@ -52,7 +52,7 @@ export function init_simple_dict(initial_data=false){
         }
     };*/
 
-    ds.find = (options) => {
+    ds.find = async (options) => {
         const {entity, attribute, value} = typeof(options) === 'object' ? options : {};
         if(entity === undefined && attribute === undefined && value === undefined){
             // doesn't matter what we use

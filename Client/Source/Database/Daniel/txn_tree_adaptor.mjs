@@ -6,7 +6,13 @@ import * as ST  from "../../Storage/tree.mjs";
 import * as SC from "../../Storage/common.mjs";
 import T from "transit-js";
 
-export async function init_tree_adaptor(storage, initial_data=false){
+export const ENTITY = 0;
+export const ATTRIBUTE = 1;
+export const VALUE = 2;
+export const TIMESTAMP = 3;
+export const REVOKED = 4;
+
+export async function init_tree_adaptor(storage, initial_data=[]){
     const ds = {};
     let data = [];
 
@@ -20,10 +26,10 @@ export async function init_tree_adaptor(storage, initial_data=false){
 
     async function populate_lists(data){
 
-        const avet = doSort(data, 'attribute', 'value', 'entity');
-        const eavt = doSort(data, 'entity', 'attribute', 'value');
-        const aevt = doSort(data, 'attribute', 'entity', 'value');
-        const vaet = doSort(data, 'value', 'attribute', 'entity');
+        const avet = doSort(data, ATTRIBUTE, VALUE, ENTITY);
+        const eavt = doSort(data, ENTITY, ATTRIBUTE, VALUE);
+        const aevt = doSort(data, ATTRIBUTE, ENTITY, VALUE);
+        const vaet = doSort(data, VALUE, ATTRIBUTE, ENTITY);
 
         const root = ST.newRoot( "root", storage, options ); // dirty root
         ST.setValue( root, "avet", avet );
@@ -47,15 +53,22 @@ export async function init_tree_adaptor(storage, initial_data=false){
     */
 
     ds.add = async (...datoms) => {
+        const t_datoms = [];
         for (let i = 0; i < datoms.length; i++) {
             const datom = datoms[i];
-            datom.timestamp = (new Date).getTime();
-            datom.revoked = false;
             assert('entity' in datom
                 && 'attribute' in datom
                 && 'value' in datom);
+            const t_datom = [
+                datom["entity"],
+                datom["attribute"],
+                datom["value"],
+                (new Date).getTime(),
+                false
+            ];
+            t_datoms.push(t_datom);
         }
-        return await init_tree_adaptor(storage, [...data, ...datoms]);
+        return await init_tree_adaptor(storage, [...data, ...t_datoms]);
     };
 
     ds.find = async (query) => {
@@ -111,7 +124,7 @@ export async function init_tree_adaptor(storage, initial_data=false){
  */
 function doSort(data, ...sorts){
     data.sort((self, other) => {
-        for(let sort of sorts) {
+        for(let sort of sorts){
             let ix;
             /*if (sort === 'attribute') { // TODO attribute will be a number
                 //ix = K.compare(self[sort], other[sort]);

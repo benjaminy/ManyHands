@@ -4,8 +4,10 @@ import assert from "../Source/Utilities/assert.mjs";
 import * as K from "../Source/Utilities/keyword.mjs";
 import * as A from "../Source/Database/attribute.mjs";
 import * as DT from "../Source/Database/transaction.mjs";
+import SM       from "../Source/Storage/in_memory.mjs";
 
-import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs";
+//import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs";
+import {init_tree_adaptor} from "../Source/Database/Daniel/txn_tree_adaptor.mjs";
 import * as Q from "../Source/Database/query.mjs";
 import * as DB from "../Source/Database/simple_txn_chain.mjs";
 
@@ -54,7 +56,7 @@ async function test_02_add_datom(){
 */
 
 async function setup(){
-    const raw_storage = init_simple_dict();
+    const raw_storage = await init_tree_adaptor(SM());
     const like_insert = DT.insertAttribute(
         A.makeAttribute(
             ":likes",
@@ -120,7 +122,7 @@ async function test_04_many_statements(){
 }
 
 async function test_00_out_of_the_box(){
-    let raw = init_simple_dict([{
+    let raw = await init_tree_adaptor(SM(), [{
         entity: 1,
         attribute: 2,
         value: 3,
