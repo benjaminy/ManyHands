@@ -13,11 +13,11 @@ import * as DB from "../Source/Database/simple_txn_chain.mjs";
 
 async function main() {
     return Promise.all([
-        test_00_out_of_the_box(),
-        //test_01_instantiate(),
-        //test_02_add_datom(),
-        test_03_get_attribute(),
-        test_04_many_statements()
+        /*test_00_out_of_the_box(),
+        test_01_instantiate(),
+        test_02_add_datom(),*/
+        test_03_get_attribute()//,
+        /*test_04_many_statements()*/
     ]);
 }
 

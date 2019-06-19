@@ -433,6 +433,7 @@ export async function runQuery( db, q, ...ins )
                 if(field.tag === type_keyword_tag){
                     //console.log("tag sub", field.val, (await TX.getAttribute(db, field.val)).id);
                     if(is_value) return field.val;
+                    console.log("search attr:", field.val);
                     return (await TX.getAttribute(db, field.val)).id; // TODO this affects the query, probably
                 } // TODO reaching into the transaction file from query? I'd love for this to be much more agnostic
                 return field.val;

@@ -2,6 +2,7 @@
 
 import * as K from "../../Utilities/keyword.mjs";
 import assert  from "../../Utilities/assert.mjs";
+import T from "transit-js";
 
 export function init_simple_dict(initial_data=false){
     const ds = {};
@@ -158,9 +159,9 @@ function sortedSearch(list, field, value){
  */
 function unsortedSearch(list, field, value){
     const results = [];
-    for(let record in list){
-        if(list[record][field] === value){ // TODO: === is not the perfect comparison, this might not work on attributes
-            results.push(list[record]);
+    for(let record of list){
+        if(T.equals(record[field], value)){
+            results.push(record);
         }
     }
     return results;

@@ -164,8 +164,8 @@ function sortedSearch(list, field, value){
 function unsortedSearch(list, field, value){
     const results = [];
     for(let record of list){
-        if(list[record][field] === value){ // TODO: === is not the perfect comparison, this might not work on attributes
-            results.push(list[record]);
+        if(T.equals(record[field], value)){
+            results.push(record);
         }
     }
     return results;
