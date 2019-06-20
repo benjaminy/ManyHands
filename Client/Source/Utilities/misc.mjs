@@ -293,6 +293,26 @@ export function hasProp( thing, prop )
     }
 }
 
+export function arrayEq( thing1, thing2 )
+{
+    if( thing1 === thing2 )
+    {
+        return true;
+    }
+    if( thing1.length != thing2.length )
+    {
+        return false;
+    }
+    for( var i = 0; i < thing1.length; ++i )
+    {
+        if( !arrayEq( thing1[ i ], thing2[ i ] ) )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 export function nestedArrayFlatten( arr )
 {
     return arr.reduce( function( accumulator, item )

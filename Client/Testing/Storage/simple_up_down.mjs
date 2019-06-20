@@ -1,6 +1,4 @@
-/*
- *
- */
+/* Top Matter */
 
 import assert  from "assert";
 import T       from "transit-js";

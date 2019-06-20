@@ -27,7 +27,8 @@ export default function init( options_init )
             const file = mstorage.files[ path ];
             if( headers.has( "If-None-Match" ) )
             {
-                L.debug( "If-None-Match", headers.get( "If-None-Match" ) );
+                L.debug( "in_memory.preconditionCheck: If-None-Match",
+                         headers.get( "If-None-Match" ) );
                 if( !( headers.get( "If-None-Match" ) === "*" ) )
                 {
                     throw new Error( "Unimplemented" );
@@ -38,7 +39,8 @@ export default function init( options_init )
             if( headers.has( "If-Match" )
                 && !( headers.get( "If-Match" ) === file.etag ) )
             {
-                L.debug( "Atomicity failure", headers.get( "If-Match" ) );
+                L.debug( "in_memory.preconditionCheck: Atomicity failure",
+                         headers.get( "If-Match" ) );
                 return resp_fail;
             }
         }
@@ -46,7 +48,8 @@ export default function init( options_init )
         {
             if( headers.has( "If-Match" ) )
             {
-                L.debug( "Not sure what this failure is about", headers.get( "If-Match" ) );
+                L.debug( "in_memory.preconditionCheck: Not sure what this failure is about",
+                         headers.get( "If-Match" ) );
                 return resp_fail;
             }
         }
@@ -60,7 +63,6 @@ export default function init( options_init )
         const response_precond = preconditionCheck( path, headers );
         if( response_precond )
         {
-            L.debug( "in-mem: Precond check failed" );
             return response_precond;
         }
         const etag = B32.encode( await CB.digest_sha_512( body ) );
@@ -85,7 +87,7 @@ export default function init( options_init )
 
     async function coreDownload( path )
     {
-        L.debug( "\u21b3 in_memory.coreDownload", path );
+        L.debug( "\u21b3 in_memory.coreDownload", path in mstorage.files, path );
         // console.log( mstorage.files );
         if( path in mstorage.files )
         {
@@ -105,9 +107,33 @@ export default function init( options_init )
         }
     }
 
-    async function download( link, options )
+    function download( link, options )
     {
         return GH.download( link, options, coreDownload );
+    }
+
+    async function coreDelete( path )
+    {
+        L.debug( "\u21b3 in_memory.coreDelete", path in mstorage.files, path );
+        if( path in mstorage.files )
+        {
+            const resp = new Response( null, { status: 204 } );
+            const file = mstorage.files[ path ];
+            const last_modified = new Date( file.timestamp ).toGMTString();
+            resp.headers.set( "etag", file.etag );
+            resp.headers.set( "Last-Modified", last_modified );
+            delete mstorage.files[ path ];
+            return resp;
+        }
+        else
+        {
+            return new Response( null, { status: 404 } );
+        }
+    }
+
+    function deleteFile( link, options )
+    {
+        return GH.deleteFile( link, options, coreDelete );
     }
 
     function dehydrateLink( link, options )
@@ -123,6 +149,7 @@ export default function init( options_init )
     mstorage.files         = {};
     mstorage.upload        = upload;
     mstorage.download      = download;
+    mstorage.deleteFile    = deleteFile;
     mstorage.dehydrateLink = dehydrateLink;
     mstorage.rehydrateLink = rehydrateLink;
     return mstorage;

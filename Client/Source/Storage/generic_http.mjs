@@ -111,8 +111,8 @@ export async function upload( link_start, value, options, coreUpload )
         path = P.join( ...( path.map( encodeURIComponent ) ) );
         const response = await coreUpload( path, headers, cryptoed_value );
         const link_response = UT.mapFromTuples( [ [ "path", path_arr ] ] );
-        if( options.has( SC.COND_UPLOAD )
-            && ( options.get( SC.COND_UPLOAD ) === SC.COND_ATOMIC ) )
+        if( true || ( options.has( SC.COND_UPLOAD )
+                      && ( options.get( SC.COND_UPLOAD ) === SC.COND_ATOMIC ) ) )
         {
             link_response.set( "ETAG", response.headers.get( "etag" ) );
             link_response.set( "timestamp", response.headers.get( "Last-Modified" ) );
@@ -173,6 +173,21 @@ export async function download( link, options, coreDownload )
     // TODO: If atomic
     link_back.set( "ETAG", response.headers.get( "etag" ) );
     return [ value_decoded, link_back ];
+}
+
+export async function deleteFile( link, options, coreDelete )
+{
+    const path1 = options.has( SC.PATH_PREFIX ) ? options.get( SC.PATH_PREFIX ) : [];
+    const path2 = path1.concat( link.get( "path" ) );
+    const path3 = UM.nestedArrayFlatten( path2 );
+    assert( path3.every( ( p ) => typeof( p ) === "string" ) );
+    const path4 = P.join( ...( path3.map( encodeURIComponent ) ) );
+
+    const response = await coreDelete( path4, options );
+    if( !response.ok )
+    {
+        throw { [SC.ERROR_KIND]: SC.ERROR_NOT_FOUND };
+    }
 }
 
 export function dehydrateLink( link, options )
