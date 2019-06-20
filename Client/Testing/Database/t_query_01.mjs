@@ -242,13 +242,13 @@ async function test_11_visualization(){
     const bKey = K.key(":b");
 
     const schema = [...DT.insertAttribute(A.makeAttribute(
-        K.key(":a"),
+        aKey,
         undefined,
         A.vtypeRef,
         A.cardinalityMany,
         "a"
-    )), DT.insertAttribute(A.makeAttribute(
-        K.key(":b"),
+    )), ...DT.insertAttribute(A.makeAttribute(
+        bKey,
         undefined,
         A.vtypeRef,
         A.cardinalityMany,
@@ -262,9 +262,9 @@ async function test_11_visualization(){
     db = await db.commitTxn(db, schema);
 
     db = await db.commitTxn(db, [
-        [DT.addK, "A", K.key(":a"),  "B"],
-        [DT.addK, "B", K.key(":b"), "C1"],
-        [DT.addK, "B", K.key(":b"), "C2"]
+        [DT.addK, "A", aKey,  "B"],
+        [DT.addK, "B", bKey, "C1"],
+        [DT.addK, "B", bKey, "C2"]
     ]);
 
     const q = Q.parseQuery(

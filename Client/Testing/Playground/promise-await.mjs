@@ -15,9 +15,7 @@ async function p2( y )
 }
 
 async function p6( y ) {
-    var ret = p1(y);
-    console.log(ret);
-    return new Promise((s,f) => {s(ret)});
+    return new Promise((s,f) => {s(new Promise((s2,f) => {s2(y)}))});
 }
 
 async function p3( z )
@@ -47,6 +45,7 @@ async function main()
     console.log( "T32", await p32( "carol" ) );
     console.log( " T4", ( await p4( "dave" ) ).x );
     console.log( " T5", ( await p5( "eve" ) ).x );
+    console.log("T6", await p6("fred???"));
 }
 
 main().then( () => { console.log( "FINISHED" ) } )
