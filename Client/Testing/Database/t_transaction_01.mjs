@@ -2,16 +2,16 @@
 
 /* Top Matter */
 
-import assert from "../Source/Utilities/assert.mjs";
-import * as K from "../Source/Utilities/keyword.mjs";
-import * as A from "../Source/Database/attribute.mjs";
-import * as DT from "../Source/Database/transaction.mjs";
-import SM       from "../Source/Storage/in_memory.mjs";
+import assert from "../../Source/Utilities/assert.mjs";
+import * as K from "../../Source/Utilities/keyword.mjs";
+import * as A from "../../Source/Database/attribute.mjs";
+import * as DT from "../../Source/Database/transaction.mjs";
+import SM       from "../../Source/Storage/in_memory.mjs";
 
 //import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs";
-import {tree_adaptor_wrapper} from "../Source/Database/Daniel/txn_tree_adaptor.mjs";
-import * as Q from "../Source/Database/query.mjs";
-import * as DB from "../Source/Database/simple_txn_chain.mjs";
+import {tree_adaptor_wrapper} from "../../Source/Database/Daniel/txn_tree_adaptor.mjs";
+import * as Q from "../../Source/Database/query.mjs";
+import * as DB from "../../Source/Database/simple_txn_chain.mjs";
 
 // // [ DT.addK, "bob", ":age", 42 ]
 
