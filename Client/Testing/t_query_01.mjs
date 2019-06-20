@@ -5,10 +5,12 @@ import * as K  from "../Source/Utilities/keyword.mjs";
 import * as Q  from "../Source/Database/query.mjs";
 import * as A from "../Source/Database/attribute.mjs";
 import {init_simple_dict} from "../Source/Database/Daniel/data_wrapper.mjs";
-import {init_tree_adaptor} from "../Source/Database/Daniel/txn_tree_adaptor.mjs"
+import {tree_adaptor_wrapper} from "../Source/Database/Daniel/txn_tree_adaptor.mjs"
 import * as DT from "../Source/Database/transaction.mjs";
 import * as DB from "../Source/Database/simple_txn_chain.mjs";
 import SM from "../Source/Storage/in_memory.mjs";
+
+import T from "transit-js";
 
 const age   = K.key( ":age" );
 const likes = K.key( ":likes" );
@@ -18,43 +20,48 @@ const sally = 12345;
 const fred  = 12346;
 const ethel = 12347;
 
-let db = init_simple_dict(
-).add({
-    entity: sally,
-    attribute: age,
-    value: 21
-}).add({
-    entity: fred,
-    attribute: age,
-    value: 42
-}).add({
-    entity: ethel,
-    attribute: age,
-    value: 42
-}).add({
-    entity: fred,
-    attribute: likes,
-    value: "pizza"
-}).add({
-    entity: sally,
-    attribute: likes,
-    value: "opera"
-}).add({
-    entity: ethel,
-    attribute: likes,
-    value: "sushi"
-}).add({
-    entity: fred,
-    attribute: annoys,
-    value: ethel
-}).add({
-    entity: ethel,
-    attribute: loves,
-    value: sally
-});
+/* async function setup(){
+
+    return await init_simple_dict([{
+        entity: sally,
+        attribute: age,
+        value: 21
+    }, {
+        entity: fred,
+        attribute: age,
+        value: 42
+    }, {
+        entity: ethel,
+        attribute: age,
+        value: 42
+    }, {
+        entity: fred,
+        attribute: likes,
+        value: "pizza"
+    }, {
+        entity: sally,
+        attribute: likes,
+        value: "opera"
+    }, {
+        entity: ethel,
+        attribute: likes,
+        value: "sushi"
+    }, {
+        entity: fred,
+        attribute: annoys,
+        value: ethel
+    }, {
+        entity: ethel,
+        attribute: loves,
+        value: sally
+    }];
+
+}
+
+*/
 
 async function main(){
-    return Promise.all([
+    //return Promise.all([
         /*test_01_single_select(), TODO these all fail because
         test_02_double_select(),   their attributes do not exist in the schema.
         test_03_double_where(),
@@ -63,20 +70,21 @@ async function main(){
         test_06_double_reference(),
         test_07_many_hops(),
         test_08_fanout(),
-        test_09_fanout_many(),
-        test_10_simpler_fanout(),
-        test_11_visualization(),
-        test_12_attribute_query(),*/
-        test_13_simple_txn()
-    ]);
+        test_09_fanout_many(),*/
+        await test_10_simpler_fanout();
+        await test_11_visualization();
+        await test_12_attribute_query();
+        await test_13_simple_txn();
+    //]);
 }
 
 async function test_13_simple_txn()
 {
+    console.log("*** test_13_simple_txn ***");
     // initialize a new database
     // const raw_storage = init_simple_dict();
     const in_mem_storage = SM();
-    const raw_storage = await init_tree_adaptor(in_mem_storage);
+    const raw_storage = await (await tree_adaptor_wrapper(in_mem_storage))();
     let db = DB.newDB(raw_storage);
 
     // create the schema
@@ -121,65 +129,36 @@ async function test_13_simple_txn()
 
     console.log("r13", r);
     assert(r.length === 1 && r[0][0] === "Bobethy", "Query returned an unexpected value");
+    console.log("*** test_13_simple_txn PASSED ***");
+
 }
 
-/*
-    whereK, [ "?attr", DA.identK,       "?ident" ],
-            [ "?attr", DA.valueTypeK,   "?vtype" ],
-            [ "?attr", DA.cardinalityK, "?card" ],
-            [ "?attr", DA.docK,         "?doc" ],
-            [ "?attr", DA.uniqueK,      "?uniq" ],
-            [ "?attr", DA.indexK,       "?idx" ],
-            [ "?attr", DA.fulltextK,    "?ftxt" ],
-            [ "?attr", DA.isComponentK, "?isComp" ],
-            [ "?attr", DA.noHistoryK,   "?noHist" ] ] );
- */
 async function test_12_attribute_query(){
+
+    console.log("*** test_12_attribute_query ***");
     const q = Q.attrQuery;
-    const db = init_simple_dict(
-    ).add({
-        entity: 10,
-        attribute: A.identK,
-        value: ":likes"
-    }).add({
-        entity: 10,
-        attribute: A.valueTypeK,
-        value: A.vtypeRef
-    }).add({
-        entity: 10,
-        attribute: A.cardinalityK,
-        value: A.cardinalityMany
-    }).add({
-        entity: 10,
-        attribute: A.docK,
-        value: "hor de door"
-    }).add({
-        entity: 10,
-        attribute: A.uniqueK,
-        value: null
-    }).add({
-        entity: 10,
-        attribute: A.indexK,
-        value: false
-    }).add({
-        entity: 10,
-        attribute: A.fulltextK,
-        value: false
-    }).add({
-        entity: 10,
-        attribute: A.isComponentK,
-        value: false
-    }).add({
-        entity: 10,
-        attribute: A.noHistoryK,
-        value: false
-    });
+    const in_mem_storage = SM();
+    let raw_storage = await (await tree_adaptor_wrapper(in_mem_storage))();
+    let db = DB.newDB(raw_storage);
+
+    const likes_insert = DT.insertAttribute(
+        A.makeAttribute(
+            K.key(":likes"),
+            undefined,
+            A.vtypeRef,
+            A.cardinalityMany,
+            "The many entities that this entity likes."
+        )
+    );
+
+    db = await db.commitTxn(db, likes_insert);
 
     const r = await Q.runQuery(db, q, K.key(":likes"));
     const expected = [
+        1000,
         A.vtypeRef,
         A.cardinalityMany,
-        'hor de door',
+        'The many entities that this entity likes.',
         null,
         false,
         false,
@@ -187,125 +166,106 @@ async function test_12_attribute_query(){
         false
     ];
 
+    console.log("r12:", r);
+
     assert(r.length === 1, `Length of result set is incorrect (expected 1, found ${r.length})`);
     for(let i = 0; i < expected.length; i++){
-        assert(expected[i] === r[0][i], "A value was mismatched or wrong");
+        assert(T.equals(expected[i], r[0][i]), "A value was mismatched or wrong");
         //+ ` (expected ${expected[i]}, found ${r[0][i]})`);
     }
+
+    console.log("*** test_12_attribute_query PASSED ***");
+
 }
 
 async function test_10_simpler_fanout(){
-    const aKey = K.key(":a");
-    const bKey = K.key(":b");
-    const cKey = K.key(":c");
-    const dKey = K.key(":d");
+    console.log("*** test_10_simpler_fanout ***");
 
-    const db = init_simple_dict();
+    const inserts = [];
+    for(let name of ["a", "b", "c", "d"]){
+        inserts.push(...DT.insertAttribute(
+            A.makeAttribute(
+                K.key(":" + name),
+                undefined,
+                A.vtypeRef,
+                A.cardinalityMany,
+                name
+            )
+        ));
+    } // instantiate keys a-d
 
-    db.add({
-        entity: "A",
-        attribute: aKey,
-        value: "B1"
-    });
-    db.add({
-        entity: "A",
-        attribute: aKey,
-        value: "B2"
-    });
-    db.add({
-        entity: "B1",
-        attribute: bKey,
-        value: "C11"
-    });
-    db.add({
-        entity: "B1",
-        attribute: bKey,
-        value: "C12"
-    });
-    db.add({
-        entity: "B2",
-        attribute: bKey,
-        value: "C21"
-    });
-    db.add({
-        entity: "B2",
-        attribute: bKey,
-        value: "C22"
-    });
-    db.add({
-        entity: "C11",
-        attribute: cKey,
-        value: "D111"
-    });
-    db.add({
-        entity: "C22",
-        attribute: cKey,
-        value: "D222"
-    });
-    db.add({
-        entity: "C22",
-        attribute: cKey,
-        value: "D221"
-    });
+    const in_mem_storage = SM();
+    let raw_storage = await (await tree_adaptor_wrapper(in_mem_storage))();
+    let db = DB.newDB(raw_storage);
 
-    db.add({
-        entity: "D222",
-        attribute: dKey,
-        value: "E2222"
-    });
+    db = await db.commitTxn(db, inserts); // TODO can we create a schema and add stuff to it
+    // in one transaction? (probably not)
 
-    db.add({
-        entity: "D111",
-        attribute: dKey,
-        value: "E1111"
-    });
 
-    db.add({
-        entity: "D222",
-        attribute: dKey,
-        value: "E2221"
-    });
+    db = await db.commitTxn(db, [
+        [DT.addK, "A",    K.key(":a"),    "B1"],
+        [DT.addK, "A",    K.key(":a"),    "B2"],
+        [DT.addK, "B1",   K.key(":b"),   "C11"],
+        [DT.addK, "B1",   K.key(":b"),   "C12"],
+        [DT.addK, "B2",   K.key(":b"),   "C21"],
+        [DT.addK, "B2",   K.key(":b"),   "C22"],
+        [DT.addK, "C11",  K.key(":c"),  "D111"],
+        [DT.addK, "C22",  K.key(":c"),  "D221"],
+        [DT.addK, "C22",  K.key(":c"),  "D222"],
+        [DT.addK, "D111", K.key(":d"), "E1111"],
+        [DT.addK, "D222", K.key(":d"), "E2221"],
+        [DT.addK, "D222", K.key(":d"), "E2222"]
+    ]);
 
     const q = Q.parseQuery(
         [Q.findK, "?a", "?b", "?c", "?d", "?e",
-            Q.whereK, ["?a", aKey, "?b"],
-            ["?b", bKey, "?c"],
-            ["?c", cKey, "?d"],
-            ["?d", dKey, "?e"]]
+            Q.whereK, ["?a", K.key(":a"), "?b"],
+            ["?b", K.key(":b"), "?c"],
+            ["?c", K.key(":c"), "?d"],
+            ["?d", K.key(":d"), "?e"]]
     );
 
     const r = await Q.runQuery(db, q);
 
-    console.log(r);
+    console.log("t10:", r);
 
     assert(r.length === 3 && r[0].length === 5,
         `Query length returned is incorrect (expected 3x5, found ${r.length}x${r[0].length})`);
-
+    console.log("*** test_10_simpler_fanout PASSED ***");
 }
 
 async function test_11_visualization(){
 
+    console.log("*** test_11_visualization ***");
+
     const aKey = K.key(":a");
     const bKey = K.key(":b");
 
-    const db = init_simple_dict();
+    const schema = [...DT.insertAttribute(A.makeAttribute(
+        K.key(":a"),
+        undefined,
+        A.vtypeRef,
+        A.cardinalityMany,
+        "a"
+    )), DT.insertAttribute(A.makeAttribute(
+        K.key(":b"),
+        undefined,
+        A.vtypeRef,
+        A.cardinalityMany,
+        "b"
+    ))];
 
-    db.add({
-        entity: "A",
-        attribute: aKey,
-        value: "B"
-    });
+    const in_mem_storage = SM();
+    let raw_storage = await (await tree_adaptor_wrapper(in_mem_storage))();
+    let db = DB.newDB(raw_storage);
 
-    db.add({
-        entity: "B",
-        attribute: bKey,
-        value: "C1"
-    });
-    db.add({
-        entity: "B",
-        attribute: bKey,
-        value: "C2"
-    });
+    db = await db.commitTxn(db, schema);
+
+    db = await db.commitTxn(db, [
+        [DT.addK, "A", K.key(":a"),  "B"],
+        [DT.addK, "B", K.key(":b"), "C1"],
+        [DT.addK, "B", K.key(":b"), "C2"]
+    ]);
 
     const q = Q.parseQuery(
         [Q.findK, "?a", "?b", "?c",
@@ -319,11 +279,11 @@ async function test_11_visualization(){
 
     assert(r.length === 2 && r[0].length === 3 && r[1].length === 3,
         `Result set has incorrect length (expecting 2x3, found ${r.length}x${r[0].length})`);
-    assert(r[0][0] === "A" && r[0][1] === "B" && r[1][0] === "A" && r[1][1] === "B"
-    && r[0][2] !== r[1][2] && ((r[0][2] === "C2" || r[1][2] === "C2") && (r[0][2] === "C1" || r[1][2] === "C1")),
-        "Data is malformatted.");
+    assert(r[0][0] === r[1][0] && r[0][1] === r[1][1] && r[0][2] !== r[1][2], "Result set is malformed");
 
     // Expected: [ [ 'A', 'B', 'C2' ], [ 'A', 'B', 'C1' ] ]
+
+    console.log("*** test_11_visualization PASSED ***");
 
 }
 

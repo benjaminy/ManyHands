@@ -632,34 +632,28 @@ export async function runQuery( db, q, ...ins )
                                     keys.set(x, y);
                                 });
                             });
-                            //console.log("adding to running:", o, running);
                             running = transit.map([...o, ...running].flat());
-                            //console.log("running", running);
                         }
                     });
                 }
                 results.push(keys);
             });
-            //console.log("F04", mappedVariablesByConstraint._entries);
 
-            // one last step: check all the combinations for merges/conflicts and return a mappedVariablesByConstraint list
+            // one last step: check all the combinations for merges/conflicts
+            // and return a mappedVariablesByConstraint list
             const collected = [];
             const visited = transit.set();
 
             for (let i = 0; i < results.length; i++) {
-                //console.log("init running res", results[i]);
                 let running_res = transit.map([...results[i]].flat());
-                //console.log("done:", running_res);
                 if (visited.has(results[i])) {
                     continue;
                 }
                 for (let j = 0; j < results.length; j++) {
                     if (compatible(results[i], results[j], false)) {
-                        //console.log("running res", running_res, "j", results[j]);
                         running_res = transit.map([...running_res, ...results[j]].flat());
                     }
                 }
-                //console.log("visited", results[i], "collected", running_res);
                 visited.add(results[i]);
                 collected.push(running_res);
             }
@@ -675,7 +669,6 @@ export async function runQuery( db, q, ...ins )
         const naiveWhereQueryResult = [];
         for( let i = 0; i < clauses.length; i++ )
         {
-            //console.log("CLAUSES:", JSON.stringify(clauses));
             naiveWhereQueryResult.push(await naiveWhereClauseQuery(db, clauses[ i ]));
         }
 

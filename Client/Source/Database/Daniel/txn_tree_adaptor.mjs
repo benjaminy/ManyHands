@@ -44,15 +44,7 @@ export async function tree_adaptor_wrapper(storage){
         root = ST.setValue( root, "aevt", aevt );
         root = ST.setValue( root, "vaet", vaet );
 
-        console.log("hopefully this writes", avet);
-
         root = await ST.writeTree( root ); // a promise
-
-        //// TESTING
-
-        console.log("my avet?", ST.getValue(await ST.openRoot("root", storage, options), "avet"));
-
-        //// END TESTING
 
         ds.add = async (...datoms) => {
             const t_datoms = [];
@@ -79,8 +71,6 @@ export async function tree_adaptor_wrapper(storage){
                 eavt = ST.getValue( root, "eavt" ),
                 aevt = ST.getValue( root, "aevt" ),
                 vaet = ST.getValue( root, "vaet" );
-
-            console.log("does this root contain the stuff I wanted?", avet);
 
             const {entity, attribute, value} = typeof(query) === 'object' ? query : {};
             if(entity === undefined && attribute === undefined && value === undefined){

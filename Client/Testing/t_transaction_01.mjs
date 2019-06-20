@@ -16,13 +16,11 @@ import * as DB from "../Source/Database/simple_txn_chain.mjs";
 // // [ DT.addK, "bob", ":age", 42 ]
 
 async function main() {
-    return Promise.all([
-        /*test_00_out_of_the_box(),
-        test_01_instantiate(),
-        test_02_add_datom(),*/
-        test_03_get_attribute()//,
-        /*test_04_many_statements()*/
-    ]);
+    //return Promise.all([
+        await test_01_add_datom();
+        await test_02_get_attribute();
+        await test_03_many_statements()
+    //]);
 }
 
 /*
@@ -84,7 +82,7 @@ async function setup(){
     return db;
 }
 
-async function test_03_get_attribute(){
+async function test_02_get_attribute(){
     let db = await setup();
     const statement = [ DT.addK, "bob", K.key(":name"), "Bobethy" ];
     db = await db.commitTxn(db, [statement]);
@@ -101,7 +99,7 @@ async function test_03_get_attribute(){
     console.log("test_03_get_attribute completed successfully");
 }
 
-async function test_04_many_statements(){
+async function test_03_many_statements(){
     let db = await setup();
     const likes = K.key(":likes");
     const name = K.key(":name");
@@ -124,17 +122,12 @@ async function test_04_many_statements(){
     console.log("test_04_many_statements completed successfully");
 }
 
-async function test_00_out_of_the_box(){
-    let raw = await tree_adaptor_wrapper(SM())([{
-        entity: 1,
-        attribute: 2,
-        value: 3,
-        timestamp: 4,
-        revoked: 5}]);
-    console.log(raw.find());
+async function test_01_add_datom(){
+    let raw = await (await tree_adaptor_wrapper(SM()))();
     let db = DB.newDB(raw);
     db = await db.commitTxn(db, [[ DT.addK, "mary", K.key(":db/ident"), "Marticia"]]);
-    console.log(db.find());
+    assert((await db.find()).length === 1, `The query returned an incorrect amount of results ` +
+    `(expected: 1, found: ${(await db.find()).length})`);
 }
 
 main().then(() => {
