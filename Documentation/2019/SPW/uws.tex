@@ -42,13 +42,19 @@ In this paper we analyze the reasons for the non-use of this technology and prop
 \section{Introduction}
 
 \textbf{A mystery}:
-As of early 2019, both \emph{secure} messaging and \emph{trust-the-service-provider} collaborative editing are \emph{mainstream} technologies.
-Yet, to the best of the authors' knowledge, the ``intersection'' of these techonologies -- secure collaborative editing (CE) -- has achieved approximately zero mainstream adoption.
-This despite the fact that the core technology ingredients for secure CE have existed for many years, and a few research teams have even developed prototypes for secure CE systems.
+As of early 2019, \emph{secure} messaging and \emph{trust-the-service-provider} collaborative editing are both \emph{mainstream} application categories.
+Examples of the former include Signal, WhatsApp, Telegram and the Off-the-Record protocol.
+Examples of the latter include Slack, Trello, Office 365, Asana, etc., etc.
+Yet, to the best of the authors' knowledge, the ``intersection'' of these ideas -- secure collaborative editing (CE) -- has achieved approximately zero mainstream use.
+This despite the fact that the core technology ingredients for secure CE have existed for many years, and a few research teams have even developed prototype secure CE systems.
 
-We believe that the explanation for this mystery has to do with network architecture, economics and legal issues.
+We believe that important factors behind this mystery have to do with network architecture, economics and legal issues.
 Mainstream secure messaging services (e.g. Signal and WhatsApp) use the same \emph{centralized} network architecture used by conventional trust-the-service-provider systems.
-Of course, CE systems could use a centralized architecture as well; Sporc\cite{} was a research project that did exactly this.
+Of course, they also use end-to-end encryption protocols to protect the privacy of users' data.
+These services are therefore not able to derive profit from users' private data, this being a very common business strategy on the internet today.
+
+
+Of course, secure CE systems could use a centralized architecture as well; Sporc\cite{} was a research project that did exactly this.
 However, CE services are substantially more expensive to operate than messaging services.
 First, there is the cost of the actual storage itself; messaging services require only a modest amount of storage capacity for temporarily keeping messages as they are forwarded from one client to another.
 Second, CE clients typically re-request edits{\slash}messages multiple times as documents are edited.
@@ -289,10 +295,16 @@ When teammates update their own storage trees, they can store references to thei
 This sharing idea relies on teammates trusting each other to not delete their part of the team's shared data.
 In other words, if a team is sharing the storage cost, it would be easy for a teammate to do a denial of service attack by removing their data.
 
-\section{Concurrent Edit Reconciliation}
+\section{Total Order for Concurrent Edit Reconciliation}
 
-As mentioned in the introduction, there is a wide range of strategies for resolving inconsistencies between concurrent edits.
+As mentioned in the introduction, there is a wide range of strategies for reconciling concurrent edits.
 Our goal with UWS is to provide a foundation upon which application and middleware programmers can implement a wide range of strategies.
+In particular, we aim to provide a total ordering mechanism.
+Placing edits in a total order is not important for all reconciliation strategies, but it is for some, and it is a feature that is easy is centralized systems and hard in distributed ones.
+
+In defining a total order on edits, we are following the footsteps of the Bayou project.
+
+
 We do this by copying two ingredients from Bayou: active transactions and a total order of edits.
 
 \emph{Active transactions} means that edits are not only passive data, but can include a function that takes the current state of the database as an input and can calculate arbitrary changes at the point where the edit is added to the chain.
