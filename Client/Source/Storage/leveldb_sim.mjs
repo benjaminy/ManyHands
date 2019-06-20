@@ -2,44 +2,40 @@
 
 /*
  * Meant for testing and debugging.
- * This module simulates an HTTP file server in local memory
+ * This module simulates an HTTP file server with a local database
  * (i.e. no network or persistent storage at all).
  */
 
-import T       from "transit-js";
+import LDB     from "level";
+import P       from "path";
 import * as L  from "../Utilities/logging.mjs";
-import * as UM from "../Utilities/misc.mjs";
 import * as LS from "./local_sim_shared.mjs";
 import * as GH from "./generic_http.mjs";
+
+const DEFAULT_DB_DIR = [ ".", "Database" ];
+const DEFAULT_DB_NAME = "DefaultDB"
 
 export default function init( options_init )
 {
     const mstorage = {};
 
     const mapWrapper = {}
-    mapWrapper.get = async function get( key )
+    mapWrapper.get = function get( key )
     {
-        if( mstorage.files.has( key ) )
-        {
-            return mstorage.files.get( key )
-        }
-        else
-        {
-            throw new UM.NotFoundError();
-        }
+        return mstorage.files.get( key )
     }
-    mapWrapper.set = async function set( key, value )
+    mapWrapper.set = function set( key, value )
     {
-        return mstorage.files.set( key, value );
+        return mstorage.files.put( key, value );
     }
-    mapWrapper.deleteFile = async function deleteFile( key )
+    mapWrapper.deleteFile = function deleteFile( key )
     {
-        return mstorage.files.delete( key );
+        return mstorage.files.del( key );
     }
 
     async function upload( linkA, value, options )
     {
-        // L.debug( "\u21b3 in_memory.upload", linkA.toString() );
+        // L.debug( "\u21b3 leveldb_sim.upload", linkA.toString() );
         const [ response, linkB ] =
               await GH.upload( linkA, value, options, LS.upload( mapWrapper ) );
         return linkB;
@@ -65,7 +61,12 @@ export default function init( options_init )
         return GH.rehydrateLink( link, options );
     }
 
-    mstorage.files         = T.map();
+    const db_dir = options_init.has( "DB_DIR" ) ? options_init.get( "DB_DIR" )
+          : DEFAULT_DB_DIR;
+    const db_name = options_init.has( "DB_NAME" ) ? options_init.get( "DB_NAME" )
+          : DEFAULT_DB_NAME;
+
+    mstorage.files         = LDB( P.join( ...db_dir.concat( db_name ) ) );
     mstorage.upload        = upload;
     mstorage.download      = download;
     mstorage.deleteFile    = deleteFile;

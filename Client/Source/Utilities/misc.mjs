@@ -93,12 +93,12 @@ function NameNotAvailableError( msg, scp )
 NameNotAvailableError.prototype = Object.create(Error.prototype);
 NameNotAvailableError.prototype.constructor = NameNotAvailableError;
 
-function NotFoundError( msg, scp )
-{
-    AbstractError( this, msg, scp );
-}
-NotFoundError.prototype = Object.create(Error.prototype);
-NotFoundError.prototype.constructor = NotFoundError;
+// function NotFoundError( msg, scp )
+// {
+//     AbstractError( this, msg, scp );
+// }
+// NotFoundError.prototype = Object.create(Error.prototype);
+// NotFoundError.prototype.constructor = NotFoundError;
 
 function RequestError( msg, server_msg, scp )
 {
@@ -153,6 +153,14 @@ function domToCrypto( err, scp ) {
         return Promise.reject( err );
 }
 
+export class NotFoundError extends Error
+{
+    constructor()
+    {
+        super();
+        this.type = "NotFoundError";
+    }
+}
 
 function array_zip( a1, a2, flatten1, flatten2, strict1, strict2, scp )
 {
