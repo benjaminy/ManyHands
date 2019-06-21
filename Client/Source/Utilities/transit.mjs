@@ -6,20 +6,16 @@
 
 import T from "transit-js";
 
-export function setUnionModify( s1, s2 )
+export function setUnion( s1, ...sets )
 {
-    for( const thing of s2 )
+    for( const s2 of sets )
     {
-        s1.add( thing );
+        for( const thing of s2 )
+        {
+            s1.add( thing );
+        }
     }
-}
-
-export function setUnionNew( s1, s2 )
-{
-    const s = T.set();
-    setUnionModify( s, s1 );
-    setUnionModify( s, s2 );
-    return s;
+    return s1;
 }
 
 export function mapFromTuples( tuples )
@@ -30,4 +26,16 @@ export function mapFromTuples( tuples )
         m.set( k, v );
     }
     return m;
+}
+
+export function mapAssign( m1, ...maps )
+{
+    for( const m2 of maps )
+    {
+        for( const [ key, value ] of m2 )
+        {
+            m1.set( key, value );
+        }
+    }
+    return m1;
 }
