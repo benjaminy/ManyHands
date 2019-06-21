@@ -3,14 +3,16 @@ import google_drive from "./google_drive.mjs";
 // NOTE: To run these tests, follow these steps:
 
 // DO ONCE:
-// - Create your application credentials here: https://developers.google.com/drive/api/v3/enable-drive-api
+// - Create your application credentials here:
+//   https://developers.google.com/drive/api/v3/enable-drive-api
 //   OR try this streamlined option in step 1 of here:
 //       https://developers.google.com/drive/api/v3/quickstart/nodejs
-// - Save the resulting downloaded file as google_credentials.json in the current directory
+// - Save the resulting downloaded file as google_credentials.json in the
+//   current directory
 // - Run this file: it will prompt you to visit a web resource where you will
 // generate an auth token.
-// - Provide the auth token to stdin, and it will create google_token.json which will work
-//   for future runs
+// - Provide the auth token to stdin, and it will create google_token.json which
+//   will work for future runs
 
 // Once these steps are completed, these tests will run seamlessly each time the
 // file is executed.

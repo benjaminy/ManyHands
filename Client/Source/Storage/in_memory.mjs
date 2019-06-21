@@ -37,12 +37,12 @@ export default function init( options_init )
         return mstorage.files.delete( key );
     }
 
-    async function upload( linkA, value, options )
+    async function upload( link, value, options )
     {
-        // L.debug( "\u21b3 in_memory.upload", linkA.toString() );
-        const [ response, linkB ] =
-              await GH.upload( linkA, value, options, LS.upload( mapWrapper ) );
-        return linkB;
+        // L.debug( "\u21b3 in_memory.upload", link.toString() );
+        const [ response, meta ] =
+              await GH.upload( link, value, options, LS.upload( mapWrapper ) );
+        return meta;
     }
 
     function download( link, options )

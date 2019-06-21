@@ -28,11 +28,7 @@ export async function doSomeDeletes( storage )
         throw new Error();
     }
     catch( err ) {
-        if( SC.ERROR_KIND in err && err[ SC.ERROR_KIND ] === SC.ERROR_NOT_FOUND )
-        {
-            // expected
-        }
-        else
+        if( !( err.type === "FileNotFoundError" ) )
         {
             throw err;
         }
@@ -42,11 +38,7 @@ export async function doSomeDeletes( storage )
         throw new Error();
     }
     catch( err ) {
-        if( SC.ERROR_KIND in err && err[ SC.ERROR_KIND ] === SC.ERROR_NOT_FOUND )
-        {
-            // expected
-        }
-        else
+        if( !( err.type === "FileNotFoundError" ) )
         {
             throw err;
         }

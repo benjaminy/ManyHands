@@ -257,7 +257,7 @@ export async function getChild( parent, key )
         // TODO: more storage options
         const storage = parent[ storage_tag ];
         try {
-            var [ dehydrated_child, link_d ] =
+            var [ dehydrated_child, meta ] =
                 await storage.download( link, options );
         }
         catch( err ) {
@@ -345,7 +345,7 @@ export function newChild( parent, key, storage_cb )
     return [ setChild( parent, key, child ), child ];
 }
 
-/* private */ async function writeSubtree( subroot, link )
+/* private */ async function writeSubtree( subroot )
 {
     const [ subroot_clean, dirties, to_deletes ] = untouchNode( subroot );
 
@@ -359,16 +359,18 @@ export function newChild( parent, key, storage_cb )
     for( const key of dirties )
     {
         const child_dirty = await getChild( subroot_clean, key );
-        const child_link_pre = links.has( key ) ? links.get( key )
-              : UT.mapFromTuples( [ [ "path", [] ] ] );
-        console.log( "CHILD LINK", child_link_pre.toString() );
         const [ child_clean, child_dehydrated, child_deletes ] =
-              await writeSubtree( child_dirty, child_link_pre );
+              await writeSubtree( child_dirty );
         insertIntoMemCache( subroot_clean, key, child_clean );
-        const child_link = await storage.upload(
-            child_link_pre, child_dehydrated, storage_options );
-        links.set( key, child_link );
-        UT.setUnionModify( all_delete, child_deletes );
+        //const child_link = links.has( key ) ? links.get( key )
+        //      : UT.mapFromTuples( [ [ "path", [] ] ] );
+        const child_link = UT.mapFromTuples( [ [ "path", [] ] ] );
+        console.log( "CHILD LINK", child_link.toString() );
+        const meta = await storage.upload(
+            child_link, child_dehydrated, storage_options );
+        // links.set( key, child_link );
+        links.set( key, UT.mapFromTuples( [ [ "path", [ meta.get( "new_name" ) ] ] ] ) );
+        UT.setUnion( all_delete, child_deletes );
     }
     for( const child_key of subroot_clean[ blank_timestamps_tag ] )
     {
@@ -414,16 +416,17 @@ export async function writeTree( root )
     else
     {
         storage_options.set( SC.COND_UPLOAD, SC.COND_ATOMIC );
-        floop.set( "ETAG", root[ prev_root_tag ].ETAG );
+        floop.set( "Atomicity", root[ prev_root_tag ].Atomicity );
     }
     console.log( "DR", dehydrated_root.toString() );
-    const link = await storage.upload(
+    const meta = await storage.upload(
         floop, dehydrated_root, storage_options );
 //     if( !resp.ok )
 //     {
 //         throw new Error( "upload failed" );
 //     }
     rc[ prev_root_tag ] = null;
+    rc.Atomicity = meta.get( "Atomciity" );
     return rc;
 }
 
@@ -432,14 +435,14 @@ export async function openRoot( path, storage, storage_options )
     const so = storage_options.clone();
     so.set( SC.COND_UPLOAD, SC.COND_ATOMIC );
     
-    const link_get = UT.mapFromTuples( [ [ "path", path ] ] );
-    var [ dehydrated_root, link ] =
-        await storage.download( link_get, so );
+    const link = UT.mapFromTuples( [ [ "path", path ] ] );
+    var [ dehydrated_root, meta ] =
+        await storage.download( link, so );
 
     console.log( "LINK ROOT DOWN", link.toString() );
     const root = rehydrate(
         { [storage_tag]: storage }, link, dehydrated_root );
-    root.ETAG = link.get( "ETAG" );
+    root.Atomicity = meta.get( "Atomicity" );
     root[ path_tag ] = path;
     root[ storage_options_tag ] = storage_options;
     root[ prev_root_tag ] = null;

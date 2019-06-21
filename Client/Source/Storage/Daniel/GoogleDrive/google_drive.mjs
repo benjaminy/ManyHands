@@ -64,13 +64,16 @@ async function tokenPrompt(authUrl){
  * NOTE: file_ptr has been removed, and instead will be returned by this function
  * assuming the promise is fulfilled.
  *
- * This file will throw an exception (the promise will fail) when something goes wrong, so we don't
- * have to deal with the status codes and checking against R_OK.
+ * This file will throw an exception (the promise will fail) when something
+ * goes wrong, so we don't have to deal with the status codes and checking
+ * against R_OK.
  *
- * This is not consistent with the rest of the codebase, but I would like this to be the standard.
+ * This is not consistent with the rest of the codebase, but I would like this
+ * to be the standard.
  *
  * @param auth OAuth2 object given via authentication with Google's servers
- * @param options_u JavaScript object with request information. Must include {body, filename}
+ * @param options_u JavaScript object with request information. Must include
+ * {body, filename}
  * @returns
  */
 async function uploadGoogleDrive( auth, options_u )
@@ -79,7 +82,8 @@ async function uploadGoogleDrive( auth, options_u )
     const drive = google.drive({version: 'v2', auth: authClient});
     const file_metadata = {
         mimeType: 'application/octet-stream',
-        title: options_u.filename // TODO if you change the root, will it still have the same id?
+        // TODO if you change the root, will it still have the same id?
+        title: options_u.filename
         // solution: provide the fp when you're updating the root file.
     };
     const media = {
@@ -115,7 +119,8 @@ async function downloadGoogleDrive( auth, file_ptr )
     let data = "";
 
     return new Promise((success, error) => {
-        drive.files.get({fileId: file_ptr.path, alt: 'media'}, {responseType: 'stream'},
+        drive.files.get({fileId: file_ptr.path, alt: 'media'},
+                        {responseType: 'stream'},
             function(err, res){
                 res.data
                     .on('data', (chunk) => {
@@ -142,7 +147,8 @@ export default function init( )
     let credentials;
 
     try {
-        credentials = JSON.parse(fs.readFileSync(CREDENTIAL_PATH)); // TODO no sync reading
+        // TODO no sync reading
+        credentials = JSON.parse(fs.readFileSync(CREDENTIAL_PATH));
     } catch(err){
         console.log('Error loading client secret file:', err);
         return;
@@ -154,9 +160,10 @@ export default function init( )
 
     mstorage.fpFromPlainData = async function fpFromPlainData( fp )
     {
-        return { path: fp.path }; // TODO we would like the fp to have information about which service.
-        // the fp returned from upload works across any person's google drive, but doesn't distinguish itself from
-        // other services
+        // TODO we would like the fp to have information about which service.
+        return { path: fp.path };
+        // the fp returned from upload works across any person's google drive,
+        // but doesn't distinguish itself from other services
     };
 
     mstorage.fpToPlainData = async function fpToPlainData( fp )
