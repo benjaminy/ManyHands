@@ -33,6 +33,42 @@ export const ERROR_KIND                 = kw( "storage error kind" );
 export const ERROR_OVERWRITE_FAILED     = kw( "atomic update failed" );
 export const ERROR_ATOMIC_UPDATE_FAILED = kw( "storage error overwrite failed" );
 
+export class FileNotFoundError extends Error
+{
+    constructor()
+    {
+        super();
+        this.type = "FileNotFoundError";
+    }
+}
+
+export class NoOverwriteFailedError extends Error
+{
+    constructor()
+    {
+        super();
+        this.type = "NoOverwriteFailedError";
+    }
+}
+
+export class AtomicUpdateFailedError extends Error
+{
+    constructor()
+    {
+        super();
+        this.type = "AtomicUpdateFailedError";
+    }
+}
+
+export class RetryLimitError extends Error
+{
+    constructor()
+    {
+        super();
+        this.type = "RetryLimitError";
+    }
+}
+
 function mapAssocData( fn, v, options )
 {
     if( options.has( ASSOC_DATA ) )

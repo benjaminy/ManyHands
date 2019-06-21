@@ -153,12 +153,30 @@ function domToCrypto( err, scp ) {
         return Promise.reject( err );
 }
 
+export class UnimplementedError extends Error
+{
+    constructor()
+    {
+        super();
+        this.type = "UnimplementedError";
+    }
+}
+
 export class NotFoundError extends Error
 {
     constructor()
     {
         super();
         this.type = "NotFoundError";
+    }
+}
+
+export class UnsupportedOptionError extends Error
+{
+    constructor()
+    {
+        super();
+        this.type = "UnsupportedOptionError";
     }
 }
 
