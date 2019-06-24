@@ -44,7 +44,7 @@ export default function init( user, options )
         // assert( M.isPath( path ) );
         /* assert( typeof( content ) is whatever fetch accepts ) */
 
-        const p = host + user "/" + path;
+        const p = host + user + "/" + path;
 
         const fetch_init =
 		      { method : "PUT", headers: headers, body: new Buffer( body ) };
@@ -92,6 +92,8 @@ export default function init( user, options )
 
     function watch( link, options )
     {
+        const headers = new Headers();
+        headers.set("uws-longpoll");
         throw new Error( "Unimplemented" );
     }
 
