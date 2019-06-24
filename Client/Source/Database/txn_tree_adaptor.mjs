@@ -1,29 +1,21 @@
 #!/usr/bin/env node --experimental-modules
 
 import assert  from "../Utilities/assert.mjs";
-import * as ST  from "../Storage/tree.mjs";
+import * as ST from "../Storage/tree.mjs";
 import * as SC from "../Storage/common.mjs";
+import binTree from "./Tree/binary.mjs";
 import T from "transit-js";
 
-export const ENTITY = 0;
-export const ATTRIBUTE = 1;
-export const VALUE = 2;
-export const TIMESTAMP = 3;
-export const REVOKED = 4;
 
 export async function tree_adaptor_wrapper(storage){
     const options = T.map();
     options.set( SC.PATH_PREFIX, [ "demo_app" ] );
     options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
 
-    let root = ST.newRoot( "root", storage, options ); // dirty root
-    ST.setValue( root, "avet", [] );
-    ST.setValue( root, "eavt", [] );
-    ST.setValue( root, "aevt", [] );
-    ST.setValue( root, "vaet", [] );
-    root = await ST.writeTree( root );
-
     return async function init_tree_adaptor(initial_data=[]){
+
+        const storageTree = binTree(storage, initial_data);
+
         const ds = {};
         let data = [];
 
@@ -66,45 +58,7 @@ export async function tree_adaptor_wrapper(storage){
         };
 
         ds.find = async (query) => {
-            root = await ST.openRoot( "root", storage, options );
-            const avet = ST.getValue( root, "avet" ),
-                eavt = ST.getValue( root, "eavt" ),
-                aevt = ST.getValue( root, "aevt" ),
-                vaet = ST.getValue( root, "vaet" );
-
-            const {entity, attribute, value} = typeof(query) === 'object' ? query : {};
-            if(entity === undefined && attribute === undefined && value === undefined){
-                // doesn't matter what we use
-                return [...data];
-            }
-            if(entity === undefined && attribute === undefined && value !== undefined){
-                // VAET
-                return sortedSearch(vaet, VALUE, value);
-            }
-            if(entity === undefined && attribute !== undefined && value === undefined){
-                // AVET or AEVT
-                return sortedSearch(aevt, ATTRIBUTE, attribute);
-            }
-            if(entity === undefined && attribute !== undefined && value !== undefined){
-                // AVET or VAET
-                const vet = sortedSearch(avet, ATTRIBUTE, attribute);
-                return sortedSearch(vet, VALUE, value);
-            }
-            if(entity !== undefined){
-                // EAVT is the only index with an entity in it
-                const avt = sortedSearch(eavt, ENTITY, entity);
-                if(attribute !== undefined){
-                    const vt = sortedSearch(avt, ATTRIBUTE, attribute);
-                    if(value !== undefined){
-                        return sortedSearch(vt, VALUE, value);
-                    }
-                    return vt;
-                }
-                if(value !== undefined){ // TODO do we want an index for this particular case?
-                    return unsortedSearch(avt, VALUE, value);
-                }
-                return avt;
-            }
+            storageTree.query(query);
         };
         return ds;
     }
