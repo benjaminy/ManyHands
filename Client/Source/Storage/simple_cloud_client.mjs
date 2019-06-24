@@ -44,7 +44,7 @@ export default function init( user, options )
         // assert( M.isPath( path ) );
         /* assert( typeof( content ) is whatever fetch accepts ) */
 
-        const p = host + user "/" + path;
+        const p = host + user + "/" + path;
 
         const fetch_init =
 		      { method : "PUT", headers: headers, body: new Buffer( body ) };
