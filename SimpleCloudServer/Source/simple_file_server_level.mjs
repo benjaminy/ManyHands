@@ -240,10 +240,15 @@ async function respondToPut( request, response )
             bundle.set( "body", body );
             bundle.set( "etag", hash_val );
             bundle.set( "timestamp", now );
-            the_world.put( request.url, lazyWr()( bundle ) ).then(
-                () => {
+            the_world.put( request.url, lazyWr()( bundle ),
+                ( err ) => {
+                    if( err )
+                    {
+                        reject( err );
+                        return;
+                    }
                     triggerLongPolls( request.url );
-                    resolve()
+                    resolve();
                 } );
         }
         catch( err ) {
