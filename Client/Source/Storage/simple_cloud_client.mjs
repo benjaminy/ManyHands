@@ -109,7 +109,8 @@ export default function init( user, options )
         upload: upload,
         download: download,
         deleteFile: deleteFile,
-        watch: watch };
+        watch: watch
+    };
 }
 
 /* graveyard: */
