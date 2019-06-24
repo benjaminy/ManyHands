@@ -59,10 +59,11 @@ const missing_key_err      = kw( "missing key" );
     {
         const node_orig = node;
         node = Object.assign( {}, node );
-        node[ dirty_tag ]     = T.set();
-        node[ to_delete_tag ] = T.set();
-        node[ mem_cache_tag ] = node[ mem_cache_tag ].clone();
-        node[ links_tag ]     = node[ links_tag ].clone();
+        node[ dirty_tag ]      = T.set();
+        node[ to_delete_tag ]  = T.set();
+        node[ plain_data_tag ] = node[ plain_data_tag ].clone();
+        node[ mem_cache_tag ]  = node[ mem_cache_tag ].clone();
+        node[ links_tag ]      = node[ links_tag ].clone();
         delete node[ timestamp_tag ];
         if( isRoot( node ) )
         {
@@ -143,7 +144,7 @@ export function deleteValue( node, key )
     }
     else
     {
-        throw { [tree_err]: missing_key_err, key: key };
+        throw new SC.FileNotFoundError( key );
     }
 }
 
@@ -166,13 +167,18 @@ export function deleteValue( node, key )
     const d = T.map();
     d.set( "p", node[ plain_data_tag ] );
     d.set( "b", node[ blank_timestamps_tag ] );
-    const storage = node[ storage_tag ];
+    if( storage_tag in node )
+    {
+        // throw new UM.UnimplementedError();
+        // TODO: think about storage in the tree
+    }
     const dehydrated_links = T.map();
     for( const [ key, link ] of node[ links_tag ] )
     {
         console.log( "LINK", typeof( link ), link.toString() );
         dehydrated_links.set( key, link );
         // TODO: !!!
+        // const storage = node[ storage_tag ];
         // dehydrated_links.set( key, storage.dehydrateLink( link ) );
     }
     d.set( "l", dehydrated_links );
@@ -193,28 +199,35 @@ export function deleteValue( node, key )
 
 }
 
-/* private */ function rehydrate( parent, link, dehydrated, storage_cb )
+/* private */ function rehydrate( parent, link, dehydrated )
 {
     L.debug( "tree.rehydrate", dehydrated.toString() );
-    const pstorage = parent[ storage_tag ];
-    const cstorage = storage_cb ? storage_cb( pstorage ) : pstorage;
     const c = {};
     c[ tree_node_tag ]        = null;
     c[ plain_data_tag ]       = dehydrated.get( "p" );
     c[ blank_timestamps_tag ] = dehydrated.get( "b" );
     c[ mem_cache_tag ]        = T.map();
+    c[ storage_tag ]          = parent[ storage_tag ];
+    c[ storage_options_tag ]  = parent[ storage_options_tag ];
+    if( dehydrated.has( "s" ) )
+    {
+        throw new UnimlplementedError()
+    }
+    if( dehydrated.has( "so" ) )
+    {
+        throw new UnimlplementedError()
+    }
     const rehydrated_links = T.map();
     for( const [ key, child_link ] of dehydrated.get( "l" ) )
     {
         rehydrated_links.set( key, child_link );
         // TODO: !!!
-        // rehydrated_links.set( key, cstorage.rehydrateLink(
+        // rehydrated_links.set( key, storage.rehydrateLink(
         //    parent, key, child_link ) );
     }
     console.log( "HUH", rehydrated_links.toString() );
     c[ links_tag ]           = rehydrated_links;
     c[ local_cache_tag ]     = { has: () => false };
-    c[ storage_tag ]         = cstorage;
 
     pushDownTimestamp( parent, link, c );
 
@@ -240,7 +253,7 @@ export async function getChild( parent, key )
 
     if( !( parent[ links_tag ].has( key ) ) )
     {
-        throw { [tree_err]: missing_key_err, key: key };
+        throw new SC.FileNotFoundError( key );
     }
 
     const link = parent[ links_tag ].get( key );
@@ -330,28 +343,36 @@ export function setChild( parent, key, child )
     return parent;
 }
 
-export function newChild( parent, key, storage_cb )
+export function newNode( storage_options, storage )
+{
+    L.debug( "tree.newNode" );
+    const c = {};
+    c[ tree_node_tag ]        = null;
+    c[ plain_data_tag ]       = T.map();
+    c[ links_tag ]            = T.map();
+    c[ timestamp_tag ]        = null;
+    c[ blank_timestamps_tag ] = T.set();
+    c[ mem_cache_tag ]        = T.map();
+    c[ local_cache_tag ]      = { has: () => false };
+    if( storage_options )
+    {
+        c[ storage_options_tag ] = storage_options;
+    }
+    if( storage )
+    {
+        c[ storage_tag ] = storage;
+    }
+    c.toString = nodeToString;
+    return touchNode( c );
+}
+
+export function newChild( parent, key, storage_options, storage )
 {
     assert( isTreeNode( parent ) );
     assert( isValidMapKey( key ) );
 
-    const dehydrated = T.map();
-    dehydrated.set( "p", T.map() );
-    dehydrated.set( "l", T.map() );
-    dehydrated.set( "b", T.set() );
-    const child = touchNode( rehydrate( parent, {}, dehydrated ) );
-    child[ storage_options_tag ] = parent[ storage_options_tag ];
-    // const pstorage = parent[ storage_tag ];
+    const child = newNode( storage_options, storage );
     return [ setChild( parent, key, child ), child ];
-}
-
-/* TODO create a child to be added to a parent later */
-export function newOrphan(  )
-{
-    const dehydrated = T.map();
-    dehydrated.set( "p", T.map() );
-    dehydrated.set( "l", T.map() );
-    dehydrated.set( "b", T.set() );
 }
 
 /* private */ async function writeSubtree( subroot )
@@ -368,6 +389,10 @@ export function newOrphan(  )
     for( const key of dirties )
     {
         const child_dirty = await getChild( subroot_clean, key );
+        if( !( storage_tag in child_dirty ) )
+            child_dirty[ storage_tag ] = subroot[ storage_tag ];
+        if( !( storage_options_tag in child_dirty ) )
+            child_dirty[ storage_options_tag ] = subroot[ storage_options_tag ];
         const [ child_clean, child_dehydrated, child_deletes ] =
               await writeSubtree( child_dirty );
         insertIntoMemCache( subroot_clean, key, child_clean );
@@ -385,7 +410,7 @@ export function newOrphan(  )
     {
         links.get( child_key ).set( timestamp_tag, subroot_clean.timestamp );
     }
-    
+
     const dehydrated = dehydrate( subroot_clean );
     return [ subroot_clean, dehydrated, all_delete ];
 }
