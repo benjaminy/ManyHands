@@ -6,8 +6,7 @@ import assert  from "../../Source/Utilities/assert.mjs";
 import * as K  from "../../Source/Utilities/keyword.mjs";
 import * as Q  from "../../Source/Database/query.mjs";
 import * as A from "../../Source/Database/attribute.mjs";
-import {init_simple_dict} from "../../Source/Database/Daniel/data_wrapper.mjs";
-import {tree_adaptor_wrapper} from "../../Source/Database/Daniel/txn_tree_adaptor.mjs"
+import {tree_adaptor_wrapper} from "../../Source/Database/txn_tree_adaptor.mjs"
 import * as DT from "../../Source/Database/transaction.mjs";
 import * as DB from "../../Source/Database/simple_txn_chain.mjs";
 import SM from "../../Source/Storage/in_memory.mjs";
@@ -84,7 +83,6 @@ async function test_13_simple_txn()
 {
     console.log("*** test_13_simple_txn ***");
     // initialize a new database
-    // const raw_storage = init_simple_dict();
     const in_mem_storage = SM();
     const raw_storage = await (await tree_adaptor_wrapper(in_mem_storage))();
     let db = DB.newDB(raw_storage);
@@ -406,7 +404,7 @@ async function test_07_many_hops(){
     const assoc4 = K.key(":a4");
     const assoc5 = K.key(":a5");
 
-    const db7 = init_simple_dict();
+    const db7 = init_simple_dict(); /* TODO use tree */
 
     db7.add({
         entity: 1,
@@ -505,7 +503,7 @@ async function test_08_fanout(){
     const assoc2 = K.key(":a2");
     const assoc3 = K.key(":a3");
 
-    const db8 = init_simple_dict();
+    const db8 = init_simple_dict(); /* TODO tree */
 
     db8.add({
         entity: 1,
@@ -554,7 +552,7 @@ async function test_09_fanout_many(){
     const assoc2 = K.key(":a2");
     const assoc3 = K.key(":a3");
 
-    const db9 = init_simple_dict();
+    const db9 = init_simple_dict(); /* TODO tree */
 
     db9.add({
         entity: 1,
@@ -652,7 +650,7 @@ async function timing_test_01_just_records(){
                 value: 1
             });
         }
-        const db = init_simple_dict(rlist);
+        const db = init_simple_dict(rlist); /* TODO tree */
         let start = (new Date()).getTime();
         const r = await Q.runQuery(db, q);
         let end = (new Date()).getTime();

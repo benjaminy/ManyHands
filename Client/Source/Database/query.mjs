@@ -10,7 +10,7 @@ import * as K  from "../Utilities/keyword.mjs";
 import * as S  from "../Utilities/set.mjs";
 import * as DA from "./attribute.mjs";
 import * as TX from "./transaction.mjs";
-import * as D  from "./Daniel/txn_tree_adaptor.mjs";
+import * as D  from "./txn_tree_adaptor.mjs";
 
 import T       from "transit-js";
 
