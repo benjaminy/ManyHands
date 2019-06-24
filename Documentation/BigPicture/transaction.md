@@ -30,9 +30,8 @@ All other attributes must be defined yourself in your schema. This may be done a
 import * as A from "./Source/Database/attribute.mjs";
 
 const like_insert = DT.getAttributeInserts(
-        A.makeAttribute(
+        A.createAttribute(
             k(":likes"), // key-- the name of this attribute
-            undefined, // id. leave this undefined
             A.vtypeRef, // the type that this attriubute accepts as a value. See attribute.js:20 for options
             A.cardinalityMany, // the cardinality of this attribute
             "Contains references to other entities this entity likes." // documentation for this attribute
