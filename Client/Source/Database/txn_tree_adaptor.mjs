@@ -1,8 +1,8 @@
 #!/usr/bin/env node --experimental-modules
 
-import assert  from "../../Utilities/assert.mjs";
-import * as ST  from "../../Storage/tree.mjs";
-import * as SC from "../../Storage/common.mjs";
+import assert  from "../Utilities/assert.mjs";
+import * as ST  from "../Storage/tree.mjs";
+import * as SC from "../Storage/common.mjs";
 import T from "transit-js";
 
 export const ENTITY = 0;

@@ -5,7 +5,6 @@
 import assert       from "assert";
 import http         from "http";
 import https        from "https";
-import finalhandler from "finalhandler";
 import url          from "url";
 import P            from "path";
 import LDB          from "level";
@@ -242,8 +241,10 @@ async function respondToPut( request, response )
             bundle.set( "etag", hash_val );
             bundle.set( "timestamp", now );
             the_world.put( request.url, lazyWr()( bundle ) ).then(
-                () => resolve() );
-            triggerLongPolls( request.url );
+                () => {
+                    triggerLongPolls( request.url );
+                    resolve()
+                } );
         }
         catch( err ) {
             reject( err );

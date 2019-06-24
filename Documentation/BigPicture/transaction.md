@@ -62,7 +62,7 @@ However, the trasnaction system can recognize where names were used in multiple 
 const statements = [
     [DT.addK, "bob", k(":name"), "Bobethy"],
     [DT.addK, "mary", k(":name"), "Marticia"],
-    [DT.addKm "mary", k(":likes"), "bob"]
+    [DT.addK, "mary", k(":likes"), "bob"]
 ];
 
 // this operates under the assumption :name is defined as a string attribute, and :likes is a reference attribute.
