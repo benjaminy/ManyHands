@@ -104,6 +104,7 @@ export async function upload( link, value, options, coreUpload )
     const headers = new Headers();
     headers.set( "Content-Type", "application/octet-stream" );
     headers.set( "Content-Length", "" + value_encryptoed.byteLength );
+    // console.log( "LENGTH", value_encryptoed.byteLength );
 
     async function uploadThen( path_arr )
     {
@@ -158,7 +159,8 @@ export async function download( link, options, coreDownload )
     {
         throw new SC.FileNotFoundError();
     }
-    const value = await response.arrayBuffer();
+    /* NOTE: I thought response.arrayBuffer was the "right" way... */
+    const value = await ( "arrayBuffer" in response ? response.arrayBuffer() : response.buffer() );
     const value_decryptoed = await SC.decrypto( value, link, options );
     // TODO: decompress
     const value_decoded = SC.decode( value_decryptoed, options );

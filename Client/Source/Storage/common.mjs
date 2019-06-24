@@ -152,7 +152,7 @@ export function decode( value, options )
         {
             throw new Error( "Unsupported option" );
         }
-        // console.log( "BEFORE", value );
+        // console.log( "About to decode:", value );
         return mapAssocData( decode_fn, value, options );
     }
 

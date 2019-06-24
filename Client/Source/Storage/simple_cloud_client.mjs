@@ -5,10 +5,11 @@
  * This is a client for a very simple HTTP-based cloud storage server with no authentication.
  */
 
-import assert  from "../Utilities/assert";
+import assert  from "assert";
 import fetch   from "isomorphic-fetch";
-import * as UM from "../Utilities/misc";
-import * as SU from "./utilities";
+import * as UM from "../Utilities/misc.mjs";
+import * as GH from "./generic_http.mjs"
+// import * as SU from "./utilities";
 
 const DEFAULT_SERVER_PORT = 8123;
 const in_browser = this && ( this.window === this );
@@ -17,7 +18,7 @@ const in_browser = this && ( this.window === this );
 
 export default function init( user, options )
 {
-    assert( isString( user ) );
+    //assert( isString( user ) );
 
     if( options )
     {
@@ -38,50 +39,77 @@ export default function init( user, options )
 
     const host = protocol_hostname + ":" + DEFAULT_SERVER_PORT + "/";
 
-    const upload = async function upload( link, value, options )
+    async function coreUpload( path, headers, body )
     {
-        async function coreUpload( path, headers, body )
-        {
-            assert( M.isPath( path ) );
-            /* assert( typeof( content ) is whatever fetch accepts ) */
+        // assert( M.isPath( path ) );
+        /* assert( typeof( content ) is whatever fetch accepts ) */
 
-            const p = encode_path( user, path );
+        const p = host + user "/" + path;
 
-            const fetch_init =
-		  { method : "POST", headers: headers, body: body };
-            const response = await fetch( p, fetch_init );
-            A.log( "upload Response", response.status, response.statusText );
-            return response;
-        }
+        const fetch_init =
+		      { method : "PUT", headers: headers, body: new Buffer( body ) };
+        const response = await fetch( p, fetch_init );
+        // A.log( "upload Response", response.status, response.statusText );
+        return response;
+    }
 
-	return GH.upload( link, value, options )
-    };
-
-    const download = async function download( path, options )
+    async function upload( link, value, options )
     {
-        assert( M.isPath( path ) );
+        const [ response, meta ] =
+              await GH.upload( link, value, options, coreUpload );
+        return meta;
+    }
 
-        const p = encode_path( user, path );
+    async function coreDownload( path )
+    {
+        // assert( M.isPath( path ) );
+
+        const p = `${host}${user}/${path}`;
         const response = await fetch( p );
-        L.debug( "download Response", p, response.status, response.statusText );
-        // A.log( "Response", p, typeof( r.headers ), r.headers );
-        if( !response.ok )
-            return response;
-        const r = Object.assign( {}, response );
+        // L.debug( "download Response", p, response.status, response.statusText );
+        return response;
+    }
 
-        if( response.headers.has( "etag" ) )
-        {
-            r.etag = response.headers.get( "etag" );
-        }
-        else
-        {
-            throw new Error( "NO ETAG" );
-        }
+    async function download( link, options )
+    {
+        return GH.download( link, options, coreDownload );
+    }
 
-        return r;
-    };
+    async function coreDeleteFile( path )
+    {
+        // assert( M.isPath( path ) );
 
-    return { upload: upload, download: download };
+        const p = `${host}${user}/${path}`;
+        const fetch_init = { method : "DELETE" };
+        const response = await fetch( p, fetch_init );
+        return response;
+    }
+
+    function deleteFile( link, options )
+    {
+        return GH.deleteFile( link, options, coreDeleteFile );
+    }
+
+    function watch( link, options )
+    {
+        throw new Error( "Unimplemented" );
+    }
+
+    function dehydrateLink( link, options )
+    {
+        return GH.dehydrateLink( link, options );
+    }
+
+    function rehydrateLink( link, options )
+    {
+        return GH.rehydrateLink( link, options );
+    }
+
+    return {
+        upload: upload,
+        download: download,
+        deleteFile: deleteFile,
+        watch: watch };
 }
 
 /* graveyard: */

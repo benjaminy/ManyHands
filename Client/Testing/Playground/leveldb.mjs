@@ -37,6 +37,10 @@ async function main()
     await db.put( "Horse", "flo" );
     const foo2 = await db.get( "Horse" );
     console.log( "Worked3?", foo2 );
+    const horse = await db.del( "Horse" );
+    console.log( "Horse?", horse );
+    const huh = await db.del( "not there" );
+    console.log( "Deleted?", huh );
 }
 
 main().then( () => { console.log( "FINISHED" ) } );
