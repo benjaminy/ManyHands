@@ -13,72 +13,6 @@ import SM from "../../Source/Storage/in_memory.mjs";
 
 import T from "transit-js";
 
-const age   = K.key( ":age" );
-const likes = K.key( ":likes" );
-const annoys = K.key(":annoys");
-const loves = K.key(":loves");
-const sally = 12345;
-const fred  = 12346;
-const ethel = 12347;
-
-/* async function setup(){
-
-    return await init_simple_dict([{
-        entity: sally,
-        attribute: age,
-        value: 21
-    }, {
-        entity: fred,
-        attribute: age,
-        value: 42
-    }, {
-        entity: ethel,
-        attribute: age,
-        value: 42
-    }, {
-        entity: fred,
-        attribute: likes,
-        value: "pizza"
-    }, {
-        entity: sally,
-        attribute: likes,
-        value: "opera"
-    }, {
-        entity: ethel,
-        attribute: likes,
-        value: "sushi"
-    }, {
-        entity: fred,
-        attribute: annoys,
-        value: ethel
-    }, {
-        entity: ethel,
-        attribute: loves,
-        value: sally
-    }];
-
-}
-
-*/
-
-async function main(){
-    //return Promise.all([
-        /*test_01_single_select(), TODO these all fail because
-        test_02_double_select(),   their attributes do not exist in the schema.
-        test_03_double_where(),
-        test_04_double_condition(),
-        test_05_references(),
-        test_06_double_reference(),
-        test_07_many_hops(),
-        test_08_fanout(),
-        test_09_fanout_many(),*/
-        await test_10_simpler_fanout();
-        await test_11_visualization();
-        await test_12_attribute_query();
-        await test_13_simple_txn();
-    //]);
-}
-
 async function test_13_simple_txn()
 {
     console.log("*** test_13_simple_txn ***");
@@ -88,19 +22,17 @@ async function test_13_simple_txn()
     let db = DB.newDB(raw_storage);
 
     // create the schema
-    const name_insert = DT.insertAttribute(
-        A.makeAttribute(
+    const name_insert = DT.getAttributeInserts(
+        A.createAttribute(
             K.key(":name"),
-            undefined,
             A.vtypeString,
             A.cardinalityOne,
             "A person's single, full name."
         )
     );
-    const likes_insert = DT.insertAttribute(
-        A.makeAttribute(
+    const likes_insert = DT.getAttributeInserts(
+        A.createAttribute(
             K.key(":likes"),
-            undefined,
             A.vtypeRef,
             A.cardinalityMany,
             "The many entities that this entity likes."
@@ -141,10 +73,9 @@ async function test_12_attribute_query(){
     let raw_storage = await (await tree_adaptor_wrapper(in_mem_storage))();
     let db = DB.newDB(raw_storage);
 
-    const likes_insert = DT.insertAttribute(
-        A.makeAttribute(
+    const likes_insert = DT.getAttributeInserts(
+        A.createAttribute(
             K.key(":likes"),
-            undefined,
             A.vtypeRef,
             A.cardinalityMany,
             "The many entities that this entity likes."
@@ -178,15 +109,66 @@ async function test_12_attribute_query(){
 
 }
 
+
+async function test_11_visualization(){
+
+    console.log("*** test_11_visualization ***");
+
+    const aKey = K.key(":a");
+    const bKey = K.key(":b");
+
+    const schema = [...DT.getAttributeInserts(A.createAttribute(
+        aKey,
+        A.vtypeRef,
+        A.cardinalityMany,
+        "a"
+    )), ...DT.getAttributeInserts(A.createAttribute(
+        bKey,
+        A.vtypeRef,
+        A.cardinalityMany,
+        "b"
+    ))];
+
+    const in_mem_storage = SM();
+    let raw_storage = await (await tree_adaptor_wrapper(in_mem_storage))();
+    let db = DB.newDB(raw_storage);
+
+    db = await db.commitTxn(db, schema);
+
+    db = await db.commitTxn(db, [
+        [DT.addK, "A", aKey,  "B"],
+        [DT.addK, "B", bKey, "C1"],
+        [DT.addK, "B", bKey, "C2"]
+    ]);
+
+    const q = Q.parseQuery(
+        [Q.findK, "?a", "?b", "?c",
+            Q.whereK, ["?a", aKey, "?b"],
+            ["?b", bKey, "?c"]]
+    );
+
+    const r = await Q.runQuery(db, q);
+
+    console.log(r);
+
+    assert(r.length === 2 && r[0].length === 3 && r[1].length === 3,
+        `Result set has incorrect length (expecting 2x3, found ${r.length}x${r[0].length})`);
+    assert(r[0][0] === r[1][0] && r[0][1] === r[1][1] && r[0][2] !== r[1][2], "Result set is malformed");
+
+    // Expected: [ [ 'A', 'B', 'C2' ], [ 'A', 'B', 'C1' ] ]
+
+    console.log("*** test_11_visualization PASSED ***");
+
+}
+
 async function test_10_simpler_fanout(){
     console.log("*** test_10_simpler_fanout ***");
 
     const inserts = [];
     for(let name of ["a", "b", "c", "d"]){
-        inserts.push(...DT.insertAttribute(
-            A.makeAttribute(
+        inserts.push(...DT.getAttributeInserts(
+            A.createAttribute(
                 K.key(":" + name),
-                undefined,
                 A.vtypeRef,
                 A.cardinalityMany,
                 name
@@ -234,64 +216,6 @@ async function test_10_simpler_fanout(){
     console.log("*** test_10_simpler_fanout PASSED ***");
 }
 
-async function test_11_visualization(){
-
-    console.log("*** test_11_visualization ***");
-
-    const aKey = K.key(":a");
-    const bKey = K.key(":b");
-
-    const schema = [...DT.insertAttribute(A.makeAttribute(
-        aKey,
-        undefined,
-        A.vtypeRef,
-        A.cardinalityMany,
-        "a"
-    )), ...DT.insertAttribute(A.makeAttribute(
-        bKey,
-        undefined,
-        A.vtypeRef,
-        A.cardinalityMany,
-        "b"
-    ))];
-
-    const in_mem_storage = SM();
-    let raw_storage = await (await tree_adaptor_wrapper(in_mem_storage))();
-    let db = DB.newDB(raw_storage);
-
-    db = await db.commitTxn(db, schema);
-
-    db = await db.commitTxn(db, [
-        [DT.addK, "A", aKey,  "B"],
-        [DT.addK, "B", bKey, "C1"],
-        [DT.addK, "B", bKey, "C2"]
-    ]);
-
-    const q = Q.parseQuery(
-        [Q.findK, "?a", "?b", "?c",
-            Q.whereK, ["?a", aKey, "?b"],
-            ["?b", bKey, "?c"]]
-    );
-
-    const r = await Q.runQuery(db, q);
-
-    console.log(r);
-
-    assert(r.length === 2 && r[0].length === 3 && r[1].length === 3,
-        `Result set has incorrect length (expecting 2x3, found ${r.length}x${r[0].length})`);
-    assert(r[0][0] === r[1][0] && r[0][1] === r[1][1] && r[0][2] !== r[1][2], "Result set is malformed");
-
-    // Expected: [ [ 'A', 'B', 'C2' ], [ 'A', 'B', 'C1' ] ]
-
-    console.log("*** test_11_visualization PASSED ***");
-
-}
-
-
-async function timing(){
-    return timing_test_01_just_records();
-}
-
 async function timing_test_01_just_records(){
     let size = 16;
     let timing = 0;
@@ -318,17 +242,25 @@ async function timing_test_01_just_records(){
     console.log(results);
 }
 
-timing().then(() => {
 
+async function timing(){
+    return timing_test_01_just_records();
+}
+
+async function main(){
+    if(process.argv.length < 3) {
+        await test_10_simpler_fanout();
+        await test_11_visualization();
+        await test_12_attribute_query();
+        await test_13_simple_txn();
+    } else { // add another argument (doesn't matter what) for timing.
+        await timing();
+    }
+}
+
+
+main().then(() => {
+    console.log("File completed.");
 }, err => {
     console.error(err);
 });
-
-
-
-/*main().then(() => {
-    console.log( "t_query_01.mjs unit tests passed." );
-}, err => {
-    console.error(err);
-});
-*/

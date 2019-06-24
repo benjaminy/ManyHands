@@ -40,8 +40,11 @@ export async function getAttribute( db, identName ) {
 
 /**
  * Convert this attribute into a set of inserts
+ *
+ * TODO should this accept DB as an argument,
+ * and run processTxn?
  */
-export function insertAttribute( attr ){
+export function getAttributeInserts(attr ){
     const temp_id = attr.ident.toString();
     return [
         [addK, temp_id, A.identK, attr.ident],

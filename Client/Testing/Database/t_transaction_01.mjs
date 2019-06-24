@@ -56,19 +56,17 @@ async function test_02_add_datom(){
 
 async function setup(){
     const raw_storage = await (await tree_adaptor_wrapper(SM()))();
-    const like_insert = DT.insertAttribute(
-        A.makeAttribute(
+    const like_insert = DT.getAttributeInserts(
+        A.createAttribute(
             ":likes",
-            undefined,
             A.vtypeRef,
             A.cardinalityMany,
             "Contains references to other entities this entity likes."
         )
     );
-    const name_insert = DT.insertAttribute(
-        A.makeAttribute(
+    const name_insert = DT.getAttributeInserts(
+        A.createAttribute(
             ":name",
-            undefined,
             A.vtypeString,
             A.cardinalityOne,
             "A person's single, full name"

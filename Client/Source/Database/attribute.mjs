@@ -135,6 +135,14 @@ export function makeAttribute(
     return attr;
 }
 
+export function createAttribute(
+    ident_, valueType_, cardinality_,
+    doc, unique, index, fulltext, isComponent, noHistory )
+{
+    return makeAttribute(ident_, undefined, valueType_,
+        cardinality_, doc, unique, index, fulltext, isComponent, noHistory);
+}
+
 export function initializeBuiltInAttrs()
 {
 }

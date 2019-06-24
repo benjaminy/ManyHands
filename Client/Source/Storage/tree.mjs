@@ -345,6 +345,15 @@ export function newChild( parent, key, storage_cb )
     return [ setChild( parent, key, child ), child ];
 }
 
+/* TODO create a child to be added to a parent later */
+export function newOrphan(  )
+{
+    const dehydrated = T.map();
+    dehydrated.set( "p", T.map() );
+    dehydrated.set( "l", T.map() );
+    dehydrated.set( "b", T.set() );
+}
+
 /* private */ async function writeSubtree( subroot )
 {
     const [ subroot_clean, dirties, to_deletes ] = untouchNode( subroot );

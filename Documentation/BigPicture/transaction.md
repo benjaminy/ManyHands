@@ -29,7 +29,7 @@ All other attributes must be defined yourself in your schema. This may be done a
 ```javascript
 import * as A from "./Source/Database/attribute.mjs";
 
-const like_insert = DT.insertAttribute(
+const like_insert = DT.getAttributeInserts(
         A.makeAttribute(
             k(":likes"), // key-- the name of this attribute
             undefined, // id. leave this undefined
