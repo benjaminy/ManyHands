@@ -10,8 +10,7 @@ NODE_CMD=node --experimental-modules
 
 start_cloud_server: $(TEST_CERT)/mh_test_server.key
 	$(NODE_CMD) $(SRC_DIR)/simple_cloud_server.mjs --db $(TEST_DIR)/Cloud/Default --port 8123
-#	$(NODE_CMD) $(SRC_DIR)/simple_file_server.js --dir $(TEST_DIR) --port 8123
-#	$(NODE_CMD) $(SRC_DIR)/simple_file_server.js --dir $(TEST_DIR) --port 8123 --cert $(TEST_CERT)/mh_test_cert.crt --key $(TEST_CERT)/mh_test_server.key
+#	$(NODE_CMD) $(SRC_DIR)/simple_cloud_server.mjs --db $(TEST_DIR)/Cloud/Default --port 8123 --cert $(TEST_CERT)/mh_test_cert.crt --key $(TEST_CERT)/mh_test_server.key
 
 clean_data:
 	rm -rf $(TEST_DIR)/Cloud/Default/*

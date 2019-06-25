@@ -13,6 +13,7 @@ import C      from "crypto";
 import T      from "transit-js";
 import PPH    from "parse-prefer-header";
 import NC     from "node-cleanup";
+import FS     from "fs";
 
 const DEFAULT_PORT = 8080;
 const DEFAULT_DB_PATH = P.join( ".", "Testing", "Cloud", "Default" );
@@ -74,32 +75,32 @@ class TimeoutError extends Error
 async function readTheMeta( key )
 {
     try {
-        const meta = await the_world.get( "M" + key, { valueEncoding: "json" } );
-        return meta;
+        return await the_world.get( "M" + key, { valueEncoding: "json" } );
     }
     catch( err ) {
-        if( !( err.type === "NotFoundError" ) )
+        if( err.type === "NotFoundError" )
         {
-            throw err;
+            return undefined;
         }
-        return undefined;
+        throw err;
     }
 }
 
 async function readTheWorld( key )
 {
     try {
-        const data = await the_world.get( "D" + key, { valueEncoding: "binary" } );
-        const meta = await the_world.get( "M" + key, { valueEncoding: "json" } );
+        const datap = the_world.get( "D" + key, { valueEncoding: "binary" } );
+        const metap = the_world.get( "M" + key, { valueEncoding: "json" } );
+        const [ data, meta ] = await Promise.all( [ datap, metap ] );
         meta.body = data;
         return meta;
     }
     catch( err ) {
-        if( !( err.type === "NotFoundError" ) )
+        if( err.type === "NotFoundError" )
         {
-            throw err;
+            return undefined;
         }
-        return undefined;
+        throw err;
     }
 }
 
@@ -129,7 +130,7 @@ async function respondToLongPoll( request, file, response, client_timeout_pref )
         throw err;
     }
 
-    return respondToGet( request, response, true );
+    return await respondToGet( request, response, true );
 }
 
 function triggerLongPolls( path )
@@ -148,7 +149,7 @@ function triggerLongPolls( path )
 
 async function respondToGet( request, response, end_of_long_poll )
 {
-    log( "GET" );
+    log( "GET", request.url );
     const file = await readTheWorld( request.url );
     if( !( file ) )
     {
@@ -170,7 +171,7 @@ async function respondToGet( request, response, end_of_long_poll )
                     {
                         throw new BasicError( 400 );
                     }
-                    return respondToLongPoll(
+                    return await respondToLongPoll(
                         request, file, response, parseInt( preferences.wait ) );
                 }
             }
@@ -219,14 +220,13 @@ async function preconditionCheck( path, headers )
 
 async function respondToPut( request, response )
 {
-    log( "PUT" );
+    log( "PUT", request.url );
     await preconditionCheck( request.url, request.headers );
     var resolve, reject;
     const done_promise = new Promise( ( s, j ) => { resolve = s; reject = j } );
     const body_parts = [];
     request.on( "data", ( chunk ) => {
         try {
-            // console.log( "DATA", typeof( chunk ), new Uint8Array( chunk ), chunk.toString() );
             body_parts.push( chunk );
         }
         catch( err ) {
@@ -259,7 +259,7 @@ async function respondToPut( request, response )
 
 async function respondToDelete( request, response )
 {
-    log( "DELETE" );
+    log( "DELETE", request.url );
     const file = await readTheMeta( request.url );
     if( !file )
     {
@@ -277,7 +277,7 @@ async function respondToRequest( request, response )
 {
     try
     {
-        log( "Request received", request.url );
+        /* Do we always need CORS headers??? */
         for( const [ key, value ] of CORS_HEADERS )
         {
             response.setHeader( key, value );
@@ -326,7 +326,7 @@ async function main()
 
     NC( ( exitCode, signal ) =>
         {
-            console.log( "Closing the world...", exitCode, signal );
+            console.log( "Closing the world", exitCode, signal, "..." );
             the_world.close( ( err ) =>
             {
                 console.log( "Closed the world" );
@@ -335,7 +335,7 @@ async function main()
                 process.kill( process.pid, signal );
             } );
             NC.uninstall();
-            /* NOTE: This trick to let the close callback run doesn't
+            /* NOTE: This trick to let the DB close callback run doesn't
              * seem to work for process.exit... so don't do that? */
             return false;
         } );
@@ -353,12 +353,13 @@ async function main()
     if( "cert" in opt.options && "key" in opt.options )
     {
         protocol = https;
-        server_options.key  = await fs_readFile( opt.options.key );
-        server_options.cert = await fs_readFileSync( opt.options.cert )
+        server_options.key  = await FS.promises.readFile( opt.options.key );
+        server_options.cert = await FS.promises.readFile( opt.options.cert );
     }
+
     const server = protocol.createServer( server_options, respondToRequest );
     server.listen( port );
     log( "Listening" );
 }
 
-main().then( () => { log( "Simple Cloud Server: init complete" ) } );
+main().then( () => { log( "Init complete" ) } );

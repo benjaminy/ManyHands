@@ -12,6 +12,7 @@ import * as DS  from "./deletes.mjs";
 
 async function main()
 {
+    // const s = SC( "alice", { TLS:true } );
     const s = SC( "alice" );
     await SUD.just_upload( s );
     await SUD.up_down( s );
