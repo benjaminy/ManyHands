@@ -103,9 +103,8 @@ class TimeoutError extends Error
 async function readTheWorld( key )
 {
     try {
-        const reader = lazyRd();
         const val = await the_world.get( key );
-        return reader( val );
+        return lazyRd()( val );
     }
     catch( err ) {
         if( !( err.type === "NotFoundError" ) )
@@ -149,11 +148,11 @@ async function respondToLongPoll( request, file, response, client_timeout_pref )
 
 function triggerLongPolls( path )
 {
-    if( !( long_poll_requests.has( path ) ) )
+    if( !long_poll_requests.has( path ) )
     {
         return;
     }
-    const resolves = long_poll_requests.has( path );
+    const resolves = long_poll_requests.get( path );
     long_poll_requests.delete( path );
     for( const resolve of resolves )
     {
@@ -197,6 +196,7 @@ async function respondToGet( request, response, end_of_long_poll )
     response.setHeader( "Content-Length", "" + body.byteLength );
     response.setHeader( "Last-Modified", file.get( "timestamp" ) );
     response.setHeader( "ETag", file.get( "etag" ) );
+    response.writeHead( 200 );
     response.write( Buffer.from( body ) );
 }
 
@@ -230,7 +230,6 @@ async function preconditionCheck( path, headers )
             throw new BasicError( 412 );
         }
     }
-    return null;
 }
 
 async function respondToPut( request, response )
