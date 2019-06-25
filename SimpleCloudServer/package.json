@@ -1,19 +1,20 @@
 {
-  "name": "simple-file-server",
+  "name": "simple-cloud-server",
   "version": "0.0.1",
   "description": "This is about the simplest HTTP(S) imaginable",
-  "main": "index.js",
   "author": "Ben",
   "license": "Wut?",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/benjaminy/ManyHands.git"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "async-mkdirp": "^1.2.0",
-    "etag": "^1.8.1",
-    "finalhandler": "^1.1.0",
-    "node-cleanup": "^2.1.2",
-    "node-getopt": "^0.2.3",
-    "serve-static": "^1.13.1"
+    "level": "^5.0.1",
+    "node-getopt": "^0.3.2",
+    "parse-prefer-header": "^1.0.0",
+    "transit-js": "^0.8.861"
   }
 }

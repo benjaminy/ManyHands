@@ -1,5 +1,5 @@
 /*
- * This server uses LevelDB to act like a simple file server
+ * This server uses LevelDB to act like a simple cloud server
  */
 
 import assert       from "assert";
@@ -11,6 +11,7 @@ import LDB          from "level";
 import GOPT         from "node-getopt";
 import C            from "crypto";
 import T            from "transit-js";
+import PPH          from "parse-prefer-header";
 
 const DEFAULT_PORT = 8080;
 const DEFAULT_DB_PATH = P.join( ".", "Testing", "Cloud", "Default" );
@@ -22,8 +23,8 @@ const opt = GOPT.create( [
     [ "K", "key=KEY_FILE",   "key file; will serve over HTTP if not given" ] ] )
   .bindHelp().parseSystem();
 
-const LONGPOLL_TIMEOUT = 4000;
-const LONGPOLL_MEMORY_TIMEOUT = 8000;
+const LONGPOLL_MIN_TIMEOUT = 1;
+const LONGPOLL_MAX_TIMEOUT = 100;
 
 const CORS_HEADERS =
       [ [ "Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS,DELETE" ],
@@ -34,14 +35,25 @@ const CORS_HEADERS =
 var the_world;
 var transit_writer, transit_reader;
 
-function sleepPromise( ms )
+
+
+function isDigit( l )
 {
-    return new Promise(
-        ( resolve, reject ) =>
-            {
-                setTimeout( () => resolve(),
-                            ms );
-            } );
+    return (!!l) && l >= "0" && l <= "9" && l.length === 1;
+}
+
+function allDigits( s )
+{
+    if( !( typeof(s) === "string" ) )
+        return false;
+    var any = false;
+    for( const letter of s )
+    {
+        if( !isDigit( letter ) )
+            return false;
+        any = true;
+    }
+    return any;
 }
 
 function lazyWr()
@@ -66,7 +78,7 @@ function lazyRd()
 
 function log( ...ps )
 {
-    console.log( "[SimpleFileServer]", ...ps );
+    console.log( "[SimpleCloudServer]", ...ps );
 }
 
 class BasicError extends Error
@@ -106,20 +118,15 @@ async function readTheWorld( key )
 
 const long_poll_requests = T.map();
 
-async function respondToLongPoll( request, file, response )
+async function respondToLongPoll( request, file, response, client_timeout_pref )
 {
-    const path = request.url; // maybe parse ? # ...
-    const options = request.headers[ "uws-longpoll" ];
+    const path = request.url;
+    const timeout = Math.max( LONGPOLL_TIMEOUT_MIN,
+                              Math.min( LONGPOLL_TIMEOUT_MAX, client_timeout_pref ) );
 
-    if( "if-match" in request.headers
-        && !( request.headers[ "if-match" ] === file.get( "etag" ) ) )
-    {
-        log( "Longpoll etag mismatch", request.headers[ "if-match" ] );
-        throw new BasicError( 412 );
-    }
     var resolve, reject;
     const longPollPromise = new Promise( ( s, j ) => { resolve = s, reject = j } );
-    setTimeout( () => reject( new TimeoutError() ), 6000 );
+    setTimeout( () => reject( new TimeoutError() ), timeout * 1000 );
 
     const reqs = long_poll_requests.has( path )
           ? long_poll_requests.get( path ) : T.set();
@@ -132,14 +139,12 @@ async function respondToLongPoll( request, file, response )
     catch( err ) {
         if( err.type === "TimeoutError" )
         {
-            throw new BasicError( 408 );
+            throw new BasicError( 304 );
         }
         throw err;
     }
 
-    // .headers is supposed to be read-only, but this hack might work
-    delete request.headers[ "uws-longpoll" ];
-    return respondToGet( request, response );
+    return respondToGet( request, response, true );
 }
 
 function triggerLongPolls( path )
@@ -156,27 +161,43 @@ function triggerLongPolls( path )
     }
 }
 
-async function respondToGet( request, response )
+async function respondToGet( request, response, end_of_long_poll )
 {
     log( "GET" );
     const file = await readTheWorld( request.url );
-    if( file )
-    {
-        if( "uws-longpoll" in request.headers )
-        {
-            return respondToLongPoll( request, file, response );
-        }
-        const body = file.get( "body" );
-        response.setHeader( "Content-Type", "application/octet-stream" );
-        response.setHeader( "Content-Length", "" + body.byteLength );
-        response.setHeader( "Last-Modified", file.get( "timestamp" ) );
-        response.setHeader( "ETag", file.get( "etag" ) );
-        response.write( Buffer.from( body ) );
-    }
-    else
+    if( !( file ) )
     {
         throw new BasicError( 404 );
     }
+    if( "if-none-match" in request.headers
+        && !end_of_long_poll )
+    {
+        const req_etag = request.headers[ "if-none-match" ];
+        // TODO: etag parsing
+        if( req_etag === file.get( "etag" ) )
+        {
+            if( "prefer" in request.headers )
+            {
+                const preferences = PPH( request.headers.prefer );
+                if( "wait" in preferences )
+                {
+                    if( !allDigits( preferences.wait ) )
+                    {
+                        throw new BasicError( 400 );
+                    }
+                    return respondToLongPoll(
+                        request, file, response, parseInt( preferences.wait ) );
+                }
+            }
+            throw new BasicError( 304 );
+        }
+    }
+    const body = file.get( "body" );
+    response.setHeader( "Content-Type", "application/octet-stream" );
+    response.setHeader( "Content-Length", "" + body.byteLength );
+    response.setHeader( "Last-Modified", file.get( "timestamp" ) );
+    response.setHeader( "ETag", file.get( "etag" ) );
+    response.write( Buffer.from( body ) );
 }
 
 async function preconditionCheck( path, headers )
@@ -329,4 +350,4 @@ async function main()
     log( "Listening" );
 }
 
-main().then( () => { log( "Simple File Server: init complete" ) } );
+main().then( () => { log( "Simple Cloud Server: init complete" ) } );
