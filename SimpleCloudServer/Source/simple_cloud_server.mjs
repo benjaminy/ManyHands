@@ -2,16 +2,17 @@
  * This server uses LevelDB to act like a simple cloud server
  */
 
-import assert       from "assert";
-import http         from "http";
-import https        from "https";
-import url          from "url";
-import P            from "path";
-import LDB          from "level";
-import GOPT         from "node-getopt";
-import C            from "crypto";
-import T            from "transit-js";
-import PPH          from "parse-prefer-header";
+import assert from "assert";
+import http   from "http";
+import https  from "https";
+import url    from "url";
+import P      from "path";
+import LDB    from "level";
+import GOPT   from "node-getopt";
+import C      from "crypto";
+import T      from "transit-js";
+import PPH    from "parse-prefer-header";
+import NC     from "node-cleanup";
 
 const DEFAULT_PORT = 8080;
 const DEFAULT_DB_PATH = P.join( ".", "Testing", "Cloud", "Default" );
@@ -67,6 +68,21 @@ class TimeoutError extends Error
     {
         super();
         this.type = "TimeoutError";
+    }
+}
+
+async function readTheMeta( key )
+{
+    try {
+        const meta = await the_world.get( "M" + key, { valueEncoding: "json" } );
+        return meta;
+    }
+    catch( err ) {
+        if( !( err.type === "NotFoundError" ) )
+        {
+            throw err;
+        }
+        return undefined;
     }
 }
 
@@ -171,8 +187,8 @@ async function respondToGet( request, response, end_of_long_poll )
 
 async function preconditionCheck( path, headers )
 {
-    const file = await readTheWorld( path );
-    if( file )
+    const meta = await readTheMeta( path );
+    if( meta )
     {
         if( "if-none-match" in headers )
         {
@@ -185,7 +201,7 @@ async function preconditionCheck( path, headers )
             throw new BasicError( 412 );
         }
         if( "if-match" in headers
-            && !( headers[ "if-match" ] === file.etag ) )
+            && !( headers[ "if-match" ] === meta.etag ) )
         {
             log( "preconditionCheck: Atomicity failure", headers[ "if-match" ] );
             throw new BasicError( 412 );
@@ -238,13 +254,13 @@ async function respondToPut( request, response )
             reject( err );
         }
     } );
-    return done_promise;
+    return await done_promise;
 }
 
 async function respondToDelete( request, response )
 {
     log( "DELETE" );
-    const file = await readTheWorld( request.url );
+    const file = await readTheMeta( request.url );
     if( !file )
     {
         throw new BasicError( 404 );
@@ -307,6 +323,22 @@ async function main()
         db_path = opt.options.db;
     }
     the_world = LDB( db_path );
+
+    NC( ( exitCode, signal ) =>
+        {
+            console.log( "Closing the world...", exitCode, signal );
+            the_world.close( ( err ) =>
+            {
+                console.log( "Closed the world" );
+                if( err )
+                    console.error( err );
+                process.kill( process.pid, signal );
+            } );
+            NC.uninstall();
+            /* NOTE: This trick to let the close callback run doesn't
+             * seem to work for process.exit... so don't do that? */
+            return false;
+        } );
 
     var port = DEFAULT_PORT;
     if( "port" in opt.options )
