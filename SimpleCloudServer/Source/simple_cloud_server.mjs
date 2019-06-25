@@ -102,7 +102,7 @@ async function readFile( db, key )
 }
 
 async function respondToLongPoll(
-    long_poll_requests, request, file, response, client_timeout_pref )
+    db, long_poll_requests, request, response, client_timeout_pref )
 {
     const path = request.url;
     const timeout = Math.max( LONGPOLL_TIMEOUT_MIN,
@@ -128,7 +128,7 @@ async function respondToLongPoll(
         throw err;
     }
 
-    return await respondToGet( request, response, true );
+    return await respondToGet( db, long_poll_requests, request, response, true );
 }
 
 function triggerLongPolls( long_poll_requests, path )
@@ -171,7 +171,7 @@ async function respondToGet(
                         throw new BasicError( 400 );
                     }
                     return await respondToLongPoll(
-                        long_poll_requests, request, file, response,
+                        long_poll_requests, db, request, response,
                         parseInt( preferences.wait ) );
                 }
             }
