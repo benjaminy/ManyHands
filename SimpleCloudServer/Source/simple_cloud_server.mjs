@@ -260,16 +260,16 @@ async function respondToPut( request, response )
 async function respondToDelete( request, response )
 {
     log( "DELETE", request.url );
-    const file = await readTheMeta( request.url );
-    if( !file )
+    const meta = await readTheMeta( request.url );
+    if( !meta )
     {
         throw new BasicError( 404 );
     }
     await the_world.del( "M" + request.url );
     await the_world.del( "D" + request.url );
     triggerLongPolls( request.url );
-    response.setHeader( "Last-Modified", file.timestamp );
-    response.setHeader( "ETag", file.etag );
+    response.setHeader( "Last-Modified", meta.timestamp );
+    response.setHeader( "ETag", meta.etag );
     response.writeHead( 204 );
 }
 
@@ -289,7 +289,11 @@ async function respondToRequest( request, response )
             case     "PUT": response_fn = respondToPut; break;
             case  "DELETE": response_fn = respondToDelete; break;
             case "OPTIONS": response_fn = respondToOptions; break;
-            default: throw new BasicError( 405 );
+            default:
+            {
+                log( "Mysterious HTTP method:", request.method );
+                throw new BasicError( 405 );
+            }
         }
         await response_fn( request, response );
         response.end();
