@@ -15,14 +15,6 @@ import PPH          from "parse-prefer-header";
 
 const DEFAULT_PORT = 8080;
 const DEFAULT_DB_PATH = P.join( ".", "Testing", "Cloud", "Default" );
-
-const opt = GOPT.create( [
-    [ "P", "port=PORT",      "Port to serve on; default is "+DEFAULT_PORT ],
-    [ "D", "db=DB_PATH",     " "+DEFAULT_DB_PATH ],
-    [ "C", "cert=CERT_FILE", "Certificate file; will serve over HTTP if not given" ],
-    [ "K", "key=KEY_FILE",   "key file; will serve over HTTP if not given" ] ] )
-  .bindHelp().parseSystem();
-
 const LONGPOLL_MIN_TIMEOUT = 1;
 const LONGPOLL_MAX_TIMEOUT = 100;
 
@@ -33,9 +25,7 @@ const CORS_HEADERS =
           "Origin, X-Requested-With, Content-Type, Accept, Longpoll, Stamp" ] ];
 
 var the_world;
-var transit_writer, transit_reader;
-
-
+const long_poll_requests = T.map();
 
 function isDigit( l )
 {
@@ -54,26 +44,6 @@ function allDigits( s )
         any = true;
     }
     return any;
-}
-
-function lazyWr()
-{
-    if( ( !transit_writer ) )
-    {
-        const w = T.writer( "json" );
-        transit_writer = w.write.bind( w );
-    }
-    return transit_writer;
-}
-
-function lazyRd()
-{
-    if( ( !transit_reader ) )
-    {
-        const r = T.reader( "json" );
-        transit_reader = r.read.bind( r );
-    }
-    return transit_reader;
 }
 
 function log( ...ps )
@@ -103,8 +73,10 @@ class TimeoutError extends Error
 async function readTheWorld( key )
 {
     try {
-        const val = await the_world.get( key );
-        return lazyRd()( val );
+        const data = await the_world.get( "D" + key, { valueEncoding: "binary" } );
+        const meta = await the_world.get( "M" + key, { valueEncoding: "json" } );
+        meta.body = data;
+        return meta;
     }
     catch( err ) {
         if( !( err.type === "NotFoundError" ) )
@@ -114,8 +86,6 @@ async function readTheWorld( key )
         return undefined;
     }
 }
-
-const long_poll_requests = T.map();
 
 async function respondToLongPoll( request, file, response, client_timeout_pref )
 {
@@ -191,13 +161,12 @@ async function respondToGet( request, response, end_of_long_poll )
             throw new BasicError( 304 );
         }
     }
-    const body = file.get( "body" );
     response.setHeader( "Content-Type", "application/octet-stream" );
-    response.setHeader( "Content-Length", "" + body.byteLength );
-    response.setHeader( "Last-Modified", file.get( "timestamp" ) );
-    response.setHeader( "ETag", file.get( "etag" ) );
+    response.setHeader( "Content-Length", "" + file.body.byteLength );
+    response.setHeader( "Last-Modified", file.timestamp );
+    response.setHeader( "ETag", file.etag );
     response.writeHead( 200 );
-    response.write( Buffer.from( body ) );
+    response.write( Buffer.from( file.body ) );
 }
 
 async function preconditionCheck( path, headers )
@@ -216,7 +185,7 @@ async function preconditionCheck( path, headers )
             throw new BasicError( 412 );
         }
         if( "if-match" in headers
-            && !( headers[ "if-match" ] === file.get( "etag" ) ) )
+            && !( headers[ "if-match" ] === file.etag ) )
         {
             log( "preconditionCheck: Atomicity failure", headers[ "if-match" ] );
             throw new BasicError( 412 );
@@ -247,7 +216,7 @@ async function respondToPut( request, response )
         catch( err ) {
             reject( err );
         }
-    } ).on( "end", () => {
+    } ).on( "end", async () => {
         try {
             const body = Buffer.concat( body_parts );
             const hash_fn = C.createHash( "sha256" );
@@ -256,20 +225,14 @@ async function respondToPut( request, response )
             const now = new Date( Date.now() ).toGMTString();
             response.setHeader( "Last-Modified", now );
             response.setHeader( "ETag", hash_val );
-            const bundle = T.map();
-            bundle.set( "body", body );
-            bundle.set( "etag", hash_val );
-            bundle.set( "timestamp", now );
-            the_world.put( request.url, lazyWr()( bundle ),
-                ( err ) => {
-                    if( err )
-                    {
-                        reject( err );
-                        return;
-                    }
-                    triggerLongPolls( request.url );
-                    resolve();
-                } );
+            const pm = the_world.put(
+                "M" + request.url, { etag: hash_val, timestamp:now },
+                { valueEncoding: "json" } );
+            const pd = the_world.put(
+                "D" + request.url, body, { valueEncoding: "binary" } );
+            await Promise.all( [ pm, pd ] );
+            triggerLongPolls( request.url );
+            resolve();
         }
         catch( err ) {
             reject( err );
@@ -286,10 +249,11 @@ async function respondToDelete( request, response )
     {
         throw new BasicError( 404 );
     }
-    await the_world.del( request.url );
+    await the_world.del( "M" + request.url );
+    await the_world.del( "D" + request.url );
     triggerLongPolls( request.url );
-    response.setHeader( "Last-Modified", file.get( "timestamp" ) );
-    response.setHeader( "ETag", file.get( "etag" ) );
+    response.setHeader( "Last-Modified", file.timestamp );
+    response.setHeader( "ETag", file.etag );
     response.writeHead( 204 );
 }
 
@@ -330,10 +294,20 @@ async function respondToRequest( request, response )
 
 async function main()
 {
-    const server_options = {};
+    const opt = GOPT.create( [
+        [ "P", "port=PORT",      "Port to serve on; default is "+DEFAULT_PORT ],
+        [ "D", "db=DB_PATH",     " "+DEFAULT_DB_PATH ],
+        [ "C", "cert=CERT_FILE", "Certificate file; required for HTTPS" ],
+        [ "K", "key=KEY_FILE",   "key file; required for HTTPS" ] ] )
+          .bindHelp().parseSystem();
+
     var db_path = DEFAULT_DB_PATH;
     if( "db" in opt.options )
+    {
         db_path = opt.options.db;
+    }
+    the_world = LDB( db_path );
+
     var port = DEFAULT_PORT;
     if( "port" in opt.options )
     {
@@ -342,9 +316,15 @@ async function main()
             port = x;
     }
 
-    the_world = LDB( db_path );
-
-    const server = http.createServer( server_options, respondToRequest );
+    var protocol = http;
+    const server_options = {};
+    if( "cert" in opt.options && "key" in opt.options )
+    {
+        protocol = https;
+        server_options.key  = await fs_readFile( opt.options.key );
+        server_options.cert = await fs_readFileSync( opt.options.cert )
+    }
+    const server = protocol.createServer( server_options, respondToRequest );
     server.listen( port );
     log( "Listening" );
 }
