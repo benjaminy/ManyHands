@@ -26,9 +26,6 @@ const CORS_HEADERS =
         [ "Access-Control-Allow-Headers",
           "Origin, X-Requested-With, Content-Type, Accept, Longpoll, Stamp" ] ];
 
-var the_world;
-const long_poll_requests = T.map();
-
 function isDigit( l )
 {
     return (!!l) && l >= "0" && l <= "9" && l.length === 1;
@@ -50,7 +47,7 @@ function allDigits( s )
 
 function log( ...ps )
 {
-    console.log( "[SimpleCloudServer]", ...ps );
+    console.log( "[SimpleCloud]", ...ps );
 }
 
 class BasicError extends Error
@@ -72,10 +69,10 @@ class TimeoutError extends Error
     }
 }
 
-async function readTheMeta( key )
+async function readMeta( db, key )
 {
     try {
-        return await the_world.get( "M" + key, { valueEncoding: "json" } );
+        return await db.get( "M" + key, { valueEncoding: "json" } );
     }
     catch( err ) {
         if( err.type === "NotFoundError" )
@@ -86,11 +83,11 @@ async function readTheMeta( key )
     }
 }
 
-async function readTheWorld( key )
+async function readFile( db, key )
 {
     try {
-        const datap = the_world.get( "D" + key, { valueEncoding: "binary" } );
-        const metap = the_world.get( "M" + key, { valueEncoding: "json" } );
+        const datap = db.get( "D" + key, { valueEncoding: "binary" } );
+        const metap = db.get( "M" + key, { valueEncoding: "json" } );
         const [ data, meta ] = await Promise.all( [ datap, metap ] );
         meta.body = data;
         return meta;
@@ -104,7 +101,8 @@ async function readTheWorld( key )
     }
 }
 
-async function respondToLongPoll( request, file, response, client_timeout_pref )
+async function respondToLongPoll(
+    long_poll_requests, request, file, response, client_timeout_pref )
 {
     const path = request.url;
     const timeout = Math.max( LONGPOLL_TIMEOUT_MIN,
@@ -133,7 +131,7 @@ async function respondToLongPoll( request, file, response, client_timeout_pref )
     return await respondToGet( request, response, true );
 }
 
-function triggerLongPolls( path )
+function triggerLongPolls( long_poll_requests, path )
 {
     if( !long_poll_requests.has( path ) )
     {
@@ -147,10 +145,11 @@ function triggerLongPolls( path )
     }
 }
 
-async function respondToGet( request, response, end_of_long_poll )
+async function respondToGet(
+    db, long_poll_requests, request, response, end_of_long_poll )
 {
     log( "GET", request.url );
-    const file = await readTheWorld( request.url );
+    const file = await readFile( db, request.url );
     if( !( file ) )
     {
         throw new BasicError( 404 );
@@ -172,7 +171,8 @@ async function respondToGet( request, response, end_of_long_poll )
                         throw new BasicError( 400 );
                     }
                     return await respondToLongPoll(
-                        request, file, response, parseInt( preferences.wait ) );
+                        long_poll_requests, request, file, response,
+                        parseInt( preferences.wait ) );
                 }
             }
             throw new BasicError( 304 );
@@ -186,9 +186,9 @@ async function respondToGet( request, response, end_of_long_poll )
     response.write( Buffer.from( file.body ) );
 }
 
-async function preconditionCheck( path, headers )
+async function preconditionCheck( db, path, headers )
 {
-    const meta = await readTheMeta( path );
+    const meta = await readMeta( db, path );
     if( meta )
     {
         if( "if-none-match" in headers )
@@ -218,10 +218,10 @@ async function preconditionCheck( path, headers )
     }
 }
 
-async function respondToPut( request, response )
+async function respondToPut( db, long_poll_requests, request, response )
 {
     log( "PUT", request.url );
-    await preconditionCheck( request.url, request.headers );
+    await preconditionCheck( db, request.url, request.headers );
     var resolve, reject;
     const done_promise = new Promise( ( s, j ) => { resolve = s; reject = j } );
     const body_parts = [];
@@ -241,13 +241,13 @@ async function respondToPut( request, response )
             const now = new Date( Date.now() ).toGMTString();
             response.setHeader( "Last-Modified", now );
             response.setHeader( "ETag", hash_val );
-            const pm = the_world.put(
+            const pm = db.put(
                 "M" + request.url, { etag: hash_val, timestamp:now },
                 { valueEncoding: "json" } );
-            const pd = the_world.put(
+            const pd = db.put(
                 "D" + request.url, body, { valueEncoding: "binary" } );
             await Promise.all( [ pm, pd ] );
-            triggerLongPolls( request.url );
+            triggerLongPolls( long_poll_requests, request.url );
             resolve();
         }
         catch( err ) {
@@ -257,23 +257,25 @@ async function respondToPut( request, response )
     return await done_promise;
 }
 
-async function respondToDelete( request, response )
+async function respondToDelete( db, long_poll_requests, request, response )
 {
     log( "DELETE", request.url );
-    const meta = await readTheMeta( request.url );
+    const meta = await readMeta( db, request.url );
     if( !meta )
     {
         throw new BasicError( 404 );
     }
-    await the_world.del( "M" + request.url );
-    await the_world.del( "D" + request.url );
-    triggerLongPolls( request.url );
+    await db.del( "M" + request.url );
+    await db.del( "D" + request.url );
+    triggerLongPolls( long_poll_requests, request.url );
     response.setHeader( "Last-Modified", meta.timestamp );
     response.setHeader( "ETag", meta.etag );
     response.writeHead( 204 );
 }
 
-async function respondToRequest( request, response )
+function respondToRequest( db, long_poll_requests )
+{
+    return async ( request, response ) =>
 {
     try
     {
@@ -295,7 +297,7 @@ async function respondToRequest( request, response )
                 throw new BasicError( 405 );
             }
         }
-        await response_fn( request, response );
+        await response_fn( db, long_poll_requests, request, response );
         response.end();
     }
     catch( err )
@@ -310,6 +312,32 @@ async function respondToRequest( request, response )
             response.writeHead( 500 ).end();
         }
     }
+}
+}
+
+function shutdownCleanup( db, server )
+{
+    return ( exitCode, signal ) =>
+{
+    log( "Closing the server", exitCode, signal, "..." );
+    server.close( () =>
+    {
+        log( "Closed the server" );
+        log( "Closing the database ..." );
+        db.close( ( err ) =>
+        {
+            log( "Closed the database" );
+            if( err )
+                console.error( err );
+            process.kill( process.pid, signal );
+        } );
+    } );
+
+    NC.uninstall();
+    /* NOTE: This trick to let the close callbacks run doesn't
+     * seem to work for process.exit... so don't do that? */
+    return false;
+}
 }
 
 async function main()
@@ -326,23 +354,8 @@ async function main()
     {
         db_path = opt.options.db;
     }
-    the_world = LDB( db_path );
-
-    NC( ( exitCode, signal ) =>
-        {
-            console.log( "Closing the world", exitCode, signal, "..." );
-            the_world.close( ( err ) =>
-            {
-                console.log( "Closed the world" );
-                if( err )
-                    console.error( err );
-                process.kill( process.pid, signal );
-            } );
-            NC.uninstall();
-            /* NOTE: This trick to let the DB close callback run doesn't
-             * seem to work for process.exit... so don't do that? */
-            return false;
-        } );
+    const db = LDB( db_path );
+    const long_poll_requests = T.map();
 
     var port = DEFAULT_PORT;
     if( "port" in opt.options )
@@ -361,8 +374,12 @@ async function main()
         server_options.cert = await FS.promises.readFile( opt.options.cert );
     }
 
-    const server = protocol.createServer( server_options, respondToRequest );
+    const server = protocol.createServer(
+        server_options, respondToRequest( db, long_poll_requests ) );
     server.listen( port );
+
+    NC( shutdownCleanup( db, server ) );
+
     log( "Listening" );
 }
 
