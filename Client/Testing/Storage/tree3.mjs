@@ -49,6 +49,8 @@ async function test_01()
     ST.setValue( n5, "alice", 4.1 );
     ST.setValue( n6, 42, 45 );
     ST.setValue( n6, "alice", "bob" );
+    
+    assert( ST.getValue( n6, "alice" ) === "bob" );
 
     const r2 = await ST.writeTree( r );
 
@@ -57,6 +59,9 @@ async function test_01()
 
     const ccc1 = await ST.getChild( r3, "ptr1" );
     console.log( "Ralph???", ccc1.toString() );
+
+    const nfr = await ST.getChild( n4, "ptr1" );
+    console.log( "ALICE 4.1???", nfr.toString() );
 
     const ccc2 = await ST.getChild( ccc1, "ptr2" );
     console.log( "Donny???", ccc2.toString() );

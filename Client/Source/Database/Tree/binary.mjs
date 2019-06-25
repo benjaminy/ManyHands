@@ -18,17 +18,17 @@ const kRightChild = T.keyword("right_child" );
 const kValue = T.keyword( "value" );
 
 
-export function buildTree( data )
+export async function buildTree( data )
 {
     const root = ST.newNode();
 
-    const avet = constructBinaryTree(data,
+    const avet = await constructBinaryTree(data,
         ATTRIBUTE, VALUE, ENTITY, TIMESTAMP);
-    const eavt = constructBinaryTree(data,
+    const eavt = await constructBinaryTree(data,
         ENTITY, ATTRIBUTE, VALUE, TIMESTAMP);
-    const aevt = constructBinaryTree(data,
+    const aevt = await constructBinaryTree(data,
         ATTRIBUTE, ENTITY, VALUE, TIMESTAMP);
-    const vaet = constructBinaryTree(data,
+    const vaet = await constructBinaryTree(data,
         VALUE, ATTRIBUTE, ENTITY, TIMESTAMP);
 
     ST.setChild(root, kAVET, avet);
@@ -97,24 +97,24 @@ export function wrapTree( root )
 
     tree.node = function()
     {
-        r:eturn root;
+        return root;
     };
     return tree;
 };
 
 async function constructBinaryTree( data, ...sorts )
 {
-    let node = ST.newNode();
+    let root = ST.newNode();
     if( data.length === 0 )
     {
-        return node; /// ??? ok
+        return root; /// ??? ok
     }
-    ST.setValue(node, kValue, data[0]);
+    ST.setValue(root, kValue, data[0]);
     for( let i = 1; i < data.length; i++ )
     {
         const new_node = ST.newNode();
-        ST.setValue( new_node, kValues, data[i] );
-        insertIntoNode( node, new_node, sorts );
+        ST.setValue( new_node, kValue, data[i] );
+        await insertIntoNode( root, new_node, sorts );
     }
     return node;
 }
@@ -124,7 +124,7 @@ async function insertIntoNode( node, new_node, sorts )
     const comp = compare( node, new_node, ...sorts );
     if( comp < 0 )
     {
-        let left_child = ST.getChild( node, kLeftChild );
+        let left_child = await ST.getChild( node, kLeftChild );
         if( !left_child )
         {
             ST.setChild( node, kLeftChild, new_node );
@@ -135,7 +135,7 @@ async function insertIntoNode( node, new_node, sorts )
         return;
     }
     // else
-    let right_child = ST.getChild( node, kRightChild );
+    let right_child = await ST.getChild( node, kRightChild );
     if( !right_child )
     {
         ST.setChild( node, kRightChild. new_node );
@@ -146,9 +146,10 @@ async function insertIntoNode( node, new_node, sorts )
 }
 
 /**
- * TODO this could be nicer
- *
- * Compare two datoms across a set of fields
+ * Compare two datoms across a set of fields, in order.
+ * starting with sorts[0] and then continuing.
+ * i.e. if sorts is [ENTITY, ATTRIBUTE, VALUE],
+ * this will compare the entity first.
  *
  * @param o1
  * @param o2
