@@ -1,4 +1,5 @@
 import * as ST from "../../Storage/tree.mjs";
+import * as UM from "../../Utilities/misc.mjs";
 import T from "transit-js";
 
 export const ENTITY = 0;
@@ -12,59 +13,83 @@ const kEAVT = T.keyword("eavt");
 const kAEVT = T.keyword("aevt");
 const kVAET = T.keyword("vaet");
 
-export default function init(storage, data)
+const kLeftChild = T.keyword( "left_child" );
+const kRightChild = T.keyword("right_child" );
+const kValue = T.keyword( "value" );
+
+
+export function buildTree( data )
 {
-    const parent = ST.newNode();
+    const root = ST.newNode();
 
-    const tree = {}; // "class"-ish object
-
-    const avet = constructBinaryTree(data, kAVET,
+    const avet = constructBinaryTree(data,
         ATTRIBUTE, VALUE, ENTITY, TIMESTAMP);
-    const eavt = constructBinaryTree(data, kEAVT,
+    const eavt = constructBinaryTree(data,
         ENTITY, ATTRIBUTE, VALUE, TIMESTAMP);
-    const aevt = constructBinaryTree(data, kAEVT,
+    const aevt = constructBinaryTree(data,
         ATTRIBUTE, ENTITY, VALUE, TIMESTAMP);
-    const vaet = constructBinaryTree(data, kVAET,
+    const vaet = constructBinaryTree(data,
         VALUE, ATTRIBUTE, ENTITY, TIMESTAMP);
+
+    ST.setChild(root, kAVET, avet);
+    ST.setChild(root, kEAVT, eavt);
+    ST.setChild(root, kAEVT, aevt);
+    ST.setChild(root, kVAET, vaet);
+    return root;
+}
+
+export function wrapTree( root )
+{
+    const tree = {}; // "class" object
 
     tree.query = async function( query )
     {
-        root = await ST.openRoot( "root", storage, options );
-        const avet = ST.getValue( root, "avet" ),
-            eavt = ST.getValue( root, "eavt" ),
-            aevt = ST.getValue( root, "aevt" ),
-            vaet = ST.getValue( root, "vaet" );
+        query = typeof( query ) === 'object' ? query : {};
+        const { entity, attribute, value } = query;
 
-        const {entity, attribute, value} = typeof(query) === 'object' ? query : {};
-        if(entity === undefined && attribute === undefined && value === undefined){
-            // doesn't matter what we use
-            return [...data];
+        if( entity === undefined
+            && attribute === undefined
+            && value === undefined )
+        {
+            // return all records
+            throw new UM.UnimplementedError( "Query for all records" );
         }
-        if(entity === undefined && attribute === undefined && value !== undefined){
+        if( entity === undefined
+            && attribute === undefined
+            && value !== undefined ){
             // VAET
-            return sortedSearch(vaet, VALUE, value);
+            return sortedSearch( vaet, VALUE, value );
         }
-        if(entity === undefined && attribute !== undefined && value === undefined){
+        if( entity === undefined
+            && attribute !== undefined
+            && value === undefined )
+        {
             // AVET or AEVT
-            return sortedSearch(aevt, ATTRIBUTE, attribute);
+            return sortedSearch( aevt, ATTRIBUTE, attribute );
         }
-        if(entity === undefined && attribute !== undefined && value !== undefined){
+        if( entity === undefined
+            && attribute !== undefined
+            && value !== undefined ){
             // AVET or VAET
-            const vet = sortedSearch(avet, ATTRIBUTE, attribute);
-            return sortedSearch(vet, VALUE, value);
+            const vet = sortedSearch( avet, ATTRIBUTE, attribute );
+            return sortedSearch( vet, VALUE, value );
         }
-        if(entity !== undefined){
+        if( entity !== undefined )
+        {
             // EAVT is the only index with an entity in it
-            const avt = sortedSearch(eavt, ENTITY, entity);
-            if(attribute !== undefined){
-                const vt = sortedSearch(avt, ATTRIBUTE, attribute);
-                if(value !== undefined){
-                    return sortedSearch(vt, VALUE, value);
+            const avt = sortedSearch( eavt, ENTITY, entity );
+            if( attribute !== undefined )
+            {
+                const vt = sortedSearch( avt, ATTRIBUTE, attribute );
+                if( value !== undefined )
+                {
+                    return sortedSearch( vt, VALUE, value );
                 }
                 return vt;
             }
-            if(value !== undefined){ // TODO do we want an index for this particular case?
-                return unsortedSearch(avt, VALUE, value);
+            if( value !== undefined ){
+                // TODO do we want an index for this particular case?
+                return unsortedSearch( avt, VALUE, value );
             }
             return avt;
         }
@@ -72,25 +97,52 @@ export default function init(storage, data)
 
     tree.node = function()
     {
-        return parent;
+        r:eturn root;
     };
     return tree;
 };
 
-
-function constructBinaryTree( data, field, ...sorts ){
+async function constructBinaryTree( data, ...sorts )
+{
     let node = ST.newNode();
-    for( const datom of data ){
-        insertIntoNode( node, datom );
+    if( data.length === 0 )
+    {
+        return node; /// ??? ok
     }
+    ST.setValue(node, kValue, data[0]);
+    for( let i = 1; i < data.length; i++ )
+    {
+        const new_node = ST.newNode();
+        ST.setValue( new_node, kValues, data[i] );
+        insertIntoNode( node, new_node, sorts );
+    }
+    return node;
 }
 
-const kLeftChild = T.keyword("left_child");
-const kRightChild = T.keyword("right_child");
-
-
-function insertIntoNode( node, datom ){
-    if(ST.getValue("")node)
+async function insertIntoNode( node, new_node, sorts )
+{
+    const comp = compare( node, new_node, ...sorts );
+    if( comp < 0 )
+    {
+        let left_child = ST.getChild( node, kLeftChild );
+        if( !left_child )
+        {
+            ST.setChild( node, kLeftChild, new_node );
+            return;
+        }
+        // else
+        await insertIntoNode( left_child, new_node, sorts );
+        return;
+    }
+    // else
+    let right_child = ST.getChild( node, kRightChild );
+    if( !right_child )
+    {
+        ST.setChild( node, kRightChild. new_node );
+        return;
+    }
+    // else
+    await insertIntoNode( right_child, new_node, sorts );
 }
 
 /**
@@ -103,20 +155,32 @@ function insertIntoNode( node, datom ){
  * @param sorts
  * @returns {number}
  */
-function compare(o1, o2, ...sorts){
-    for( let sort of sorts ){
-        if( T.equals( o1[ sort ], o2[ sort ] ) ){
-            continue;
+function compare( node1, node2, ...sorts )
+{
+    const o1 = ST.getValue( node1, kValue );
+    const o2 = ST.getValue( node2, kValue );
+    for( let sort of sorts )
+    {
+        if( T.equals( o1[ sort ], o2[ sort ] ) )
+        {
+            continue; // next field
         }
         if( typeof( o1[ sort ] ) === 'number'
-            && typeof( o2[ sort] ) === 'number'){
+            && typeof( o2[ sort ] ) === 'number')
+        {
             return o2[ sort ] - o1[ sort ];
-            // if it is 0, it should have been handled by T.equals
+            // if it is 0, it should have been
+            // handled by T.equals
         }
-        let ix = o1[ sort ].toString().localeCompare( o2[ sort ].toString() );
-        if( ix !== 0 ){
+        // TODO this is a bad catch-all
+        const s1 = o1[ sort ].toString()
+        const s2 = o2[ sort ].toString()
+        let ix = s1.localeCompare( s2 );
+        if( ix !== 0 )
+        {
             return ix;
         } // else continue
     }
     return 0;
 }
+
