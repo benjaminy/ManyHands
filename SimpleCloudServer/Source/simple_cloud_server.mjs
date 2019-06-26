@@ -101,9 +101,28 @@ async function readFile( db, key )
     }
 }
 
-async function respondToLongPoll(
-    db, long_poll_requests, request, response, client_timeout_pref )
+async function respondToLongPoll( db, long_poll_requests, request, file, response )
 {
+    const req_etag = request.headers[ "if-none-match" ];
+    // TODO: etag parsing
+    if( !( req_etag === file.get( "etag" ) ) )
+    {
+        return true;
+    }
+    if( !( "prefer" in request.headers ) )
+    {
+        throw new BasicError( 304 );
+    }
+    const preferences = PPH( request.headers.prefer );
+    if( !( "wait" in preferences ) )
+    {
+        return true;
+    }
+    if( !allDigits( preferences.wait ) )
+    {
+        throw new BasicError( 400 );
+    }
+    const client_timeout_pref = parseInt( preferences.wait );
     const path = request.url;
     const timeout = Math.max( LONGPOLL_TIMEOUT_MIN,
                               Math.min( LONGPOLL_TIMEOUT_MAX, client_timeout_pref ) );
@@ -128,7 +147,8 @@ async function respondToLongPoll(
         throw err;
     }
 
-    return await respondToGet( db, long_poll_requests, request, response, true );
+    await respondToGet( db, long_poll_requests, request, response, true );
+    return false;
 }
 
 function triggerLongPolls( long_poll_requests, path )
@@ -157,26 +177,10 @@ async function respondToGet(
     if( "if-none-match" in request.headers
         && !end_of_long_poll )
     {
-        const req_etag = request.headers[ "if-none-match" ];
-        // TODO: etag parsing
-        if( req_etag === file.get( "etag" ) )
-        {
-            if( "prefer" in request.headers )
-            {
-                const preferences = PPH( request.headers.prefer );
-                if( "wait" in preferences )
-                {
-                    if( !allDigits( preferences.wait ) )
-                    {
-                        throw new BasicError( 400 );
-                    }
-                    return await respondToLongPoll(
-                        long_poll_requests, db, request, response,
-                        parseInt( preferences.wait ) );
-                }
-            }
-            throw new BasicError( 304 );
-        }
+        const skip = await respondToLongPoll(
+            db, long_poll_requests, request, file, response );
+        if( !skip )
+            return;
     }
     response.setHeader( "Content-Type", "application/octet-stream" );
     response.setHeader( "Content-Length", "" + file.body.byteLength );
