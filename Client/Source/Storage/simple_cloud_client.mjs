@@ -16,35 +16,40 @@ const in_browser = this && ( this.window === this );
 
 /* Note: Not using class syntax, because it seems to fit awkwardly with async/A */
 
-export default function init( user, options )
+export default function init( user, options_init )
 {
     //assert( isString( user ) );
 
-    if( options )
+    if( in_browser )
     {
-        throw new Error( "Unimplemented" );
+        const loc = window.location;
+        var protocol_hostname = loc.protocol + "//" + loc.hostname;
     }
     else
     {
-        if( in_browser )
+        var protocol = "http";
+        if( UM.hasProp( options_init, "TLS" ) )
         {
-            const loc = window.location;
-            var protocol_hostname = loc.protocol + "//" + loc.hostname;
+            /* NOTE: This TLS reject thing should never be deployed for realsies */
+            process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+            protocol = "https";
         }
-        else
-        {
-            var protocol_hostname = "http://localhost";
-        }
+        const host = UM.hasProp( options_init, "host" )
+              ? options_init.host : "localhost";
+        var protocol_hostname = protocol + "://" + host;
     }
 
-    const host = protocol_hostname + ":" + DEFAULT_SERVER_PORT + "/";
+    const port = UM.hasProp( options_init, "port" )
+          ? options_init.port : DEFAULT_SERVER_PORT;
+
+    const dest = protocol_hostname + ":" + port;
 
     async function coreUpload( path, headers, body )
     {
         // assert( M.isPath( path ) );
         /* assert( typeof( content ) is whatever fetch accepts ) */
 
-        const p = host + user + "/" + path;
+        const p = dest + "/" + user + "/" + path;
 
         const fetch_init =
 		      { method : "PUT", headers: headers, body: new Buffer( body ) };
@@ -64,7 +69,7 @@ export default function init( user, options )
     {
         // assert( M.isPath( path ) );
 
-        const p = `${host}${user}/${path}`;
+        const p = `${dest}/${user}/${path}`;
         const response = await fetch( p );
         // L.debug( "download Response", p, response.status, response.statusText );
         return response;
@@ -79,7 +84,7 @@ export default function init( user, options )
     {
         // assert( M.isPath( path ) );
 
-        const p = `${host}${user}/${path}`;
+        const p = `${dest}/${user}/${path}`;
         const fetch_init = { method : "DELETE" };
         const response = await fetch( p, fetch_init );
         return response;
