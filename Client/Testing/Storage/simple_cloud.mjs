@@ -9,6 +9,7 @@ import * as SUD from "./simple_up_down.mjs";
 import * as AU  from "./atomic_update.mjs";
 import * as RN  from "./random_name.mjs";
 import * as DS  from "./deletes.mjs";
+import * as LG  from "./simple_longpoll.mjs";
 
 async function main()
 {
@@ -18,6 +19,7 @@ async function main()
     await AU.test1( s );
     await RN.test1( s );
     await DS.doSomeDeletes( s );
+    await LG.longPollTests( s );
     //await up_down_crypto( s );
     //await up_down_crypto_verify( s );
 }
