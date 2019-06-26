@@ -97,9 +97,29 @@ export default function init( user, options_init )
 
     function watch( link, options )
     {
+        const path = processPath(link.get("path"));
+        const p = host + user + "/" + path;
+        
         const headers = new Headers();
         headers.set("uws-longpoll");
-        throw new Error( "Unimplemented" );
+
+        const fetch_init =
+        { method : "GET", headers: headers};
+
+        const response = await fetch(p, fetch_init);
+        if (response.status === 412)
+        {
+          throw new Error ("Etag is not implemented");
+        }
+        else if (response.status === 408)
+        {
+          throw new Error ("Timed Out");
+        }
+        else {
+          console.log("Successful notification");
+          doSomethingWithResponse(response.body);
+          // i assume im passing the response body into some method that formats it then passes it onto the data side
+        }
     }
 
     function dehydrateLink( link, options )
@@ -118,6 +138,17 @@ export default function init( user, options_init )
         deleteFile: deleteFile,
         watch: watch
     };
+}
+
+function processPath( path_arrs, options )
+{
+    const path1 = options.has( SC.PATH_PREFIX ) ?
+          options.get( SC.PATH_PREFIX ).concat( path_arrs ) : path_arrs;
+    const path2 = UM.nestedArrayFlatten( path1 );
+    path2.every( ( p ) => assert( typeof( p ) === "string" ) );
+    // assert( path2.every( ( p ) => typeof( p ) === "string" ) );
+    const path3 = P.join( ...( path2.map( encodeURIComponent ) ) );
+    return path3;
 }
 
 /* graveyard: */
