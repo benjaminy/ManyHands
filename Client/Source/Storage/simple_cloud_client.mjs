@@ -99,21 +99,28 @@ export default function init( user, options_init )
     {
         const path = processPath(link.get("path"));
         const p = host + user + "/" + path;
-        
+        const etag = options.etag;//something
+        const timeoutLength = options.timeout;//does this work?!
+
         const headers = new Headers();
-        headers.set("uws-longpoll");
+        headers.set("if-none-match",`${etag}`);
+        headers.set("prefer",`wait,${timeoutLength}`);
 
         const fetch_init =
         { method : "GET", headers: headers};
 
         const response = await fetch(p, fetch_init);
-        if (response.status === 412)
+        if (response.status === 400)
         {
-          throw new Error ("Etag is not implemented");
+          throw new Error ("wait time was not all digits");
         }
-        else if (response.status === 408)
+        else if (response.status === 304)
         {
-          throw new Error ("Timed Out");
+          throw new Error ("No Prefer header");
+        }
+        else if (response.status === 404)
+        {
+          throw new Error ("File not found");
         }
         else {
           console.log("Successful notification");
