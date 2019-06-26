@@ -345,7 +345,7 @@ export function setChild( parent, key, child )
 
 export function newNode( storage_options, storage )
 {
-    L.debug( "tree.newNode" );
+    // L.debug( "tree.newNode" );
     const c = {};
     c[ tree_node_tag ]        = null;
     c[ plain_data_tag ]       = T.map();

@@ -100,7 +100,7 @@ export function wrapTree( root )
         return root;
     };
     return tree;
-};
+}
 
 async function constructBinaryTree( data, ...sorts )
 {
@@ -116,7 +116,7 @@ async function constructBinaryTree( data, ...sorts )
         ST.setValue( new_node, kValue, data[i] );
         await insertIntoNode( root, new_node, sorts );
     }
-    return node;
+    return root;
 }
 
 async function insertIntoNode( node, new_node, sorts )
@@ -124,25 +124,36 @@ async function insertIntoNode( node, new_node, sorts )
     const comp = compare( node, new_node, ...sorts );
     if( comp < 0 )
     {
-        let left_child = await ST.getChild( node, kLeftChild );
-        if( !left_child )
-        {
-            ST.setChild( node, kLeftChild, new_node );
+        try {
+            left_child = await ST.getChild( node, kLeftChild );
+            await insertIntoNode( left_child, new_node, sorts );
             return;
         }
-        // else
-        await insertIntoNode( left_child, new_node, sorts );
+        catch( err )
+        {
+            if( err.type === "FileNotFoundError" )
+            {
+                ST.setChild( node, kLeftChild, new_node );
+                return;
+            }
+            throw err;
+        }
+    } // else, right side
+    let right_child;
+    try {
+        right_child = await ST.getChild( node, kRightChild );
+        await insertIntoNode( right_child, new_node, sorts );
         return;
     }
-    // else
-    let right_child = await ST.getChild( node, kRightChild );
-    if( !right_child )
+    catch( err )
     {
-        ST.setChild( node, kRightChild. new_node );
-        return;
+        if( err.type === "FileNotFoundError" )
+        {
+            ST.setChild( node, kRightChild, new_node );
+            return;
+        }
+        throw err;
     }
-    // else
-    await insertIntoNode( right_child, new_node, sorts );
 }
 
 /**
@@ -174,8 +185,8 @@ function compare( node1, node2, ...sorts )
             // handled by T.equals
         }
         // TODO this is a bad catch-all
-        const s1 = o1[ sort ].toString()
-        const s2 = o2[ sort ].toString()
+        const s1 = o1[ sort ].toString();
+        const s2 = o2[ sort ].toString();
         let ix = s1.localeCompare( s2 );
         if( ix !== 0 )
         {
