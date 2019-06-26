@@ -61,6 +61,8 @@ export function wrapTree( root )
         {
             // return all records
             matcher = () => kCompatible;
+            // who cares which one
+            db = await ST.getChild( root, kEAVT );
         }
         else if( entity === undefined
             && attribute === undefined
@@ -94,7 +96,7 @@ export function wrapTree( root )
                 ENTITY, ATTRIBUTE, VALUE, TIMESTAMP );
             db = await ST.getChild( root, kEAVT );
         }
-
+        console.log("dbroot", db, root);
         return await queryTree( db, matcher );
     };
 
@@ -167,10 +169,16 @@ function compare_match_wrapper( criterion, ...sorts )
  * returns -1 or 1 just like a compare(...) function
  *
  */
-async function queryTree(root, compare_match)
+async function queryTree( root, compare_match )
 {
-    const running = []
+    const running = [];
     const root_value = ST.getValue( root, kValue );
+    if( root_value === undefined )
+    {
+        // current node, probably root,
+        // does not have a value
+        return [];
+    }
     const comp = compare_match( root_value );
     console.log("querying", running, root_value, comp );
     if( comp === kCompatible || comp === kGreater || comp === kUnknown )
@@ -213,7 +221,8 @@ async function constructBinaryTree( data, ...sorts )
     {
         return root; /// ??? ok
     }
-    ST.setValue(root, kValue, data[0]);
+    root = ST.setValue(root, kValue, data[0]);
+    console.log("checking", data, ST.getValue(root, kValue));
     for( let i = 1; i < data.length; i++ )
     {
         const new_node = ST.newNode();
@@ -226,6 +235,7 @@ async function constructBinaryTree( data, ...sorts )
 async function insertIntoNode( node, new_node, sorts )
 {
     const comp = compare( node, new_node, ...sorts );
+    let left_child;
     if( comp < 0 )
     {
         try {
@@ -289,6 +299,14 @@ function compare( node1, node2, ...sorts )
             // handled by T.equals
         }
         // TODO this is a bad catch-all
+        if( o1[ sort ] === null )
+        {
+            return -1;
+        }
+        if( o2[ sort ] === null )
+        {
+            return 1;
+        }
         const s1 = o1[ sort ].toString();
         const s2 = o2[ sort ].toString();
         let ix = s1.localeCompare( s2 );

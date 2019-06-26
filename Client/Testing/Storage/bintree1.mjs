@@ -44,7 +44,7 @@ async function test_02_query_simple()
 
     const r2 = await ST.writeTree( root );    
     const r3 = await retrieve_root();
-    const db = await ST.getChild( root, "the database" );
+    const db = await ST.getChild( r3, "the database" );
     const tree = BT.wrapTree( db );
     const res = await tree.query({entity: 6});
     console.log("one datom?", res);

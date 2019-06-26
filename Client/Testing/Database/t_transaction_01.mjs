@@ -7,18 +7,22 @@ import * as K from "../../Source/Utilities/keyword.mjs";
 import * as A from "../../Source/Database/attribute.mjs";
 import * as DT from "../../Source/Database/transaction.mjs";
 import SM       from "../../Source/Storage/in_memory.mjs";
+import * as SC from "../../Source/Storage/common.mjs";
+import * as ST from "../../Source/Storage/tree.mjs";
 
-import {tree_adaptor_wrapper} from "../../Source/Database/txn_tree_adaptor.mjs";
+import * as TW from "../../Source/Database/txn_tree_adaptor.mjs";
 import * as Q from "../../Source/Database/query.mjs";
 import * as DB from "../../Source/Database/simple_txn_chain.mjs";
+
+import T from "transit-js";
 
 // // [ DT.addK, "bob", ":age", 42 ]
 
 async function main() {
     //return Promise.all([
-        await test_01_add_datom();
+        //await test_01_add_datom();
         await test_02_get_attribute();
-        await test_03_many_statements()
+        //await test_03_many_statements()
     //]);
 }
 
@@ -54,8 +58,18 @@ async function test_02_add_datom(){
 
 */
 
+function new_plain_root()
+{
+    const in_mem_storage = SM();
+    const options = T.map();
+    options.set( SC.PATH_PREFIX, [ "demo_app2" ] );
+    options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
+    const root = ST.newRoot( [ "root" ], in_mem_storage, options );
+    return [root, () => { ST.openRoot( [ "root" ], in_mem_storage, options ) }];
+}
+
 async function setup(){
-    const raw_storage = await (await tree_adaptor_wrapper(SM()))();
+    const [root, retrieve_root] = new_plain_root();
     const like_insert = DT.getAttributeInserts(
         A.createAttribute(
             ":likes",
@@ -72,15 +86,25 @@ async function setup(){
             "A person's single, full name"
         )
     );
-    let db = DB.newDB(raw_storage);
+    let adaptor = await TW.initialize_tree_adaptor();
+    let db = DB.newDB( adaptor );
+    console.log("committing a txn");
     db = await db.commitTxn(db, [...like_insert, ...name_insert]);
-    console.log(db);
-    console.log("Setup completed");
-    return db;
+
+    ST.setChild( root, "the database", adaptor.node );
+    const r2 = await ST.writeTree( root );    
+    const r3 = await retrieve_root();
+    console.log( "r3", r3 );
+    const retrieved_raw = await ST.getChild( r3, "the database" );
+    const retrieved_adaptor = TW.tree_adaptor( retrieved_raw );
+    const retrieved_db = DB.newDB( retrieved_adaptor );
+    // TODO some thinking needs to go into how to store transaction
+    // info-- stuff that is not datoms.
+    return [ retrieved_db, retrieve_root ];
 }
 
 async function test_02_get_attribute(){
-    let db = await setup();
+    let [ db, retrieve_root ] = await setup();
     const statement = [ DT.addK, "bob", K.key(":name"), "Bobethy" ];
     db = await db.commitTxn(db, [statement]);
 
