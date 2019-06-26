@@ -38,6 +38,12 @@ export async function buildTree( data )
     return root;
 }
 
+
+const kCompatible = T.keyword("compatible");
+const kGreater    = T.keyword("greater");
+const kLesser     = T.keyword("lesser");
+const kUnknown    = T.keyword("unknown");
+
 export function wrapTree( root )
 {
     const tree = {}; // "class" object
@@ -45,54 +51,51 @@ export function wrapTree( root )
     tree.query = async function( query )
     {
         query = typeof( query ) === 'object' ? query : {};
-        const { entity, attribute, value } = query;
-
+        const { entity, attribute, value, timestamp, revoked } = query;
+        const search = [ entity, attribute, value, timestamp, revoked ];
+        let matcher;
+        let db;
         if( entity === undefined
             && attribute === undefined
             && value === undefined )
         {
             // return all records
-            throw new UM.UnimplementedError( "Query for all records" );
+            matcher = () => kCompatible;
         }
-        if( entity === undefined
+        else if( entity === undefined
             && attribute === undefined
             && value !== undefined ){
             // VAET
-            return sortedSearch( vaet, VALUE, value );
+            matcher = compare_match_wrapper( search, 
+                VALUE, ATTRIBUTE, ENTITY, TIMESTAMP );
+            db = await ST.getChild( root, kVAET );
         }
-        if( entity === undefined
+        else if( entity === undefined
             && attribute !== undefined
             && value === undefined )
         {
             // AVET or AEVT
-            return sortedSearch( aevt, ATTRIBUTE, attribute );
+            matcher = compare_match_wrapper( search, 
+                ATTRIBUTE, ENTITY, VALUE, TIMESTAMP );
+            db = await ST.getChild( root, kAVET );
         }
-        if( entity === undefined
+        else if( entity === undefined
             && attribute !== undefined
             && value !== undefined ){
             // AVET or VAET
-            const vet = sortedSearch( avet, ATTRIBUTE, attribute );
-            return sortedSearch( vet, VALUE, value );
+            matcher = compare_match_wrapper( search, 
+                ATTRIBUTE, VALUE, ENTITY, TIMESTAMP );
+            db = await ST.getChild( root, kAVET );
         }
-        if( entity !== undefined )
+        else if( entity !== undefined )
         {
-            // EAVT is the only index with an entity in it
-            const avt = sortedSearch( eavt, ENTITY, entity );
-            if( attribute !== undefined )
-            {
-                const vt = sortedSearch( avt, ATTRIBUTE, attribute );
-                if( value !== undefined )
-                {
-                    return sortedSearch( vt, VALUE, value );
-                }
-                return vt;
-            }
-            if( value !== undefined ){
-                // TODO do we want an index for this particular case?
-                return unsortedSearch( avt, VALUE, value );
-            }
-            return avt;
+            // EAVT is the only index with an entity as the major sort
+            matcher = compare_match_wrapper( search, 
+                ENTITY, ATTRIBUTE, VALUE, TIMESTAMP );
+            db = await ST.getChild( root, kEAVT );
         }
+
+        return await queryTree( db, matcher );
     };
 
     tree.node = function()
@@ -100,6 +103,107 @@ export function wrapTree( root )
         return root;
     };
     return tree;
+}
+/**
+ * criterion is a datom-like object. for example,
+ * [1, undefined, undefined, 3, undefined]
+ * for entity 1 with timestamp 3
+ *
+ */
+function compare_match_wrapper( criterion, ...sorts )
+{
+    function compare_match( item )
+    {
+        let compatible = true;
+        for( let i = 0; i < criterion.length; i++ )
+        {
+            if( criterion[i] !== undefined )
+            {
+                compatible = compatible && criterion[i] === item[i];
+            }
+        }
+        if( compatible )
+        {
+            return kCompatible;
+        }
+        // they are incompatible-- determine which side
+        // the item belongs on.
+        for( const sort of sorts )
+        {
+            if( item[sort] === undefined )
+            {
+                return kUnknown;
+            }
+            if( T.equals( criterion[ sort ], item[ sort ] ) )
+            {
+                continue; // next field
+            }
+            let ix;
+            if( typeof( criterion[ sort ] ) === 'number'
+                && typeof( item[ sort ] ) === 'number')
+            {
+                ix = item[ sort ] - criterion[ sort ];
+            } else {
+                const s1 = criterion[ sort ].toString();
+                const s2 = item[ sort ].toString();
+                ix = s1.localeCompare( s2 );
+            }
+            if( ix !== 0 )
+            {
+                if(ix > 0) return kGreater;
+                return kLesser;
+            }
+            // continue
+        }
+    }
+    return compare_match;
+}
+
+
+/**
+ * root: the tree
+ * is_match: function compare_match(value), checks if value is within
+ * the search criteria. if yes, replies with 0, but otherwise,
+ * returns -1 or 1 just like a compare(...) function
+ *
+ */
+async function queryTree(root, compare_match)
+{
+    const running = []
+    const root_value = ST.getValue( root, kValue );
+    const comp = compare_match( root_value );
+    console.log("querying", running, root_value, comp );
+    if( comp === kCompatible || comp === kGreater || comp === kUnknown )
+    {
+        try {
+            const left_child = await ST.getChild( root, kLeftChild );
+            running.push( ...( await queryTree( left_child, compare_match ) ) );
+        } catch ( ex )
+        {
+            if(ex.type != "FileNotFoundError")
+            {
+                throw ex;
+            }
+        }
+    }
+    if( comp === kCompatible )
+    {
+        running.push( root_value );
+    }
+    if( comp === kCompatible || comp === kLesser || comp === kUnknown )
+    {
+        try {
+            const right_child = await ST.getChild( root, kRightChild );
+            running.push( ...( await queryTree( right_child, compare_match ) ) );
+        } catch ( ex )
+        {
+            if(ex.type != "FileNotFoundError")
+            {
+                throw ex;
+            }
+        }
+    }
+    return running;
 }
 
 async function constructBinaryTree( data, ...sorts )
