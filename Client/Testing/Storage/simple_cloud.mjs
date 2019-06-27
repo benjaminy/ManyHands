@@ -15,11 +15,11 @@ async function main()
 {
     // const s = SC( "alice", { TLS:true } );
     const s = SC( "alice" );
-    await SUD.just_upload( s );
-    await SUD.up_down( s );
-    await AU.test1( s );
-    await RN.test1( s );
-    await DS.doSomeDeletes( s );
+    //await SUD.just_upload( s );
+    //await SUD.up_down( s );
+    //await AU.test1( s );
+    //await RN.test1( s );
+    //await DS.doSomeDeletes( s );
     await LG.longPollTests( s );
     //await up_down_crypto( s );
     //await up_down_crypto_verify( s );

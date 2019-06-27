@@ -95,38 +95,43 @@ export default function init( user, options_init )
         return GH.deleteFile( link, options, coreDeleteFile );
     }
 
-    function watch( link, options )
+    async function watch( link, options )
     {
-        const path = processPath(link.get("path"));
-        const p = host + user + "/" + path;
-        const etag = options.etag;//something
-        const timeoutLength = options.timeout;//does this work?!
-
+        //const path = processPath(link.get("path"));
+        const path = link.get("path");
+        const p = dest+"/"+ user + "/" + path;
+        const etag = options.etag;
+        const timeoutLength = options.timeoutLength;
         const headers = new Headers();
         headers.set("if-none-match",`${etag}`);
-        headers.set("prefer",`wait,${timeoutLength}`);
+        headers.set("prefer",`wait=${timeoutLength}`);
 
         const fetch_init =
         { method : "GET", headers: headers};
 
         const response = await fetch(p, fetch_init);
+        let watchResponseMeta = undefined;
         if (response.status === 400)
         {
-          throw new Error ("wait time was not all digits");
+          watchResponseMeta = "timeout-format-error";
         }
         else if (response.status === 304)
         {
-          throw new Error ("No Prefer header");
+          watchResponseMeta = "timeout";
         }
         else if (response.status === 404)
         {
-          throw new Error ("File not found");
+          watchResponseMeta = "path-format-error";
         }
-        else {
-          console.log("Successful notification");
-          doSomethingWithResponse(response.body);
+        else if (response.status === 200){
+          watchResponseMeta = "file-changed";
+          //doSomethingWithResponse(response.body);
           // i assume im passing the response body into some method that formats it then passes it onto the data side
         }
+        else {
+          throw new Error("Unexpected server response");
+        }
+        return watchResponseMeta;
     }
 
     function dehydrateLink( link, options )
