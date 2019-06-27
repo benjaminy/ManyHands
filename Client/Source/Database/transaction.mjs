@@ -27,8 +27,8 @@ export async function getAttribute( db, identName ) {
 
     if( !( db.attributes.has(ident) ) )
     {
-        console.log("is this going", ident);
         const qResult = await Q.runQuery( db, Q.attrQuery, ident );
+
         if(qResult.length === 0){
             throw new Error( "DB does not have attribute " + ident.toString());
         }
