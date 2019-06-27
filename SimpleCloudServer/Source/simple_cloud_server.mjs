@@ -105,13 +105,13 @@ async function respondToLongPoll( db, long_poll_requests, request, file, respons
 {
     const req_etag = request.headers[ "if-none-match" ];
     // TODO: etag parsing
-    if( !( req_etag === file.get( "etag" ) ) )
+    if( !( req_etag === file.etag) )
     {
         return true;
     }
     if( !( "prefer" in request.headers ) )
     {
-        throw new BasicError( 304 );
+        return true;
     }
     const preferences = PPH( request.headers.prefer );
     if( !( "wait" in preferences ) )
@@ -124,8 +124,8 @@ async function respondToLongPoll( db, long_poll_requests, request, file, respons
     }
     const client_timeout_pref = parseInt( preferences.wait );
     const path = request.url;
-    const timeout = Math.max( LONGPOLL_TIMEOUT_MIN,
-                              Math.min( LONGPOLL_TIMEOUT_MAX, client_timeout_pref ) );
+    const timeout = Math.max( LONGPOLL_MIN_TIMEOUT,
+                              Math.min( LONGPOLL_MAX_TIMEOUT, client_timeout_pref ) );
 
     var resolve, reject;
     const longPollPromise = new Promise( ( s, j ) => { resolve = s, reject = j } );
@@ -177,6 +177,7 @@ async function respondToGet(
     if( "if-none-match" in request.headers
         && !end_of_long_poll )
     {
+        console.log("entered longpoll");
         const skip = await respondToLongPoll(
             db, long_poll_requests, request, file, response );
         if( !skip )
