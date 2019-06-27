@@ -46,6 +46,7 @@ export function tree_adaptor( storageTree ){
     };
 
     ds.find = async (query) => {
+        console.log("QUERYING:", query, await engine.query(query));
         return await engine.query(query);
     };
 

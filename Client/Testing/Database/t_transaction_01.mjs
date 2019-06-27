@@ -65,7 +65,7 @@ function new_plain_root()
     options.set( SC.PATH_PREFIX, [ "demo_app2" ] );
     options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
     const root = ST.newRoot( [ "root" ], in_mem_storage, options );
-    return [root, () => { ST.openRoot( [ "root" ], in_mem_storage, options ) }];
+    return [root, () => { return ST.openRoot( [ "root" ], in_mem_storage, options ) }];
 }
 
 async function setup(){

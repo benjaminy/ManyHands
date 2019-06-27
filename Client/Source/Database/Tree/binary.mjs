@@ -96,7 +96,6 @@ export function wrapTree( root )
                 ENTITY, ATTRIBUTE, VALUE, TIMESTAMP );
             db = await ST.getChild( root, kEAVT );
         }
-        console.log("dbroot", db, root);
         return await queryTree( db, matcher );
     };
 
@@ -116,23 +115,25 @@ function compare_match_wrapper( criterion, ...sorts )
 {
     function compare_match( item )
     {
+        console.log( "comparing", item, criterion );
         let compatible = true;
         for( let i = 0; i < criterion.length; i++ )
         {
             if( criterion[i] !== undefined )
             {
-                compatible = compatible && criterion[i] === item[i];
+                compatible = compatible && T.equals(criterion[i], item[i]);
             }
         }
         if( compatible )
         {
+            console.log("cmoparible?!!!");
             return kCompatible;
         }
         // they are incompatible-- determine which side
         // the item belongs on.
         for( const sort of sorts )
         {
-            if( item[sort] === undefined )
+            if( criterion[sort] === undefined )
             {
                 return kUnknown;
             }
@@ -146,6 +147,7 @@ function compare_match_wrapper( criterion, ...sorts )
             {
                 ix = item[ sort ] - criterion[ sort ];
             } else {
+                console.log(criterion, sort, "csss");
                 const s1 = criterion[ sort ].toString();
                 const s2 = item[ sort ].toString();
                 ix = s1.localeCompare( s2 );
@@ -175,10 +177,12 @@ async function queryTree( root, compare_match )
     const root_value = ST.getValue( root, kValue );
     if( root_value === undefined )
     {
+        console.log("no root???");
         // current node, probably root,
         // does not have a value
         return [];
     }
+    console.log("rv", root_value);
     const comp = compare_match( root_value );
     console.log("querying", running, root_value, comp );
     if( comp === kCompatible || comp === kGreater || comp === kUnknown )
