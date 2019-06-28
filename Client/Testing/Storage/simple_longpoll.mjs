@@ -12,10 +12,10 @@ const notTimeout = "10x"
 
 export async function longPollTests(s){
   const etag = await longpollSetup(s);
-  longPollTimeoutTest(s, etag);
-  longPollInvalidPathTest(s, etag);
-  longPollInvalidTimeoutTest(s, etag);
-  longPollSuccessfulNotificationTest(s, etag);
+  await longPollTimeoutTest(s, etag);
+  await longPollInvalidPathTest(s, etag);
+  await longPollInvalidTimeoutTest(s, etag);
+  await longPollSuccessfulNotificationTest(s, etag);
 }
 
 async function longPollTimeoutTest( s, etag ){
@@ -25,10 +25,8 @@ async function longPollTimeoutTest( s, etag ){
     etag: `${etag}`,
     timeoutLength: `${timeout}`
   }
-  //assert(s.watch(link,options) === "timeout");
-  const watchMeta = s.watch(link,options);
-  await watchMeta;
-  console.log(watchMeta);
+  const watchMeta = await s.watch(link,options);
+  assert(watchMeta === "timeout");
 }
 
 async function longPollInvalidPathTest(s, etag){
@@ -39,9 +37,8 @@ async function longPollInvalidPathTest(s, etag){
     timeoutLength: `${timeout}`
   }
   //assert(s.watch(link,options) === "path-format-error");
-  const watchMeta = s.watch(link,options);
-  await watchMeta;
-  //console.log(watchMeta);
+  const watchMeta = await s.watch(link,options);
+  assert(watchMeta === "path-format-error");
 }
 
 
@@ -52,10 +49,8 @@ async function longPollInvalidTimeoutTest(s, etag){
     etag: `${etag}`,
     timeoutLength: `${notTimeout}`
   }
-  const watchMeta = s.watch(link,options);
-  await watchMeta;
-  //assert(s.watch(link,options) === "timeout-format-error");
-  //console.log(watchMeta);
+  const watchMeta = await s.watch(link,options);
+  assert(watchMeta === "timeout-format-error");
 }
 
 async function longPollSuccessfulNotificationTest(s, etag){
@@ -67,7 +62,8 @@ async function longPollSuccessfulNotificationTest(s, etag){
   }
   const watchMeta = s.watch(link,options)
   fileChange(s);
-  await watchMeta;
+  const metaInfo = await watchMeta;
+  assert(metaInfo === "file-changed");
 }
 
 async function fileChange(s)
