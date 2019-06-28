@@ -120,3 +120,10 @@ function mapSpreadOp()
     console.log( "spread", ...m1 );
 }
 mapSpreadOp();
+
+function setCreate()
+{
+    const s = T.set( [ "alice", 42, 4.2, [ 7 ] ] );
+    console.log( "My set?", s.toString() );
+}
+setCreate();
