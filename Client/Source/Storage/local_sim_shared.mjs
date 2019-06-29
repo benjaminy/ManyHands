@@ -164,3 +164,11 @@ export function deleteFile( filesMap )
         }
     }
 }
+
+export function watch(filesMap)
+{
+  return async function watch(path){
+    L.debug( "\u21b3 local_sim.watch", path );
+    
+  }
+}
