@@ -1,0 +1,105 @@
+%
+% Top Matter
+%
+
+\documentclass[runningheads]{llncs}
+
+% \usepackage{ wasysym }
+% \usepackage{ amssymb }
+
+\begin{document}
+
+
+\title{Scalable Causal Consistency for Secure Decentralized Collaborative Editing}
+\titlerunning{Consistency for Decentralized Collaborative Editing}
+
+% \author{Benjamin Ylvisaker\inst{1}\orcidID{0000-0002-8608-7404} \and
+% Beau Carlborg\inst{1}\orcidID{}}
+\author{Benjamin Ylvisaker\orcidID{0000-0002-8608-7404} \and Daniel Barnes \and Mataan Peer}
+\authorrunning{B. Ylvisaker}
+
+\institute{Colorado College, Colorado Springs, CO 80905, USA
+  \email{bylvisaker@coloradocollege.edu}}
+
+\maketitle
+
+\begin{abstract}
+
+Secure \emph{messaging} protocols and apps (Signal, Off-the-Record, WhatsApp, Telegram, etc.) have achieved substantial mainstream adoption.
+Unfortunately, the same cannot be said of \emph{collaborative editing}, where trust-the-service-provider protocols are still used by all of the most popular applications.
+
+One architectural approach that might help spur wider adoption of secure collaborative editing is decentralization.
+However, centralization is quite useful in terms of usability and efficiency.
+In particular, decentralization makes it harder for teams to agree on a consistent view of their shared document{\slash}database.
+
+In this paper we evaluate a new tweak on an old idea: causal consistency.
+Causal consistency gives decentralized teams a way to agree on the happens-before relation among their concurrent edits.
+This partial order is not itself a complete conflict reconciliation strategy, but it is a useful ingredient thereof.
+
+It is well known that the per-edit overhead to implement causal consistency scales linearly with team size in the worst case.
+This overhead puts a severe pratical limit on team size.
+Several researchers have explored trade-offs that gain efficiency at the expense of accuracy.
+
+In this paper we propose a new implementation that makes a different trade-off.
+The per-edit overhead in our protocol scales sub-linearly with team size as long as the degree of edit concurrency is low.
+The overhead degrades reasonably gracefully back to the known worst case as edit concurrency increases.
+This trade-off is unlikely to be compelling in high-performance data center applications (the focus of much of the existing research on causal consistency), because there the degree of edit concurrency is likely to be high.
+However, 
+
+We observe that in many team collaborative editing contexts, the degree of edit concurrency is usually quite low.
+
+
+\keywords{Secure group messaging  \and Collaborative editing \and Cloud storage.}
+\end{abstract}
+
+\section{Introduction}
+
+Collaborative editing applications for teams -- like Slack, Trello and Google Docs -- have become important tools for huge numbers of people in a wide range of work and social contexts.
+From a privacy perspective these applications are problematic.
+All popular team collaborative editing (TCE) applications use trust-the-service-provider architectures.
+That is, clients send their edits to a central service to be integrated into a shared document{\slash}database and stored.
+
+Malicious service providers can trivially violate teams' privacy.
+Assuming maliciousness on the part of service providers is a paranoia step too far for some people.
+But even if we assume no such maliciousness, recent experience has demonstrated fundamental problems with this architecture.
+Services have lost data to criminal{\slash}military intelligence \emph{exfiltration}.
+Misbehaving \emph{individuals} in organizations have violated data privacy in a variety of creative ways.
+Governments and courts have applied \emph{legal} pressure on service providers and \emph{blocked{\slash}shut down} services that use encryption to protect user privacy.
+
+In response to these privacy and security problems, many regular internet users have adopted more secure systems like end-to-end encrypted messaging networks and password managers.
+
+
+In an effort to enable TCE applications without any reliance on a central service, we are exploring distributed approaches to collaborative editing.
+Though the
+
+For these reasons, we are exploring decentralized
+
+\section{Causal Consistency and Matrix Clocks}
+
+Causal consistency is a topic that has been researched extensively.
+A large majority of that reesearch has been done in the context of high concurrency data center infrastructure.
+
+
+\section{Matrix Clock Compression for Team Size Scalability}
+
+Classical matrix clock (MC) timestamps scale quadratically with team size.
+As mentioned previously, this would put a quite low practical limit on team size for TCE applications that send a timestamp with every edit.
+We explore a compression of MC timestamps that is effective with the volume of concurrent editing within a team is low.
+This compression relies on the following two observations:
+
+\begin{itemize}
+  \item Individual vector clock timestamps can be implemented as sets of references to only the specific edits that a teammate believes to be the most recent.
+    The referred-to edits transitively imply the missing parts of the timestamp.
+  \item If the volume of concurrent editing is low, then many users will have the same view of the current time.
+    This means that we can compress.
+    The remaining challenge is efficiently representing sets of teammates.
+\end{itemize}
+
+\section{Experimental Validation}
+
+\section{}
+
+%% \bibliographystyle{splncs04}
+%% \bibliography{./uws.bib}
+
+\end{document}
