@@ -39,6 +39,9 @@ export const uniqueValue    = K.key( ":db.unique/value" );
 export const uniqueIdentity = K.key( ":db.unique/identity" );
 export const uniques = transit.set( [ uniqueValue, uniqueIdentity ] );
 
+// this is not datomic, but I needed it,
+export const functionK = K.key(":db/function");
+
 /*
 export const dbKeys = new Set( [
     identK, docK, indexK, fulltextK, noHistoryK, isComponentK,
@@ -70,7 +73,8 @@ export const dbIdMap = transit.map([
     22, vtypeBytes     ,
     23, uniqueK        ,
     24, uniqueValue    ,
-    25, uniqueIdentity
+    25, uniqueIdentity ,
+    26, functionK
 ]);
 
 export const dbSymbolMap = transit.map();
