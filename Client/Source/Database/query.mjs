@@ -721,7 +721,7 @@ export async function runQuery( db, q, ...ins )
               buildMappedVariablesByConstraint( naiveWhereQueryResult );
 
         const constructedRows = pair(mappedVariablesByConstraint);
-        console.log("adsfads", naiveWhereQueryResult, mappedVariablesByConstraint.toString(), constructedRows.toString());
+
         return filterIncompleteResults(constructedRows);
 
     }

@@ -85,7 +85,6 @@ export function makeAttribute(
     ident_, id_, valueType_, cardinality_,
     doc, unique, index, fulltext, isComponent, noHistory )
 {
-    console.log("makeattribute", ident_, id_, valueType_);
     const ident       = K.key( ident_ );
     const valueType   = typeof(valueType_) === "number" ? dbIdMap.get( valueType_ ) : valueType_;
     const cardinality = typeof(cardinality_) === "number" ? dbIdMap.get( cardinality_ ) : cardinality_;

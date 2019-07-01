@@ -14,7 +14,6 @@ function new_entity( db )
 {
     const eid = db.next_entity_id;
     db.next_entity_id++;
-    console.log("did it NAN", eid, db.next_entity_id);
     return eid;
     //return [ eid, Object.assign( {}, db, { next_entity_id: eid + 1 } ) ];
 }
@@ -33,8 +32,6 @@ export async function getAttribute( db, identName ) {
         if(qResult.length === 0){
             throw new Error( "DB does not have attribute " + ident.toString());
         }
-
-        console.log("attribute query returned", qResult);
 
         const [ [ id, v, c, d, u, i, f, ic, n ] ] = qResult; // TODO: cardinality should flatten this from [[]] to []
         db.attributes.set( ident, DA.makeAttribute( ident, id, v, c, d, u, i, f, ic, n ) );

@@ -61,8 +61,6 @@ export async function commitTxn( db, stmts )
 export async function find( db, options )
 {
     const current_node = db.node;
-    console.log("CORRNTYUN NODE:", current_node.toString());
-    console.trace();
     let wrap;
     try {
         const storage = await ST.getChild( current_node, kStorage );
@@ -115,7 +113,6 @@ export async function find( db, options )
 // }
 
 export function wrapDB( node ){
-    console.log("wrapping", node.toString());
     return {
         node: node,
         attributes: T.map(), // cache
