@@ -105,18 +105,18 @@ async function respondToLongPoll( db, long_poll_requests, request, file, respons
 {
     const req_etag = request.headers[ "if-none-match" ];
     // TODO: etag parsing
-    if( !( req_etag === file.etag) )
+    if( !( ( req_etag === "*" ) || ( req_etag === file.get( "etag" ) ) ) )
     {
         return true;
     }
     if( !( "prefer" in request.headers ) )
     {
-        return true;
+        throw new BasicError( 304 );
     }
     const preferences = PPH( request.headers.prefer );
     if( !( "wait" in preferences ) )
     {
-        return true;
+        throw new BasicError( 304 );
     }
     if( !allDigits( preferences.wait ) )
     {
@@ -124,11 +124,11 @@ async function respondToLongPoll( db, long_poll_requests, request, file, respons
     }
     const client_timeout_pref = parseInt( preferences.wait );
     const path = request.url;
-    const timeout = Math.max( LONGPOLL_MIN_TIMEOUT,
-                              Math.min( LONGPOLL_MAX_TIMEOUT, client_timeout_pref ) );
+    const timeout = Math.max(
+        LONGPOLL_TIMEOUT_MIN, Math.min( LONGPOLL_TIMEOUT_MAX, client_timeout_pref ) );
 
     var resolve, reject;
-    const longPollPromise = new Promise( ( s, j ) => { resolve = s, reject = j } );
+    const long_poll_promise = new Promise( ( s, j ) => { resolve = s, reject = j } );
     setTimeout( () => reject( new TimeoutError() ), timeout * 1000 );
 
     const reqs = long_poll_requests.has( path )
@@ -137,7 +137,7 @@ async function respondToLongPoll( db, long_poll_requests, request, file, respons
     reqs.add( resolve );
 
     try {
-        await longPollPromise;
+        await long_poll_promise;
     }
     catch( err ) {
         if( err.type === "TimeoutError" )
@@ -177,10 +177,9 @@ async function respondToGet(
     if( "if-none-match" in request.headers
         && !end_of_long_poll )
     {
-        console.log("entered longpoll");
-        const skip = await respondToLongPoll(
+        const do_normal_get = await respondToLongPoll(
             db, long_poll_requests, request, file, response );
-        if( !skip )
+        if( !do_normal_get )
             return;
     }
     response.setHeader( "Content-Type", "application/octet-stream" );
@@ -246,9 +245,9 @@ async function respondToPut( db, long_poll_requests, request, response )
             const now = new Date( Date.now() ).toGMTString();
             response.setHeader( "Last-Modified", now );
             response.setHeader( "ETag", hash_val );
+            const meta = { etag: hash_val, timestamp:now };
             const pm = db.put(
-                "M" + request.url, { etag: hash_val, timestamp:now },
-                { valueEncoding: "json" } );
+                "M" + request.url, meta, { valueEncoding: "json" } );
             const pd = db.put(
                 "D" + request.url, body, { valueEncoding: "binary" } );
             await Promise.all( [ pm, pd ] );
