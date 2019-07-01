@@ -13,8 +13,6 @@ export async function initialize_tree_adaptor( initial_data=[] ){
         data = initial_data;
     }
 
-    console.log("initiaiotaldsf", data)
-
     const storageTree = await TR.buildTree( data );
     return tree_adaptor( storageTree )
 }
@@ -40,8 +38,6 @@ export function tree_adaptor( storageTree ){
             t_datoms.push(t_datom);
         }
         // TODO query for all?
-        console.log("rebuilding the tree");
-        console.log("BLANK QUERY", await engine.query({}));
         return await initialize_tree_adaptor([...( await engine.query({}) ), ...t_datoms]);
     };
 

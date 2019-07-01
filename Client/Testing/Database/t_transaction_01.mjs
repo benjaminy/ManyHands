@@ -51,7 +51,7 @@ async function test_02_add_datom(){
 
     const statement = [ DT.addK, "bob", ":age", 42 ];
 
-    const res = await db.commitTxn(db, [statement]);
+    const res = await DB.commitTxn(db, [statement]);
 
     console.log(res);
 }
@@ -86,27 +86,32 @@ async function setup(){
             "A person's single, full name"
         )
     );
-    let adaptor = await TW.initialize_tree_adaptor();
-    let db = DB.newDB( adaptor );
+    //let adaptor = await TW.initialize_tree_adaptor();
+    let db = DB.newDB( /*adaptor*/ );
     console.log("committing a txn");
-    db = await db.commitTxn(db, [...like_insert, ...name_insert]);
+    db = await DB.commitTxn(db, [...like_insert, ...name_insert]);
 
-    ST.setChild( root, "the database", adaptor.node );
+    ST.setChild( root, "the database", db.node );
     const r2 = await ST.writeTree( root );    
     const r3 = await retrieve_root();
-    console.log( "r3", r3 );
+    console.log( "r3", r3.toString() );
     const retrieved_raw = await ST.getChild( r3, "the database" );
-    const retrieved_adaptor = TW.tree_adaptor( retrieved_raw );
-    const retrieved_db = DB.newDB( retrieved_adaptor );
+    console.log("retrieved raw correctly?", retrieved_raw.toString());
+    //const retrieved_adaptor = TW.tree_adaptor( retrieved_raw );
+    const retrieved_db = DB.wrapDB( /*retrieved_adaptor*/ retrieved_raw );
     // TODO some thinking needs to go into how to store transaction
     // info-- stuff that is not datoms.
+    console.log("IN TEST NODE:", retrieved_db.node.toString());
     return [ retrieved_db, retrieve_root ];
 }
 
 async function test_02_get_attribute(){
     let [ db, retrieve_root ] = await setup();
+    // TEST
+    console.log("STORAGEA FAFDS", db.node.toString());
+    // UNTEST
     const statement = [ DT.addK, "bob", K.key(":name"), "Bobethy" ];
-    db = await db.commitTxn(db, [statement]);
+    db = await DB.commitTxn(db, [statement]);
 
     const checkQuery = Q.parseQuery(
         [Q.findK, "?a", "?name",
@@ -128,7 +133,7 @@ async function test_03_many_statements(){
         [ DT.addK, "mary", name, "Marticia"],
         [ DT.addK, "susan", name, "Suzard"],
         [ DT.addK, "mary", likes, "susan" ] ];
-    db = await db.commitTxn(db, statements);
+    db = await DB.commitTxn(db, statements);
     const checkQuery = Q.parseQuery(
         [Q.findK, "?a", "?name",
             Q.whereK, ["?a", likes, "?b"],
@@ -146,7 +151,7 @@ async function test_03_many_statements(){
 async function test_01_add_datom(){
     let raw = await (await tree_adaptor_wrapper(SM()))();
     let db = DB.newDB(raw);
-    db = await db.commitTxn(db, [[ DT.addK, "mary", K.key(":db/ident"), "Marticia"]]);
+    db = await DB.commitTxn(db, [[ DT.addK, "mary", K.key(":db/ident"), "Marticia"]]);
     assert((await db.find()).length === 1, `The query returned an incorrect amount of results ` +
     `(expected: 1, found: ${(await db.find()).length})`);
 }

@@ -46,6 +46,8 @@ const kUnknown    = T.keyword("unknown");
 
 export function wrapTree( root )
 {
+    console.log("querying tree. base root:", root.toString());
+
     const tree = {}; // "class" object
 
     tree.query = async function( query )
@@ -102,6 +104,16 @@ export function wrapTree( root )
     tree.node = function()
     {
         return root;
+    };
+
+    tree.add = async function(...datoms)
+    {
+        return buildTree(
+            [
+                ...tree.query(), 
+                ...datoms
+            ]
+        );
     };
     return tree;
 }
@@ -177,7 +189,7 @@ async function queryTree( root, compare_match )
     const root_value = ST.getValue( root, kValue );
     if( root_value === undefined )
     {
-        console.log("no root???");
+        console.log("no root???", root.toString());
         // current node, probably root,
         // does not have a value
         return [];
