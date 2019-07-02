@@ -81,11 +81,16 @@ export async function processTxn( db, stmts )
      */
     function normalizeValue( attribute, value )
     {
-        if(attribute.builtin === true){
+        if( attribute.builtin === true ){
+            if( T.equals( attribute.ident, A.functionK ) ){
+                if( typeof( value ) === "function" ){
+                    return value.toString();
+                }
+            }
             return value; // TODO what do normalized values
             // look like for some of the builtins?
             // if they also had .valueType we could just
-            // delete this.
+            // delete this. the functionK part feels like a hack
         }
         const vType = K.key( attribute.valueType );
 
@@ -215,7 +220,7 @@ export async function processTxn( db, stmts )
         if( Array.isArray( stmt ) )
         {
             const kind = K.key( stmt[ 0 ] );
-            if( K.compare(kind, addK) === 0 ) {
+            if( T.equals( kind, addK ) ) {
                 await addDatom( await getEntityId( stmt[ 1 ] ), stmt[ 2 ], stmt[ 3 ] );
             }
             else if( T.equals(stmt[ 0 ], retractK) ) {
@@ -226,12 +231,17 @@ export async function processTxn( db, stmts )
                 datoms.push( [ e, attribute, value, true ] );
             }
             else {
-                const f = lookupFunction( db, K.key( stmt[ 0 ] ) );
+                const f = await lookupFunction( db, K.key( stmt[ 0 ] ) );
                 stmt.shift(); // remove function name
-                const fn_datoms = f.fn.apply( db, stmt );
-                fn_datoms.forEach( function( [ e, a, v ] ) {
-                    addDatom( getEntityId( e ), a, v ); // TODO PROMISE TROUBLE
-                } );
+                const queryWrap = ( query, ...args ) => {
+                    const q = Q.parseQuery( query );
+                    return Q.runQuery(db, q, ...args)
+                };
+                const fn_datoms = await f( queryWrap, Q, ...stmt );
+                console.log("generated datoms:", fn_datoms);
+                for( const [ e, a, v ] of fn_datoms ) {
+                    await addDatom( e, a, v );
+                };
             }
         }
         else
@@ -266,6 +276,22 @@ export async function processTxn( db, stmts )
         console.error(err);
     }
     return [datoms, db.next_entity_id];
+}
+
+async function lookupFunction( db, funcKey )
+{
+    const q = Q.parseQuery( [ Q.findK, "?func",
+        Q.inK, "$", "?name",
+        Q.whereK, [ "?e", A.identK, "?name" ],
+                  [ "?e", A.functionK, "?func" ] ] );
+    const res = await Q.runQuery( db, q, funcKey );
+    if( res.length === 1 )
+    {
+        return Function("return " + res + ";")();
+    }
+    console.log("bad result set", res);
+    throw new Error("Function lookup failed-- aborting transaction.");
+
 }
 
 
@@ -349,7 +375,7 @@ function isTxnStmt( thing )
             var first = K.key( thing[ 0 ] );
         }
         catch( err ) {
-            return false
+            return false;
         }
         if( first === addK || first === retractK )
         {

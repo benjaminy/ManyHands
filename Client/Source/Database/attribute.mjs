@@ -82,7 +82,11 @@ for(let [k, v] of dbIdMap)
     dbSymbolMap.set(v, k); // reverse lookup map
 
 export function makeBuiltin(ident_, id_){
-    return {id: id_, builtin: true, ident: K.key(ident_)};
+    return {
+        id: id_, 
+        builtin: true, 
+        ident: K.key( ident_ )
+    };
 }
 
 export function makeAttribute(
@@ -104,6 +108,7 @@ export function makeAttribute(
     attr.noHistory   = false;
 
     /* TODO: check that ident doesn't break any naming rules */
+    console.log(valueType);
     if( !types.has( valueType ) )
         throw new Error( "Invalid attribute valueType: " + valueType.toString() );
     attr.valueType = valueType;

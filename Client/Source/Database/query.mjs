@@ -20,17 +20,17 @@ export const withK  = K.key( ":with" );
 export const inK    = K.key( ":in" );
 export const whereK = K.key( ":where" );
 
-const variable_tag      = Symbol( "variable" );
-const underbar_tag      = Symbol( "underbar" );
-const src_var_tag       = Symbol( "src_var" );
-const find_rel_tag      = Symbol( "find_rel" );
-const find_tuple_tag    = Symbol( "find_tuple" );
-const where_clauses_tag = Symbol( "where_clauses" );
-const data_pattern_tag  = Symbol( "data_pattern" );
-const type_keyword_tag  = Symbol( "type_keyword" );
-const type_number_tag   = Symbol( "type_number" );
-const type_bool_tag     = Symbol("type_bool");
-const type_string_tag   = Symbol("type_string");
+const variable_tag      = K.key( "variable" );
+const underbar_tag      = K.key( "underbar" );
+const src_var_tag       = K.key( "src_var" );
+const find_rel_tag      = K.key( "find_rel" );
+const find_tuple_tag    = K.key( "find_tuple" );
+const where_clauses_tag = K.key( "where_clauses" );
+const data_pattern_tag  = K.key( "data_pattern" );
+const type_keyword_tag  = K.key( "type_keyword" );
+const type_number_tag   = K.key( "type_number" );
+const type_bool_tag     = K.key("type_bool");
+const type_string_tag   = K.key("type_string");
 
 const constant_tags     = new Set( [
     type_keyword_tag, type_number_tag, type_bool_tag, type_string_tag ] );
@@ -67,13 +67,14 @@ alternate syntax:
 
 export function parseQuery( q )
 {
+    console.log("parsing query:", q);
     assert( Array.isArray( q ) );
 
     let i = 0;
 
     function getSection( section, startK, endMarkers )
     {
-        if( i < q.length && startK === K.key( q[ i ] ) )
+        if( i < q.length && T.equals(startK, K.key( q[ i ] ) ) )
         {
             i++;
             for( ; i < q.length; i++ )
@@ -351,11 +352,11 @@ export async function runQuery( db, q, ...ins )
 
         const vars = [];
 
-        if( q_find.tag === find_rel_tag || q.find.tag === find_tuple_tag )
+        if( T.equals(q_find.tag, find_rel_tag) || T.equals(q.find.tag, find_tuple_tag) )
         {
             for( const elem of q.find.elems )
             {
-                if( elem.tag === variable_tag )
+                if( T.equals(elem.tag, variable_tag) )
                 {
                     vars.push( elem.name );
                 }
@@ -378,11 +379,11 @@ export async function runQuery( db, q, ...ins )
         const inParams = T.map();
         let i = 0;
         for( const q_in of q_ins ) {
-            if(q_in.tag === src_var_tag){
+            if( T.equals( q_in.tag, src_var_tag ) ){
                 // TODO: allow several sources. right now we just use the
                 // db variable for everything
                 // this won't actually be very difficult to do, eventually!
-            } else if(q_in.tag === variable_tag){
+            } else if( T.equals(q_in.tag, variable_tag ) ){
                 if(ins.length <= i){
                     throw new Error(`Not enough variables provided (provided: ${ins.length})`);
                 }
@@ -416,7 +417,7 @@ export async function runQuery( db, q, ...ins )
         // within a datom; for example, datom[bindings["?entitybound"]] === datom.entity
 
         const setBindingsAndJoins = function(field, fieldName){
-            if(field.tag === variable_tag) {
+            if( T.equals(field.tag, variable_tag ) ) {
                 if(bindingSet.has(field.name)){
                     joins.add(field.name);
                 } else {
@@ -434,14 +435,14 @@ export async function runQuery( db, q, ...ins )
 
         const get_constant = async function(field, is_value=false){
             if(constant_tags.has(field.tag)){
-                if(field.tag === type_keyword_tag){
+                if( T.equals( field.tag, type_keyword_tag ) ){
                     //console.log("tag sub", field.val, (await TX.getAttribute(db, field.val)).id);
                     if(is_value) return field.val;
                     return (await TX.getAttribute(db, field.val)).id; // TODO this affects the query, probably
                 } // TODO reaching into the transaction file from query? I'd love for this to be much more agnostic
                 return field.val;
-            } else if(field.tag === variable_tag && inParams.has(field.name)){
-                return inParams.get(field.name);
+            } else if( T.equals( field.tag, variable_tag ) && inParams.has( field.name ) ){
+                return inParams.get( field.name );
             }
             return undefined;
         };
@@ -455,7 +456,7 @@ export async function runQuery( db, q, ...ins )
         const in_query = {
             entity: await get_constant(entity),
             attribute: _attribute,
-            // if ident, this may be an unsubstituted Symbol.
+            // if ident, this may be an unsubstituted K.key.
             value: await get_constant(value, _attribute === DA.dbSymbolMap.get(DA.identK)),
             timestamp: await get_constant(timestamp),
             revoked: await get_constant(revoked)
@@ -688,7 +689,7 @@ export async function runQuery( db, q, ...ins )
         return resultSet;
     }
 
-    if( q.where.tag === where_clauses_tag )
+    if( T.equals(q.where.tag, where_clauses_tag) )
     {
         const clauses = q.where.clauses;
         const naiveWhereQueryResult = [];
@@ -722,8 +723,9 @@ export async function runQuery( db, q, ...ins )
 
         const constructedRows = pair(mappedVariablesByConstraint);
 
-        return filterIncompleteResults(constructedRows);
-
+        const filtered = filterIncompleteResults(constructedRows);
+        // TODO cardinality and other checks on the query
+        return filtered;
     }
     else
     {
