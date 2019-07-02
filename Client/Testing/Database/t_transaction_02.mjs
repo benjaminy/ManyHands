@@ -70,20 +70,21 @@ async function test_01_rewind()
 }
 
 const subtract = async (query, Q, ...args) => {
+    console.log("ALL:", (await query([Q.findK, "?e", "?a", "?v", Q.whereK, ["?e", "?a", "?v"]])));
     const a = await query(
         [
             Q.findK, "?current",
-            Q.inK, "$", "?entity", "?attribute",
+            Q.inK, "$", //"?entity", "?attribute",
             Q.whereK, [
-                "?entity", 
-                "?attribute", 
+                args[0],//"?entity", 
+                args[1],//"?attribute", 
                 "?current"
             ]
         ],
-        args[0], args[1]
+        //args[0], args[1] // TODO these should be inK parameters
     );
     console.log("adsfjkl;as", args, a);
-    return [[args[0], args[1], a[0][0]]];
+    return [[args[0], args[1], a[0][0] - args[2]]];
 }
 
 async function test_02_udf()
