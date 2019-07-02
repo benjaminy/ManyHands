@@ -62,7 +62,7 @@ That is, clients send their edits to a central service to be integrated into a s
 Malicious service providers can trivially violate teams' privacy.
 Assuming maliciousness on the part of service providers is a paranoia step too far for some people.
 But even if we assume no such maliciousness, recent experience has demonstrated fundamental problems with this architecture.
-Services have lost data to criminal{\slash}military intelligence \emph{exfiltration}.
+Poor operational security has resulted in data exfiltrations to criminals and intelligence organizations.
 Misbehaving \emph{individuals} in organizations have violated data privacy in a variety of creative ways.
 Governments and courts have applied \emph{legal} pressure on service providers and \emph{blocked{\slash}shut down} services that use encryption to protect user privacy.
 
@@ -73,6 +73,29 @@ In an effort to enable TCE applications without any reliance on a central servic
 Though the
 
 For these reasons, we are exploring decentralized
+
+\section{Concurrent Edit Reconciliation}
+
+In all collaboration applications that allow concurrent editing, a major question is how to combine potentially conflicting edits.
+Several major strategies have emerged over the many years of experience with replicated data systems.
+To name a few:
+Systems like git expect users to be heavily involved with decisions about when and how to merge concurrent edits, and how to deal with conflicts.
+Many popular applications like Google Docs use some flavor of operational transformations (OT) or conflict-free replicated data types (CRDTs) to emphasize automatic merging of concurrent edits, even when it might seem that there is a conflict.
+Blockchain systems like Bitcoin and Ethereum use proof-of-work or proof-of-stake protocols to get non-cooperative groups to come to concensus on a single chain of edits.
+
+We mention this wide range of concurrent edit reconciliation approaches to suggest that there is likely not a single approach that is best in all applications.
+Our aim in this paper is not to take a strong position on, for example, automatic merging versus defferring to explicit user intervention to resolve conflicts.
+Rather, we observe that one benefit of centralized systems is that they make it easy for teams to agree on a reasonable order of edits (i.e. the order in which they were received by the central service).
+This order is not a complete reconciliation strategy, but it is a useful ingredient.
+
+Decentralized systems do not provide an obvious way to establish such an order
+
+\section{High Latency Cloud Storage}
+
+The other important constraint for our approach to consistency is that we are assuming high latency and potentially intermittent connectivity between teammates.
+This means that we should minimize the number of roucd-trips in the reconciliation protocol.
+
+So we settled on sending a matrix clocks that encode partial edit ordering and acknowledgments.
 
 \section{Causal Consistency and Matrix Clocks}
 
