@@ -237,7 +237,7 @@ export function deleteValue( node, key )
 
 export async function getChild( parent, key )
 {
-    assert( isTreeNode( parent ) );
+    assert( isTreeNode( parent ), "is not tree node: " + parent );
     assert( isValidMapKey( key ) );
 
     if( isInMemCache( parent, key ) )

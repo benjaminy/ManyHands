@@ -14,8 +14,14 @@ import * as SW from "../Storage/wrappers.mjs";
 import * as DC from "./common.mjs";
 import * as DT from "./transaction.mjs";
 import * as DA from "./attribute.mjs";
+import * as ST from "../Storage/tree.mjs";
+import * as TW from "./txn_tree_adaptor.mjs";
 
-
+const kPrev =         T.keyword("prev");
+const kStmts =        T.keyword("stmts");
+const kDatoms =       T.keyword("datoms");
+const kStorage =      T.keyword("storage");
+const kNextEntityId = T.keyword("next_entity_id");
 
 /*
  * Txn object:
@@ -26,75 +32,109 @@ import * as DA from "./attribute.mjs";
  * - DB meta-data : ??? next entity ID ??? etc ???
  */
 
-/* This is kind of like a class, but we can't use classes, because async. */
-const dbMethods =
+export async function commitTxn( db, stmts )
 {
-    commitTxn : async function commitTxn( db, stmts )
+    const current_node = db.node;
+    const [ datoms, entity_id_info ] = await DT.processTxn( db, stmts );
+    let wrap;
+    try {
+        const storage = await ST.getChild( current_node, kStorage );
+        wrap = TW.tree_adaptor( storage );
+    } catch( ex )
     {
-        var entity_id_info = db.entity_id_info;
-        const txn = { stmts: stmts, prev: db.txns };
-        /* Might throw error: */
-        [ txn.datoms, entity_id_info ] = await DT.processTxn( db, stmts );
-        const new_storage = await db.storage.add(...txn.datoms);
-        return Object.assign( {}, db,{ find: new_storage.find, storage: new_storage, txns: {txn}, entity_id_info: entity_id_info } );
-    }
-    ,
-    uploadCommittedTxns : async function uploadCommittedTxns( db )
-    {
-        async function uploadChain( txn )
-        {
-            if( txn === db.last_up_txn )
-                return db.last_up_ptr;
-
-            const prev_ptr = db.storage.fpToPlainData( uploadChain( txn.prev ) );
-            const txn_to_upload = Object.assign( {}, txn, { prev: prev_ptr } );
-            const resp = await db.storage.upload( { body: txn_to_upload }, {} );
-            if( !resp.ok )
-            {
-                throw new Error( "Unimplemented" );
-            }
-            return resp.file_ptr;
+        if( ex.type !== "FileNotFoundError" ){
+            throw ex;
+        } else {
+            wrap = await TW.initialize_tree_adaptor();
         }
+    }
+    const new_storage = await wrap.add( ...datoms );
+    const db_node = ST.newNode();
+    ST.setValue( db_node, kStmts,        stmts );
+    ST.setValue( db_node, kDatoms,       datoms );
+    ST.setValue( db_node, kNextEntityId, entity_id_info );
+    ST.setChild( db_node, kPrev,         current_node );
+    ST.setChild( db_node, kStorage,      new_storage.node );
+    return wrapDB(db_node);
+}
 
-        const txn_ptr = uploadChain( db.txns );
-        const db_to_upload = {
-            txns: txn_ptr,
-            entities: db.entity_id_info
-        };
-        const resp = await db.storage.upload( { body: txn_to_upload }, {} );
-        return Object.assign( {}, db, { last_up_txn: db.txns, last_up_ptr: txn_ptr } );
-    }
-    ,
-    allTxnsUploaded : async function allTxnsUploaded( db )
-    {
-        return db.root_txn === db.txns;
-    }
-    ,
-    entityIdInfo : function entityIdInfo( db )
-    {
-        return db.txns.entity_id_info;
-    }
-};
-
-export function newDB( storage, options )
+export async function find( db, options )
 {
-    const db = Object.assign( {}, dbMethods );
-    const first_entity = 1000; // TODO I am assuming we will not have 1000 builtins.
-    const first_txn = {
-        stmts : [],
-        datoms : [],
-        prev : null,
-        next_entity_id : first_entity
+    const current_node = db.node;
+    let wrap;
+    try {
+        const storage = await ST.getChild( current_node, kStorage );
+        wrap = TW.tree_adaptor( storage );
+    } catch( ex )
+    {
+        if( ex.type !== "FileNotFoundError" ){
+            throw ex;
+        } else {
+            wrap = await TW.initialize_tree_adaptor();
+        }
+    }
+    return wrap.find( options );
+}
+// ,
+// uploadCommittedTxns : async function uploadCommittedTxns( db )
+// {
+//     async function uploadChain( txn )
+//     {
+//         if( txn === db.last_up_txn )
+//             return db.last_up_ptr;
+
+//         const prev_ptr = db.storage.fpToPlainData( uploadChain( txn.prev ) );
+//         const txn_to_upload = Object.assign( {}, txn, { prev: prev_ptr } );
+//         const resp = await db.storage.upload( { body: txn_to_upload }, {} );
+//         if( !resp.ok )
+//         {
+//             throw new Error( "Unimplemented" );
+//         }
+//         return resp.file_ptr;
+//     }
+
+//     const txn_ptr = uploadChain( db.txns );
+//     const db_to_upload = {
+//         txns: txn_ptr,
+//         entities: db.entity_id_info
+//     };
+//     const resp = await db.storage.upload( { body: txn_to_upload }, {} );
+//     return Object.assign( {}, db, { last_up_txn: db.txns, last_up_ptr: txn_ptr } );
+// }
+// ,
+// allTxnsUploaded : async function allTxnsUploaded( db )
+// {
+//     return db.root_txn === db.txns;
+// }
+// ,
+// entityIdInfo : function entityIdInfo( db )
+// {
+//     return db.txns.entity_id_info;
+// }
+
+export function wrapDB( node ){
+    return {
+        node: node,
+        attributes: T.map(), // cache
+        next_entity_id: ST.getValue(node, kNextEntityId)
+        // this may be incremented, while the value in the node
+        // will not be changed.
     };
-    db.storage        = storage;
-    db.last_up_txn    = null;
-    db.last_up_ptr    = null;
-    db.txns           = first_txn;
-    db.attributes     = T.map(); // cached attributes
-    db.find           = db.storage.find;
-    db.next_entity_id = first_entity;
-    /* TODO???: more initial txns */
-    return db;
+}
+
+export function newDB( root_node )
+{
+    // I am assuming we will not have 1000 builtins
+    const first_entity = 1000;
+    const db_node = ST.newNode()
+    ST.setValue(db_node, kStmts,        []);
+    ST.setValue(db_node, kDatoms,       []);
+    // ST.setChild(db_node, kPrev,         null);
+    // ST.setChild(db_node, kStorage,         null);
+    ST.setValue(db_node, kNextEntityId, first_entity);
+
+    // db.attributes     = T.map(); // cached attributes
+    return wrapDB( db_node );
 }
 
 export async function open( storage, root_ptr )

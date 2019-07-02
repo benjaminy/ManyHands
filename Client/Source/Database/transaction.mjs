@@ -32,6 +32,7 @@ export async function getAttribute( db, identName ) {
         if(qResult.length === 0){
             throw new Error( "DB does not have attribute " + ident.toString());
         }
+
         const [ [ id, v, c, d, u, i, f, ic, n ] ] = qResult; // TODO: cardinality should flatten this from [[]] to []
         db.attributes.set( ident, DA.makeAttribute( ident, id, v, c, d, u, i, f, ic, n ) );
     }
@@ -44,7 +45,7 @@ export async function getAttribute( db, identName ) {
  * TODO should this accept DB as an argument,
  * and run processTxn?
  */
-export function getAttributeInserts(attr ){
+export function getAttributeInserts( attr ){
     const temp_id = attr.ident.toString();
     return [
         [addK, temp_id, A.identK, attr.ident],
@@ -156,7 +157,7 @@ export async function processTxn( db, stmts )
                 throw new Error("Cannot edit the entity of a builtin entity.");
             }
             if(e >= db.next_entity_id){
-                return new_entity(db);
+                return new_entity( db );
             }
             // TODO make sure this entity exists in the db already.
             return e;
@@ -264,7 +265,7 @@ export async function processTxn( db, stmts )
     catch( err ) {
         console.error(err);
     }
-    return [datoms, "extra entity information"];
+    return [datoms, db.next_entity_id];
 }
 
 

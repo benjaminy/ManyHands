@@ -10,7 +10,8 @@ import * as K  from "../Utilities/keyword.mjs";
 import * as S  from "../Utilities/set.mjs";
 import * as DA from "./attribute.mjs";
 import * as TX from "./transaction.mjs";
-import * as D  from "./txn_tree_adaptor.mjs";
+import * as D  from "./Tree/binary.mjs";
+import * as DB from "./simple_txn_chain.mjs";
 
 import T       from "transit-js";
 
@@ -463,7 +464,7 @@ export async function runQuery( db, q, ...ins )
         // bindings keeps track of the names of variables, and the field they refer to
         return {
             bindings: bindings,
-            results: await db.find(in_query)
+            results: await DB.find( db, in_query )
         };
     }
 
@@ -695,7 +696,6 @@ export async function runQuery( db, q, ...ins )
         {
             naiveWhereQueryResult.push(await naiveWhereClauseQuery(db, clause));
         }
-
         if(naiveWhereQueryResult.length === 1) {
             // short-circuit shortcut where we don't have to worry
             // about any joining.
@@ -716,7 +716,7 @@ export async function runQuery( db, q, ...ins )
         // ELSE
         
         filterIrrelevantResults(naiveWhereQueryResult);
-        
+
         const mappedVariablesByConstraint =
               buildMappedVariablesByConstraint( naiveWhereQueryResult );
 

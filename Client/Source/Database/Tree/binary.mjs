@@ -103,6 +103,16 @@ export function wrapTree( root )
     {
         return root;
     };
+
+    tree.add = async function(...datoms)
+    {
+        return buildTree(
+            [
+                ...tree.query(), 
+                ...datoms
+            ]
+        );
+    };
     return tree;
 }
 /**
@@ -115,7 +125,6 @@ function compare_match_wrapper( criterion, ...sorts )
 {
     function compare_match( item )
     {
-        console.log( "comparing", item, criterion );
         let compatible = true;
         for( let i = 0; i < criterion.length; i++ )
         {
@@ -126,7 +135,6 @@ function compare_match_wrapper( criterion, ...sorts )
         }
         if( compatible )
         {
-            console.log("cmoparible?!!!");
             return kCompatible;
         }
         // they are incompatible-- determine which side
@@ -147,7 +155,6 @@ function compare_match_wrapper( criterion, ...sorts )
             {
                 ix = item[ sort ] - criterion[ sort ];
             } else {
-                console.log(criterion, sort, "csss");
                 const s1 = criterion[ sort ].toString();
                 const s2 = item[ sort ].toString();
                 ix = s1.localeCompare( s2 );
@@ -177,14 +184,11 @@ async function queryTree( root, compare_match )
     const root_value = ST.getValue( root, kValue );
     if( root_value === undefined )
     {
-        console.log("no root???");
         // current node, probably root,
         // does not have a value
         return [];
     }
-    console.log("rv", root_value);
     const comp = compare_match( root_value );
-    console.log("querying", running, root_value, comp );
     if( comp === kCompatible || comp === kGreater || comp === kUnknown )
     {
         try {
@@ -226,7 +230,6 @@ async function constructBinaryTree( data, ...sorts )
         return root; /// ??? ok
     }
     root = ST.setValue(root, kValue, data[0]);
-    console.log("checking", data, ST.getValue(root, kValue));
     for( let i = 1; i < data.length; i++ )
     {
         const new_node = ST.newNode();
