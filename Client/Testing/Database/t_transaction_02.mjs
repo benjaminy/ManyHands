@@ -14,58 +14,18 @@ import * as TW from "../../Source/Database/txn_tree_adaptor.mjs";
 import * as Q from "../../Source/Database/query.mjs";
 import * as DB from "../../Source/Database/simple_txn_chain.mjs";
 
-import T from "transit-js";
+import * as TU from "./utils.mjs";
 
+import T from "transit-js";
 
 async function main()
 {
     //await test_01_rewind();
     await test_02_udf();
 }
-
-function new_plain_root()
-{
-    const in_mem_storage = SM();
-    const options = T.map();
-    options.set( SC.PATH_PREFIX, [ "demo_app2" ] );
-    options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
-    const root = ST.newRoot( [ "root" ], in_mem_storage, options );
-    return [root, () => { return ST.openRoot( [ "root" ], in_mem_storage, options ) }];
-}
-
-async function setup(){
-    const [root, retrieve_root] = new_plain_root();
-    const name_insert = DT.getAttributeInserts(
-        A.createAttribute(
-            ":name",
-            A.vtypeString,
-            A.cardinalityOne,
-            "A person's single, full name"
-        )
-    );
-    const money_insert = DT.getAttributeInserts(
-        A.createAttribute(
-            ":money",
-            A.vtypeString,
-            A.cardinalityOne,
-            "A person's money amount"
-        )
-    );
-    let db = DB.newDB( );
-    db = await DB.commitTxn( db, [ ...name_insert, ...money_insert ] );
-
-    ST.setChild( root, "the database", db.node );
-    const r2 = await ST.writeTree( root );    
-    const r3 = await retrieve_root();
-    const retrieved_raw = await ST.getChild( r3, "the database" );
-    const retrieved_db = DB.wrapDB( retrieved_raw );
-    return [ retrieved_db, retrieve_root ];
-}
-
-
 async function test_01_rewind()
 {
-    let [ db, retrieve_root ] = await setup();
+    let [ db, retrieve_root ] = await TU.setup();
     let db2 = await DB.commitTxn( db, [ [ DT.addK, "chad", K.key(":name"), "Chadictionary" ] ] );
 }
 
@@ -90,7 +50,7 @@ const subtract = async (query, Q, ...args) => {
 async function test_02_udf()
 {
     const subtractK = K.key( ":subtract" );
-    let [ db, retrieve_root ] = await setup();
+    let [ db, retrieve_root ] = await TU.setup();
     let db2 = await DB.commitTxn( db,
         [
             [ DT.addK, "newfunc", A.identK,              subtractK       ],
@@ -116,12 +76,11 @@ async function test_02_udf()
     ] );
     const res = await Q.runQuery(db3, q2, e_id);
     console.log(res);
+    assert(30 === res[0][0] || 30 === res[1][0], "Function did not return expected result. Found:" + res);
+    // TODO cardinalityOne should restrict this result to one item
 }
 
 main().then(() => {
-    console.log("End of file reached: t_transaction_02");
+    console.log("End of file reached: t_transaction_02.mjs");
 });
 
-/* (err) => {
-    console.log("error:" + err);
-})*/
