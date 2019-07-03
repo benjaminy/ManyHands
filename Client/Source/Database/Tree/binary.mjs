@@ -1,5 +1,6 @@
 import * as ST from "../../Storage/tree.mjs";
 import * as UM from "../../Utilities/misc.mjs";
+import * as K from "../../Utilities/keyword.mjs";
 import T from "transit-js";
 
 export const ENTITY = 0;
@@ -8,14 +9,14 @@ export const VALUE = 2;
 export const TIMESTAMP = 3;
 export const REVOKED = 4;
 
-const kAVET = T.keyword("avet");
-const kEAVT = T.keyword("eavt");
-const kAEVT = T.keyword("aevt");
-const kVAET = T.keyword("vaet");
+const kAVET = K.key("avet");
+const kEAVT = K.key("eavt");
+const kAEVT = K.key("aevt");
+const kVAET = K.key("vaet");
 
-const kLeftChild = T.keyword( "left_child" );
-const kRightChild = T.keyword("right_child" );
-const kValue = T.keyword( "value" );
+const kLeftChild = K.key( "left_child" );
+const kRightChild = K.key("right_child" );
+const kValue = K.key( "value" );
 
 
 export async function buildTree( data )
@@ -39,10 +40,10 @@ export async function buildTree( data )
 }
 
 
-const kCompatible = T.keyword("compatible");
-const kGreater    = T.keyword("greater");
-const kLesser     = T.keyword("lesser");
-const kUnknown    = T.keyword("unknown");
+const kCompatible = K.key("compatible");
+const kGreater    = K.key("greater");
+const kLesser     = K.key("lesser");
+const kUnknown    = K.key("unknown");
 
 export function wrapTree( root )
 {
@@ -157,6 +158,7 @@ function compare_match_wrapper( criterion, ...sorts )
             } else {
                 const s1 = criterion[ sort ].toString();
                 const s2 = item[ sort ].toString();
+                console.log("s1111", s1, criterion[ sort ], s2);
                 ix = s1.localeCompare( s2 );
             }
             if( ix !== 0 )

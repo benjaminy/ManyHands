@@ -65,11 +65,11 @@ function new_plain_root()
     options.set( SC.PATH_PREFIX, [ "demo_app2" ] );
     options.set( SC.ENCODE_OBJ, SC.ENCODE_TRANSIT );
     const root = ST.newRoot( [ "root" ], in_mem_storage, options );
-    return [root, () => { return ST.openRoot( [ "root" ], in_mem_storage, options ) }];
+    return [ root, () => { return ST.openRoot( [ "root" ], in_mem_storage, options ) } ];
 }
 
 async function setup(){
-    const [root, retrieve_root] = new_plain_root();
+    const [ root, retrieve_root ] = new_plain_root();
     const like_insert = DT.getAttributeInserts(
         A.createAttribute(
             ":likes",
@@ -86,42 +86,30 @@ async function setup(){
             "A person's single, full name"
         )
     );
-    //let adaptor = await TW.initialize_tree_adaptor();
-    let db = DB.newDB( /*adaptor*/ );
-    console.log("committing a txn");
-    db = await DB.commitTxn(db, [...like_insert, ...name_insert]);
+    let db = DB.newDB( );
+    db = await DB.commitTxn( db, [ ...like_insert, ...name_insert ] );
 
     ST.setChild( root, "the database", db.node );
     const r2 = await ST.writeTree( root );    
     const r3 = await retrieve_root();
-    console.log( "r3", r3.toString() );
     const retrieved_raw = await ST.getChild( r3, "the database" );
-    console.log("retrieved raw correctly?", retrieved_raw.toString());
-    //const retrieved_adaptor = TW.tree_adaptor( retrieved_raw );
-    const retrieved_db = DB.wrapDB( /*retrieved_adaptor*/ retrieved_raw );
-    // TODO some thinking needs to go into how to store transaction
-    // info-- stuff that is not datoms.
-    console.log("IN TEST NODE:", retrieved_db.node.toString());
+    const retrieved_db = DB.wrapDB( retrieved_raw );
     return [ retrieved_db, retrieve_root ];
 }
 
 async function test_02_get_attribute(){
     let [ db, retrieve_root ] = await setup();
-    // TEST
-    console.log("STORAGEA FAFDS", db.node.toString());
-    // UNTEST
-    const statement = [ DT.addK, "bob", K.key(":name"), "Bobethy" ];
+    const statement = [ DT.addK, "bob", K.key( ":name" ), "Bobethy" ];
     db = await DB.commitTxn(db, [statement]);
 
     const checkQuery = Q.parseQuery(
-        [Q.findK, "?a", "?name",
-            Q.whereK, ["?a", K.key(":name"), "?name"]]
+        [ Q.findK, "?a", "?name",
+            Q.whereK, [ "?a", K.key( ":name" ), "?name" ] ]
     );
 
-    const r = await Q.runQuery(db, checkQuery);
-    console.log("r03:", r);
+    const r = await Q.runQuery( db, checkQuery );
 
-    assert(r.length === 1 && r[0][1] === "Bobethy", "Attribute was not filled in correctly.");
+    assert( r.length === 1 && r[0][1] === "Bobethy", "Attribute was not filled in correctly." );
     console.log("test_03_get_attribute completed successfully");
 }
 
