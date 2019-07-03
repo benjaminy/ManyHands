@@ -16,7 +16,7 @@
 % \author{Benjamin Ylvisaker\inst{1}\orcidID{0000-0002-8608-7404} \and
 % Beau Carlborg\inst{1}\orcidID{}}
 \author{Benjamin Ylvisaker\orcidID{0000-0002-8608-7404} \and Daniel Barnes \and Mataan Peer}
-\authorrunning{B. Ylvisaker}
+\authorrunning{B. Ylvisaker, D. Barnes, M. Peer}
 
 \institute{Colorado College, Colorado Springs, CO 80905, USA
   \email{bylvisaker@coloradocollege.edu}}
@@ -26,30 +26,26 @@
 \begin{abstract}
 
 Secure \emph{messaging} protocols and apps (Signal, Off-the-Record, WhatsApp, Telegram, etc.) have achieved substantial mainstream adoption.
-Unfortunately, the same cannot be said of \emph{collaborative editing}, where trust-the-service-provider protocols are still used by all of the most popular applications.
+Unfortunately, the same cannot be said of \emph{collaborative editing} (Slack, Google Docs, etc.), where trust-the-service-provider protocols are still nearly universal.
 
 One architectural approach that might help spur wider adoption of secure collaborative editing is decentralization.
 However, centralization is quite useful in terms of usability and efficiency.
 In particular, decentralization makes it harder for teams to agree on a consistent view of their shared document{\slash}database.
 
-In this paper we evaluate a new tweak on an old idea: causal consistency.
+In this paper we explore a new take on an old idea: causal consistency implemented with matrix clock timestamps.
 Causal consistency gives decentralized teams a way to agree on the happens-before relation among their concurrent edits.
 This partial order is not itself a complete conflict reconciliation strategy, but it is a useful ingredient thereof.
 
 It is well known that the per-edit overhead to implement causal consistency scales linearly with team size in the worst case.
-This overhead puts a severe pratical limit on team size.
-Several researchers have explored trade-offs that gain efficiency at the expense of accuracy.
+This overhead puts an unacceptably low practical limit on team size.
+This kind of problem has led to a great deal of research in recent years on efficient approximations of causal consistency.
 
-In this paper we propose a new implementation that makes a different trade-off.
-The per-edit overhead in our protocol scales sub-linearly with team size as long as the degree of edit concurrency is low.
-The overhead degrades reasonably gracefully back to the known worst case as edit concurrency increases.
-This trade-off is unlikely to be compelling in high-performance data center applications (the focus of much of the existing research on causal consistency), because there the degree of edit concurrency is likely to be high.
-However, 
+In this paper we propose a new implementation that does not approximate causal consistency, but rather exploits a difference between common team collaborative editing applications usage patterns and the data center replication applications where much of this prior research has been done.
+In particular, in team collaborative editing applications it is common for \emph{edit concurrency} to be quite low, which means that there is a large amount of redundancy in the matrix clock timestamps.
+This redundancy can be exploited to dramatically reduce space and time overheads.
+We describe a new protocol for causal consistency that is much more efficient when edit concurrency is low and present an empirical validation of this protocol.
 
-We observe that in many team collaborative editing contexts, the degree of edit concurrency is usually quite low.
-
-
-\keywords{Secure group messaging  \and Collaborative editing \and Cloud storage.}
+\keywords{Causal consistency \and Collaborative editing \and matrix clocks.}
 \end{abstract}
 
 \section{Introduction}
@@ -57,85 +53,183 @@ We observe that in many team collaborative editing contexts, the degree of edit 
 Collaborative editing applications for teams -- like Slack, Trello and Google Docs -- have become important tools for huge numbers of people in a wide range of work and social contexts.
 From a privacy perspective these applications are problematic.
 All popular team collaborative editing (TCE) applications use trust-the-service-provider architectures.
-That is, clients send their edits to a central service to be integrated into a shared document{\slash}database and stored.
+Clients send their edits to a central service to be integrated into a shared document{\slash}database and stored.
+The service provider has complete access to the teams' data.
 
-Malicious service providers can trivially violate teams' privacy.
+Malicious service providers can trivially violate teams' privacy (and in many cases just as trivially modify teams' data).
 Assuming maliciousness on the part of service providers is a paranoia step too far for some people.
-But even if we assume no such maliciousness, recent experience has demonstrated fundamental problems with this architecture.
-Poor operational security has resulted in data exfiltrations to criminals and intelligence organizations.
+But even without assuming such maliciousness, recent experience has demonstrated fundamental problems with this architecture.
+Poor operational security has resulted in data \emph{exfiltration} to criminals and intelligence organizations.
 Misbehaving \emph{individuals} in organizations have violated data privacy in a variety of creative ways.
-Governments and courts have applied \emph{legal} pressure on service providers and \emph{blocked{\slash}shut down} services that use encryption to protect user privacy.
+Governments and courts have \emph{legally} compelled services to give up user data, and \emph{blocked{\slash}shut down} services that refuse to comply.
 
-In response to these privacy and security problems, many regular internet users have adopted more secure systems like end-to-end encrypted messaging networks and password managers.
-Unfortunately, for some reason there does not seem to be a similar proliferation of secure collaborative editing applications.
-There have been research projects that demonstrated the possibility of secure collaborative editing [cite Sproc, TRVE Data], but these ideas do not seem to have been taken up by industry or the open source community.
+In response to these privacy and security problems, many regular internet users have adopted more secure systems like end-to-end encrypted messaging networks and personal encryption managers.
+Unfortunately, for some reason there does not seem to be a similar proliferation of secure TCE applications.
+There have been research projects that demonstrated the possibility of secure TCE [cite Sporc, TRVE Data], but these ideas do not seem to have been taken up by industry or the open source community.
 
-We believe that one important reason for this absence of secure TCE systems is that running a TCE service is substantially more expensive 
+We believe that one important reason for this absence of secure TCE systems is that compared to messaging, running a TCE service is substantially more expensive (storage, repeated querying) and suggests a greater fiduciary responsibility for the integrity and privacy of users' data.
+Therefore, one possible direction for increasing the use of secure TCE systems is decentralization, moving most of the operational costs and risks to users themselves.
+Such decentralized architectures have their own usability and scalability challenges.
+This paper addresses one of those challenges: how can a team collaborating on a shared document{\slash}database over high-latency and intermittent connections maintain a consistent view of that data in a way that is scalable and minimizes user surprise?
 
-In an effort to enable TCE applications without any reliance on a central service, we are exploring distributed approaches to collaborative editing.
-Though the
+We adapt an old idea (matrix clock timestamps) that provides causal consistency and consensus in a reasonably simple way.
+Traditionally matrix clocks are thought to have overhead that is far too high to be practical for most applications.
+However, when edit concurrency is low it is possible to dramatically reduce the overhead of matrix clocks.
+We believe that this low edit concurrency condition is quite common in many TCE applications.
+Most data center replication applications have quite high edit concurrency, which explains why this direction has been little explored in prior research.
 
-For these reasons, we are exploring decentralized
+In this paper we give an implementation of a causal consistency protocol based on compressed matrix clocks that scales sub-linearly \emph{as long as edit concurrency is low}.
+We also experimentally validate the performance of this protocol with a TCE trace simulator.
 
-\section{Concurrent Edit Reconciliation}
+\section{Concurrent Edit Conflict Reconciliation}
 
-In all collaboration applications that allow concurrent editing, a major question is how to combine potentially conflicting edits.
+In all TCE applications, a major question is how to reconcile potentially conflicting concurrent edits.
 Several major strategies have emerged over the many years of experience with replicated data systems.
 To name a few:
-Systems like git expect users to be heavily involved with decisions about when and how to merge concurrent edits, and how to deal with conflicts.
-Many popular applications like Google Docs use some flavor of operational transformations (OT) or conflict-free replicated data types (CRDTs) to emphasize automatic merging of concurrent edits, even when it might seem that there is a conflict.
-Blockchain systems like Bitcoin and Ethereum use proof-of-work or proof-of-stake protocols to get non-cooperative groups to come to concensus on a single chain of edits.
+Systems like Git expect users to be heavily involved with decisions about when and how to merge concurrent branches, and how to deal with non-trivial conflicts.
+Many popular applications like Google Docs use some flavor of operational transformations (OT) or conflict-free replicated data types (CRDTs) to turn as many apparent conflicts as possible into non-conflicting merges (thereby side-stepping tricky ordering questions).
+Blockchain systems like Bitcoin and Ethereum use proof-of-work or proof-of-stake protocols to get adversarial groups to come to consensus on a single chain of edits.
 
-We mention this wide range of concurrent edit reconciliation approaches to suggest that there is likely not a single approach that is best in all applications.
-Our aim in this paper is not to take a strong position on, for example, automatic merging versus defferring to explicit user intervention to resolve conflicts.
-Rather, we observe that one benefit of centralized systems is that they make it easy for teams to agree on a reasonable order of edits (i.e. the order in which they were received by the central service).
-This order is not a complete reconciliation strategy, but it is a useful ingredient.
+We mention this menagerie of concurrent edit reconciliation approaches to suggest that there is likely not a single approach that is best in all applications.
+Our aim in this paper is not to take a strong position on, for example, automatic merging versus deferring to explicit user intervention to resolve conflicts.
+Rather, we observe that centralized services have two strengths that are hard to get with decentralized systems:
+(1) There is a clear total order of edits (i.e. the order in which they were received by the central service).
+(2) It is clear when an edit can be understood to be ``committed'' (i.e. whenever the central service says it is).
+These concepts do not make a complete reconciliation strategy on their own, but they can be useful ingredients.
+Our goal is to provide as reasonable a version of these ingredients as we can in the decentralized TCE context.
 
-Decentralized systems do not provide an obvious way to establish such an order
+\section{Application and System Architecture Assumptions}
 
-\section{High Latency Cloud Storage}
+The two assumptions we make to enable a more efficient causal consistency protocol are:
 
-The other important constraint for our approach to consistency is that we are assuming high latency and potentially intermittent connectivity between teammates.
-This means that we should minimize the number of roucd-trips in the reconciliation protocol.
+\begin{itemize}
+\item The edit concurrency is low.
+\item Once a user has broadcast an edit, the variance in latencies for that edit being received by teammates is low.
+\end{itemize}
 
-So we settled on sending a matrix clocks that encode partial edit ordering and acknowledgments.
+In many TCE applications it is easy to imagine the low edit concurrency condition holding.
+For example, consider a work team collaborating on a spreadsheet or a club collaborating on shared calendar.
+It would be weird to imagine teammates concurrently uploading edits at a sustained rate such that teammates were routinely making sequences of edits before their teammates' edits propagated to them.
 
-\section{Causal Consistency and Matrix Clocks}
+One special case that bears mentioning here is offline operation.
+If teammates are editing offline and then come back online, in some sense this could be seen as high edit concurrency.
+However, we assume that when a client understands itself to be coming back online, it is obligated to download any available edits before uploading its own.
+This means that in the common case offline operation creates little to no edit concurrency.
 
-Causal consistency is a topic that has been researched extensively.
-A large majority of that reesearch has been done in the context of high concurrency data center infrastructure.
+The low variance in latencies is a slightly weirder assumption.
+It is reasonable because we assume that each user uploads \emph{their edits} to \emph{their own} personal cloud storage location.
+In the common case, this will be an account with a commodity service like Dropbox or Google Drive.
+These systems are carefully engineered to quickly broadcast file operations to the internet.
+This assumption lets us assume that in the common case most edits are known to either no teammates or all teammate who are online.
+This is useful for matrix clock compression for reasons we describe in detail below.
 
+\section{Background: Causal Consistency and Matrix Clocks}
+
+Causal consistency and matrix clocks are classic distributed systems concepts.
+We briefly review them here, using TCE terminology instead of classic distributed systems jargon (e.g. ``teammate'' vs. ``process'' and ``edit'' vs. ``message'').
+
+When teammates are concurrently editing a document{\slash}database, it is natural to want to know in what order those edits happened.
+Of course, when there is any network latency and teammates do not have perfectly synchronized clocks, it is not possible to totally order the edits.
+A very common relaxation is the happens-before ordering, where each edit is understood to come after all the edits that were known to the author of that edit at the time when it is broadcast.
+Any protocol that gives clients the ability to infer this happens-before ordering is causally consistent.
+
+A common technique for implementing causal consistency is vector clocks.
+Each teammate counts the edits that they author and tags their edits with this serial number and their own teammate ID (TID).
+A ``vector'' that maps each TID to a serial number for that teammate represents a logical timestamp.
+One vector clock timestamp ($v$) happens-before another ($w$) if for every TID, that TID's serial number in $v$ is less than or equal to their serial number in $w$.
+
+In a basic causal consistency protocol, each teammate keeps locally a timestamp that represents their understanding of the most recent serial number from each teammate.
+When they receive an edit, they update their local timestamp by computing the element-wise maximum of their own timestamp with the one in the incoming edit.
+When a teammate broadcasts an edit they increment their own serial number and include their local timestamp with the edit.
+
+A protocol like the one sketched so far allows teammates to come to a shared understanding of the happens-before ordering of their edits, but it does not make it clear when an edit should be considered ``committed''.
+That is, at what point does it become impossible for an edit to come in from a teammate that ends up being ordered before previously-seen edits?
+
+In order to answer this question, we use matrix clocks.
+Matrix clocks include the vector timestamp described above, plus another vector for each teammate, that indicates teammate A's understanding of the most recent edits known to teammate B.
+By sending acknowledgment messages and including such a matrix clock timestamp with both edits and acknowledgments, teammates can know the most recent edits that have been seen by a majority of teammates, and can thus be considered committed.
 
 \section{Matrix Clock Compression for Team Size Scalability}
 
-Classical matrix clock (MC) timestamps scale quadratically with team size.
+A simple implementation of matrix clock (MC) timestamps scales quadratically with team size.
 As mentioned previously, this would put a quite low practical limit on team size for TCE applications that send a timestamp with every edit.
-We explore a compression of MC timestamps that is effective with the volume of concurrent editing within a team is low.
+We explore a compression of MC timestamps that is effective when the volume of concurrent editing within a team is low.
 The core observation is a simple one: when edit concurrency is low there is a large amount of redundancy between timestamps.
-However, some care must be taken: if clients handled naive matrix timestamps locally and then used conventional compression techniques for transmission, the size of edits could be small, but the amount of work per edit would still scale quadratically.
+However, some care must be taken: a naive approach to exploiting this redundancy would be to handle conventional MC timestamps locally and then compress them for transmission using a conventional compression algorithm.
+This approach would make the edit size on the wire acceptable, but the work needed to operate on them locally would still scale quadratically.
 
-This compression relies on the following two observations:
+\subsection{Most Recent Edit Pointers}
 
-\begin{itemize}
-  \item Individual vector clock timestamps can be implemented as sets of references to only the specific edits that a teammate believes to be the most recent.
-    The referred-to edits transitively imply the missing parts of the timestamp.
-  \item If the volume of concurrent editing is low, then many users will have the same view of the current time.
-    This means that we can compress.
-    The remaining challenge is efficiently representing sets of teammates.
-\end{itemize}
+Our first compression technique has been observed as a possibility in several papers on causal consistency, but is generally discarded as uninteresting because the low edit concurrency assumption is considered unrealistic.
+The idea is that teammates track the set of most recent edits.
+That is, the set of edits that do not strictly happen-before some other known edit.
+In the common case, there will be a single most recent edit in this set.
+When there is some edit concurrency, the set of most recent edits can grow to a maximum of the team size.
+(Each edit by a particular teammate implicitly happens-before every edit from that teammate with a higher serial number.)
+
+When a teammate authors an edit, instead of including a complete vector clock timestamp, they include a set of references (TID-serial number pairs) to what they understand to be the most recent edits.
+This set of references provides exactly the same information that a vector clock would, because by following them transitively one can find the set of all edits that happened-before those edits.
+
+In the case of low edit concurrency, this encoding of logical time clearly does not scale with team size at all.
+This is great for edit size, but we need to make sure that the work performed to send and receive edits also scales well.
+In particular, it is not immediately obvious that clients can perform timestamp comparisons efficiently when timestamps are transmitted in this compact form.
+(Is \{ $\langle$alice, 826$\rangle$, $\langle$carol, 91$\rangle$ \} before or after \{ $\langle$bob, 113$\rangle$, $\langle$dave, 124$\rangle$ \}?)
+
+In fact this processing can be done efficiently with some careful data structure work.
+Each client keeps a directed acyclic graph of edits locally\footnotemark{}.
+\footnotetext{The detailed dependence information between edits can be discarded for ``old'' edits that have been committed into their final total order.}
+Each edit has associated with it a complete logical timestamp.
+If these timestamps were stored as explicit vectors, then the per-edit work would scale with team size, which is what we are trying to avoid.
+Rather we use an immutable tree representation for these timestamps.
+Many timestamps share most of their TID-serial number mappings, and this sharing is reflected in the physical structure of the trees.
+
+The details of this incremental timestamp updating are still being worked out, but we believe all the necessary operations can be done in a way that scales no worse than logarithmically with team size.
+
+\subsection{Identical Timestamps}
+
+Based on our low edit concurrency and low latency variance assumptions, in the common case many teammates will have identical current timestamps.
+This is useful because MC timestamps can be represented as maps from sets of teammates to the timestamp that those teammates all believe to be the most current.
+So our scaling challenge is simplified from efficiently representing a large TID $\rightarrow$ timestamp map to efficiently representing a small sets-of-TIDs $\rightarrow$ timestamp map.
+
+But is it reasonable to assume that the number of distinct current timestamps among all teammates will be small?
+In other words, will many teammates really share identical current timestamps?
+In the case of zero edit concurrency this is relatively easy to see.
+The edit dependence graph is a linear chain and each teammate's current timestamp will be one of the edits along that chain.
+For all teammates who are currently online, within a reasonable time they should move up to the most recent timestamp.
+
+If teammates go offline at random times, there is some chance of the set of current timestamps growing somewhat diverse.
+We believe that in common TCE application usage patterns, edit creation is quite bursty, rather than evenly distributed across the real world timeline.
+This burstiness makes it more likely that teammates will have identical timestamps; it is more likely that teammates will either see a complete burst or none of it.
+
+Another potential problem with the assumption that mostly teammates share a few current timestamps is straggler teammates who do not log in to the team's database for a while.
+As long as the team maintains a majority of teammates who continue to acknowledge edits reasonably promptly, these stragglers are not a problem.
+All teammates whose current timestamps fall behind the commit point can be placed in a single ``old'' set.
+Any edits from such users will be ordered after the youngest commited edit, even if they arrive with an ``older'' timestamp.
+
+When there is some edit concurrency there is some danger that teammates will see edits in different orders, thus quickly diverging into different current timestamps.
+This is where we really need our assumption of low variance of latencies.
+Based on this assumption, even if teammates have relatively low-quality internet connections to their client devices, their edits will become avaialble from their cloud storage locations at a mostly uniform time to their teammates.
+This means that even when there is concurrency according to the causal consistency protocol, edits will mostly become known to all teammates in the same order, which effectively takes us back to the no concurrency situation as far as current timestamp diversity is concerned.
 
 \section{Experimental Validation}
 
 We wrote a simple simulator that builds teams and generates edit traces with varying concurrency distributions.
 
-\section{}
+TBD: Experiments to show that as long as edit concurrency is very low edit size barely scales with team size at all.
+Per-edit work scales logarithmically with team size.
+We believe this is comfortably acceptable for team sizes into the thousands, which is quite large for the kinds of TCE applications we want to support.
+
+\section{Bibliography}
 
 %% \bibliographystyle{splncs04}
 %% \bibliography{./uws.bib}
 
+Concise Version Vectors in WinFS - Dahlia Malkhi, Doug Terry \\
+Cheaper Matrix Clocks - Frederic Ruget \\
+Exploiting Write Semantics in Implementing Partially Replicated Causal Objects - Michel Raynal, Mustaque Ahamad \\
+Efficient Solutions to the Replicated Log and Dictionary Problems - Gene T.J. Wuu, Arthur J. Bernstein \\
+Orbe: Scalable Causal ConsistencyUsing Dependency Matrices and Physical Clocks - Jiaqing Du, Sameh Elnikety, Amitabha Roy, Willy Zwaenepoel \\
+Don't Settle for Eventual: Scalable Causal Consistency for Wide-Area Storage with COPS - W. Lloyd, M. J. Freedman, M. Kaminsky, D. G. Andersen
 
-Cheaper Matrix Clocks - Frederic Ruget
-Exploiting Write Semantics in Implementing Partially Replicated Causal Objects - Michel Raynal, Mustaque Ahamad
-Efficient Solutions to the Replicated Log and Dictionary Problems - Gene T.J. Wuu, Arthur J. Bernstein
 
 \end{document}
