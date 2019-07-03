@@ -111,6 +111,9 @@ A large majority of that reesearch has been done in the context of high concurre
 Classical matrix clock (MC) timestamps scale quadratically with team size.
 As mentioned previously, this would put a quite low practical limit on team size for TCE applications that send a timestamp with every edit.
 We explore a compression of MC timestamps that is effective with the volume of concurrent editing within a team is low.
+The core observation is a simple one: when edit concurrency is low there is a large amount of redundancy between timestamps.
+However, some care must be taken: if clients handled naive matrix timestamps locally and then used conventional compression techniques for transmission, the size of edits could be small, but the amount of work per edit would still scale quadratically.
+
 This compression relies on the following two observations:
 
 \begin{itemize}
@@ -122,6 +125,8 @@ This compression relies on the following two observations:
 \end{itemize}
 
 \section{Experimental Validation}
+
+We wrote a simple simulator that builds teams and generates edit traces with varying concurrency distributions.
 
 \section{}
 
