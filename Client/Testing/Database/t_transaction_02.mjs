@@ -76,7 +76,7 @@ async function test_02_udf()
     ] );
     const res = await Q.runQuery(db3, q2, e_id);
     console.log(res);
-    assert(30 === res[0][0] || 30 === res[1][0], "Function did not return expected result. Found:" + res);
+    assert(30 === res[0][0], "Function did not return expected result. Found:" + res);
     // TODO cardinalityOne should restrict this result to one item
 }
 

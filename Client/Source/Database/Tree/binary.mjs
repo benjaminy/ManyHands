@@ -49,7 +49,7 @@ export function wrapTree( root )
 {
     const tree = {}; // "class" object
 
-    tree.query = async function( query )
+    tree.query = async function( query, cardinalityOne )
     {
         query = typeof( query ) === 'object' ? query : {};
         const { entity, attribute, value, timestamp, revoked } = query;
@@ -97,7 +97,20 @@ export function wrapTree( root )
                 ENTITY, ATTRIBUTE, VALUE, TIMESTAMP );
             db = await ST.getChild( root, kEAVT );
         }
-        return await queryTree( db, matcher );
+        // return await queryTree( db, matcher );
+        const res = await queryTree( db, matcher );
+        console.log("RES", cardinalityOne, search, res);
+        if( cardinalityOne === true && res.length > 1){
+            const chosen = res.shift();
+            console.log("item chosen", chosen, res);
+            for( let item of res ){
+                if( item[ TIMESTAMP ] > chosen[ TIMESTAMP ] ){
+                    chosen = item;
+                }
+            }
+            return [ chosen ];
+        }
+        return res;
     };
 
     tree.node = function()

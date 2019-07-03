@@ -433,12 +433,15 @@ export async function runQuery( db, q, ...ins )
         setBindingsAndJoins(timestamp, D.TIMESTAMP);
         setBindingsAndJoins(revoked, D.REVOKED);
 
+        let search_attribute = null;
+
         const get_constant = async function(field, is_value=false){
             if(constant_tags.has(field.tag)){
                 if( T.equals( field.tag, type_keyword_tag ) ){
                     //console.log("tag sub", field.val, (await TX.getAttribute(db, field.val)).id);
                     if(is_value) return field.val;
-                    return (await TX.getAttribute(db, field.val)).id; // TODO this affects the query, probably
+                    search_attribute = await TX.getAttribute(db, field.val);
+                    return search_attribute.id; // TODO this affects the query, probably
                 } // TODO reaching into the transaction file from query? I'd love for this to be much more agnostic
                 return field.val;
             } else if( T.equals( field.tag, variable_tag ) && inParams.has( field.name ) ){
@@ -461,11 +464,13 @@ export async function runQuery( db, q, ...ins )
             timestamp: await get_constant(timestamp),
             revoked: await get_constant(revoked)
         };
+        
+        const cardinalityOne = search_attribute !== null ? T.equals( search_attribute.cardinality, DA.cardinalityOne ) : false;
 
         // bindings keeps track of the names of variables, and the field they refer to
         return {
             bindings: bindings,
-            results: await DB.find( db, in_query )
+            results: await DB.find( db, in_query, cardinalityOne )
         };
     }
 
@@ -555,6 +560,7 @@ export async function runQuery( db, q, ...ins )
     function filterIncompleteResults(constructedRows){
         const queryResults = [];
         // finally, filter out any results that did not match ALL of the where criterion.
+        console.log("const rows", constructedRows.toString());
         for( const obj of constructedRows )
         {
             const result = [];

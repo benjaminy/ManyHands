@@ -41,9 +41,7 @@ export function tree_adaptor( storageTree ){
         return await initialize_tree_adaptor([...( await engine.query({}) ), ...t_datoms]);
     };
 
-    ds.find = async (query) => {
-        return await engine.query(query);
-    };
+    ds.find = engine.query;
 
     ds.node = storageTree;
 

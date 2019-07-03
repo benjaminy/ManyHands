@@ -58,7 +58,7 @@ export async function commitTxn( db, stmts )
     return wrapDB(db_node);
 }
 
-export async function find( db, options )
+export async function find( db, ...options )
 {
     const current_node = db.node;
     let wrap;
@@ -73,7 +73,7 @@ export async function find( db, options )
             wrap = await TW.initialize_tree_adaptor();
         }
     }
-    return wrap.find( options );
+    return wrap.find( ...options );
 }
 // ,
 // uploadCommittedTxns : async function uploadCommittedTxns( db )
