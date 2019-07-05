@@ -654,17 +654,17 @@ export async function runQuery( db, q, ...ins )
                     //console.log("F03", mappedVariablesByConstraint._entries);
                     for( const o of v )
                     {
-                        if (k === start || prev.indexOf(k) !== -1) {
+                        if (k === start || prev.indexOf( k ) !== -1) {
                             continue;
                         }
                         if( compatible( running, k, true ) ) {
                             const pairings = innerPair(
-                                T.map([...k, ...running].flat()), k, start, ...prev);
+                                T.map( [ ...k, ...running ].flat() ), k, start, ...prev );
                             for( const pairing of pairings )
                             {
                                 UT.mapAssign( keys, pairing );
                             }
-                            running = T.map([...o, ...running].flat());
+                            running = T.map( [ ...o, ...running ].flat() );
                         }
                     }
                 }
@@ -677,7 +677,7 @@ export async function runQuery( db, q, ...ins )
             const visited = T.set();
 
             for (let i = 0; i < results.length; i++) {
-                let running_res = T.map([...results[i]].flat());
+                let running_res = T.map( [ ...results[ i ] ].flat() );
                 if (visited.has(results[i])) {
                     continue;
                 }
@@ -686,8 +686,8 @@ export async function runQuery( db, q, ...ins )
                         running_res = T.map([...running_res, ...results[j]].flat());
                     }
                 }
-                visited.add(results[i]);
-                collected.push(running_res);
+                visited.add( results[ i ] );
+                collected.push( running_res );
             }
 
             return collected;
@@ -695,42 +695,43 @@ export async function runQuery( db, q, ...ins )
         return resultSet;
     }
 
-    if( T.equals(q.where.tag, where_clauses_tag) )
+    if( T.equals( q.where.tag, where_clauses_tag ) )
     {
         const clauses = q.where.clauses;
         const naiveWhereQueryResult = [];
         for( const clause of clauses )
         {
-            naiveWhereQueryResult.push(await naiveWhereClauseQuery(db, clause));
+            naiveWhereQueryResult.push( await naiveWhereClauseQuery( db, clause ) );
         }
-        if(naiveWhereQueryResult.length === 1) {
+        if( naiveWhereQueryResult.length === 1 )
+        {
             // short-circuit shortcut where we don't have to worry
             // about any joining.
             const results = [];
-            const res = naiveWhereQueryResult[0];
+            const res = naiveWhereQueryResult[ 0 ];
 
             for( const item of res.results )
             {
                 const result = [];
                 for( const variable of vars )
                 {
-                    result.push(item[res.bindings[variable]])
+                    result.push( item[ res.bindings[ variable ] ] );
                 }
-                results.push(result);
+                results.push( result );
             }
             return results;
         }
         // ELSE
         
-        filterIrrelevantResults(naiveWhereQueryResult);
+        filterIrrelevantResults( naiveWhereQueryResult );
 
         const mappedVariablesByConstraint =
               buildMappedVariablesByConstraint( naiveWhereQueryResult );
 
-        const constructedRows = pair(mappedVariablesByConstraint);
+        const constructedRows = pair( mappedVariablesByConstraint );
 
-        const filtered = filterIncompleteResults(constructedRows);
-        // TODO cardinality and other checks on the query
+        const filtered = filterIncompleteResults( constructedRows );
+        // TODO has cardinality been taken care of?
         return filtered;
     }
     else

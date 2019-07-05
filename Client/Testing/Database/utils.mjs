@@ -26,10 +26,12 @@ function new_plain_root()
 }
 
 export async function setup(){
-    const [root, retrieve_root] = new_plain_root();
+    const [ root, retrieve_root ] = new_plain_root();
+    // TODO a builtin :inwertAttr would be nice so this can be done
+    // in a "vanilla" transaction
     const name_insert = DT.getAttributeInserts(
         A.createAttribute(
-            ":name",
+            K.key( ":name" ),
             A.vtypeString,
             A.cardinalityOne,
             "A person's single, full name"
@@ -37,14 +39,22 @@ export async function setup(){
     );
     const money_insert = DT.getAttributeInserts(
         A.createAttribute(
-            ":money",
+            K.key( ":money" ),
             A.vtypeLong,
             A.cardinalityOne,
             "A person's money amount"
         )
     );
+    const likes_insert = DT.getAttributeInserts(
+        A.createAttribute(
+            K.key( ":likes" ),
+            A.vtypeRef,
+            A.cardinalityMany,
+            "A list of the entities this entity likes"
+        )
+    );
     let db = DB.newDB( );
-    db = await DB.commitTxn( db, [ ...name_insert, ...money_insert ] );
+    db = await DB.commitTxn( db, [ ...name_insert, ...money_insert, ...likes_insert ] );
 
     ST.setChild( root, "the database", db.node );
     const r2 = await ST.writeTree( root );    
@@ -54,5 +64,10 @@ export async function setup(){
     return [ retrieved_db, retrieve_root ];
 }
 
+
+export async function debug( db )
+{
+    console.log("DEBUG: ", await DB.find( db, {} ));
+}
 
 

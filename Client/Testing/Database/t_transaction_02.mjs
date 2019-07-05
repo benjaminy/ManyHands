@@ -21,13 +21,22 @@ import T from "transit-js";
 async function main()
 {
     await test_01_rewind();
-    //await test_02_udf();
+    await test_02_udf();
 }
 async function test_01_rewind()
 {
     let [ db, retrieve_root ] = await TU.setup();
     let db2 = await DB.commitTxn( db, [ [ DT.addK, "chad", K.key(":name"), "Chadictionary" ] ] );
-    const q = Q.parseQuery( [ Q.findK, "?name", Q.whereK, [ "?underscore", K.key( ":name" ), "?name" ] ] );
+    const q = Q.parseQuery(
+        [
+            Q.findK, "?name",
+            Q.whereK, [
+                "?underscore",
+                K.key( ":name" ),
+                "?name"
+            ]
+        ]
+    );
     const res = await Q.runQuery( db2, q );
     assert( res.length === 1 );
     let db3 = await DB.traverseHistory( db2, 1 );
@@ -36,21 +45,22 @@ async function test_01_rewind()
 }
 
 const subtract = async (query, Q, ...args) => {
-    console.log("ALL:", (await query([Q.findK, "?e", "?a", "?v", Q.whereK, ["?e", "?a", "?v"]])));
     const a = await query(
         [
             Q.findK, "?current",
-            Q.inK, "$", //"?entity", "?attribute",
+            Q.inK, "$", "?entity", "?attribute",
             Q.whereK, [
-                args[0],//"?entity", 
-                args[1],//"?attribute", 
+                "?entity", 
+                "?attribute", 
                 "?current"
             ]
         ],
-        //args[0], args[1] // TODO these should be inK parameters
+        args[0], args[1] // TODO this inParam stuff
+        // should be fixed in query code,
+        // targeted by t_query_01/test_14_in_params
     );
-    console.log("adsfjkl;as", args, a);
-    return [[args[0], args[1], a[0][0] - args[2]]];
+    console.log("a res", a);
+    return [ [ args[ 0 ], args[ 1 ], a[ 0 ][ 0 ] - args[ 2 ] ] ];
 }
 
 async function test_02_udf()
