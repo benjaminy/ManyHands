@@ -13,6 +13,16 @@ import SM from "../../Source/Storage/in_memory.mjs";
 import * as TU from "./utils.mjs";
 import T from "transit-js";
 
+/*
+known issues:
+ - test_14 does not work because using a keyword
+   as an inParam is broken
+ - cardinality might be restricting returns when the
+   entity is not specified. (cardinality breaks
+   some queries unexpectedly)
+ - mysterious transit error in test_10 ???
+*/
+
 async function test_14_in_params()
 {
     // TODO not expecting this to work yet.
@@ -92,7 +102,7 @@ async function test_12_attribute_query(){
         1002,
         A.vtypeRef,
         A.cardinalityMany,
-        'The many entities that this entity likes.',
+        "A list of the entities this entity likes",
         null,
         false,
         false,

@@ -464,13 +464,13 @@ export async function runQuery( db, q, ...ins )
             timestamp: await get_constant(timestamp),
             revoked: await get_constant(revoked)
         };
-        
+        // TODO cardinality needs to be entity-specific
         const cardinalityOne = search_attribute !== null ? T.equals( search_attribute.cardinality, DA.cardinalityOne ) : false;
 
         // bindings keeps track of the names of variables, and the field they refer to
         return {
             bindings: bindings,
-            results: await DB.find( db, in_query, cardinalityOne )
+            results: await DB.find( db, in_query/*, cardinalityOne   TODO CARDINAILTY NEEDS SOME ATTENTION */ )
         };
     }
 
@@ -580,22 +580,22 @@ export async function runQuery( db, q, ...ins )
     }
 
     /*
-   * Check if two objects are "compatible". By this we mean, there are no
-   * overlapping keys with different values.
-   *
-   * A few examples: compatible({a: 1, b: 2}, {a: 1, b: 2}) === true
-   * compatible({a: 1, b: 2}, {a: 1, c: 3}) === true
-   * compatible({a: 1, b: 2}, {a: 1, b: 3}) === false
-   *
-   * The "connected" specifies if we should constrain this notion to
-   * objects which have something in common, or not.
-   *
-   * compatible({a: 1, b: 2}, {c: 3, d: 4}, false) === true
-   * compatible({a: 1, b: 2}, {c: 3, d: 4}, true) === false
-   *
-   * In cases with overlap (i.e. the three above example cases), the
-   * connected flag has no effect.
-   */
+     * Check if two objects are "compatible". By this we mean, there are no
+     * overlapping keys with different values.
+     *
+     * A few examples: compatible({a: 1, b: 2}, {a: 1, b: 2}) === true
+     * compatible({a: 1, b: 2}, {a: 1, c: 3}) === true
+     * compatible({a: 1, b: 2}, {a: 1, b: 3}) === false
+     *
+     * The "connected" specifies if we should constrain this notion to
+     * objects which have something in common, or not.
+     *
+     * compatible({a: 1, b: 2}, {c: 3, d: 4}, false) === true
+     * compatible({a: 1, b: 2}, {c: 3, d: 4}, true) === false
+     *
+     * In cases with overlap (i.e. the three above example cases), the
+     * connected flag has no effect.
+     */
     function compatible(a, o, connected){
         let comp = true;
         let hit = false;
