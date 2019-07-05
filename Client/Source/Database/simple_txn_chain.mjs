@@ -137,6 +137,15 @@ export function newDB( root_node )
     return wrapDB( db_node );
 }
 
+export async function traverseHistory( db, hops ){
+    let land_node = db.node;
+    while(hops > 0){
+        land_node = await ST.getChild( land_node, kPrev );
+        hops--;
+    }
+    return wrapDB( land_node );
+}
+
 export async function open( storage, root_ptr )
 {
     const db = Object.assign( {}, dbMethods );
