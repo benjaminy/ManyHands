@@ -634,7 +634,7 @@ export async function runQuery( db, q, ...ins )
      * TODO more thorough documentation and graph explanation
      */
     function pair(mappedVariablesByConstraint){
-
+        console.log("THIS IS ONE PAIR");
         const resultSet = T.set();
 
         for(let [k, v] of mappedVariablesByConstraint){
@@ -647,10 +647,19 @@ export async function runQuery( db, q, ...ins )
 
         function innerPair(running, start, ...prev) {
             const results = [];
+            console.log("I AM GOING TO CALL GET NOW AND NOTHING ELSE")
+            if(mappedVariablesByConstraint.get(start) === undefined){
+                console.log("UNDEFINED: DUMPING");
+                console.log(mappedVariablesByConstraint.toString());
+                console.log("WHAT WE SEARCHING FOR", start, "TOS", start.toString());
+                console.log(JSON.stringify(mappedVariablesByConstraint));
+                console.log("2739::", mappedVariablesByConstraint.backingMap.map['2739']);
+            }
             for( const n of mappedVariablesByConstraint.get(start) )
             {
-                const keys = n.clone();
-                for (let [k, v] of mappedVariablesByConstraint) {
+                let keys = n.clone();
+                for( let [k, v] of mappedVariablesByConstraint)
+                {
                     //console.log("F03", mappedVariablesByConstraint._entries);
                     for( const o of v )
                     {
@@ -658,13 +667,16 @@ export async function runQuery( db, q, ...ins )
                             continue;
                         }
                         if( compatible( running, k, true ) ) {
-                            const pairings = innerPair(
-                                T.map( [ ...k, ...running ].flat() ), k, start, ...prev );
+                            const new_running = running.clone();
+                            UT.mapAssignNoOverwrite( new_running, k );
+                            const pairings = innerPair( new_running, k, start, ...prev );
                             for( const pairing of pairings )
                             {
+                                keys = keys.clone();
                                 UT.mapAssign( keys, pairing );
                             }
-                            running = T.map( [ ...o, ...running ].flat() );
+                            running = running.clone();
+                            UT.mapAssignNoOverwrite( running, o );
                         }
                     }
                 }
@@ -677,13 +689,13 @@ export async function runQuery( db, q, ...ins )
             const visited = T.set();
 
             for (let i = 0; i < results.length; i++) {
-                let running_res = T.map( [ ...results[ i ] ].flat() );
+                let running_res = results[ i ].clone();
                 if (visited.has(results[i])) {
                     continue;
                 }
                 for (let j = 0; j < results.length; j++) {
                     if (compatible(results[i], results[j], false)) {
-                        running_res = T.map([...running_res, ...results[j]].flat());
+                        UT.mapAssign( running_res, results[ j ] );
                     }
                 }
                 visited.add( results[ i ] );
