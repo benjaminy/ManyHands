@@ -10,7 +10,10 @@ import fetch   from "isomorphic-fetch"; /* imported for "Headers" and "Response"
 import * as L  from "../Utilities/logging.mjs";
 import * as CB from "../Crypto/basics.mjs";
 
+const TIMEOUT = 10;
+
 var transit_writer, transit_reader;
+let watch_requests = T.map();
 
 function lazyWr()
 {
@@ -30,6 +33,20 @@ function lazyRd()
         transit_reader = r.read.bind( r );
     }
     return transit_reader;
+}
+
+function triggerLongPolls(path)
+{
+  if( !watch_requests.has( path ) )
+  {
+      return;
+  }
+  const resolves = watch_requests.get( path );
+  watch_requests.delete( path );
+  for( const resolve of resolves )
+  {
+      resolve();
+  }
 }
 
 async function tryGet( filesMap, key )
@@ -114,6 +131,7 @@ export function upload( filesMap )
         /* NOTE: The HTTP spec mandates GMT */
         response_ok.headers.set( "Last-Modified", now );
         L.debug( "local-sim: Uploaded", path, now, etag );
+        await triggerLongPolls(path);
         return response_ok;
     }
 }
@@ -169,6 +187,31 @@ export function watch(filesMap)
 {
   return async function watch(path){
     L.debug( "\u21b3 local_sim.watch", path );
-    
+    let watchResponseMeta;
+
+    const file = await tryGet( filesMap, path);
+    if (file)
+    {
+      var resolve, reject;
+      const watch_promise = new Promise( ( s, j ) => { resolve = s, reject = j } );
+      setTimeout( () => reject( new TimeoutError() ), TIMEOUT * 1000 );
+
+      const reqs = watch_requests.has(path) ? watch_requests.get(path): T.set();
+      watch_requests.set(path, reqs);
+      reqs.add(resolve);
+
+      try {
+          await watch_promise;
+          watchResponseMeta = 'file-changed';
+      }
+      catch( err ) {
+        watchResponseMeta = 'timeout';
+      }
+    }
+    else
+    {
+        watchResponseMeta = 'path-format-error';
+    }
+    return watchResponseMeta;
   }
 }
