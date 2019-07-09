@@ -20,7 +20,6 @@ known issues:
  - cardinality might be restricting returns when the
    entity is not specified. (cardinality breaks
    some queries unexpectedly)
- - mysterious transit error in test_10 ???
 */
 
 async function test_14_in_params()

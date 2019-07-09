@@ -356,7 +356,7 @@ export async function runQuery( db, q, ...ins )
         {
             for( const elem of q.find.elems )
             {
-                if( T.equals(elem.tag, variable_tag) )
+                if( T.equals( elem.tag, variable_tag ) )
                 {
                     vars.push( elem.name );
                 }
@@ -372,7 +372,7 @@ export async function runQuery( db, q, ...ins )
         }
         return vars;
     }
-    const vars = identifyOutputVariables(q.find);
+    const vars = identifyOutputVariables( q.find );
 
 
     function bindInParameters(q_ins, ...ins){
@@ -435,17 +435,28 @@ export async function runQuery( db, q, ...ins )
 
         let search_attribute = null;
 
-        const get_constant = async function(field, is_value=false){
+        const MODE_VALUE = K.key("value");
+        const MODE_ATTRIBUTE = K.key("attribute");
+
+        const get_constant = async function(field, mode=null){
             if(constant_tags.has(field.tag)){
                 if( T.equals( field.tag, type_keyword_tag ) ){
                     //console.log("tag sub", field.val, (await TX.getAttribute(db, field.val)).id);
-                    if(is_value) return field.val;
+                    if(T.equals(mode, MODE_VALUE)) return field.val;
                     search_attribute = await TX.getAttribute(db, field.val);
                     return search_attribute.id; // TODO this affects the query, probably
                 } // TODO reaching into the transaction file from query? I'd love for this to be much more agnostic
                 return field.val;
             } else if( T.equals( field.tag, variable_tag ) && inParams.has( field.name ) ){
-                return inParams.get( field.name );
+                const val = inParams.get( field.name );
+                console.log("is keyword:", val, T.isKeyword(val));
+                if( T.equals( mode, MODE_ATTRIBUTE ) ){
+                    console.log("ya");
+                    search_attribute = await TX.getAttribute(db, val);
+                    return search_attribute.id; // TODO this affects the query, probably
+                    
+                }
+                return val
             }
             return undefined;
         };
@@ -454,13 +465,13 @@ export async function runQuery( db, q, ...ins )
         // for example, if you search [1 :is ?hello], this will be {entity: 1, attribute: :is}
         // and a search will be done on the specified fields.
 
-        const _attribute = await get_constant(attribute);
+        const _attribute = await get_constant(attribute, MODE_ATTRIBUTE);
 
         const in_query = {
             entity: await get_constant(entity),
             attribute: _attribute,
             // if ident, this may be an unsubstituted K.key.
-            value: await get_constant(value, _attribute === DA.dbSymbolMap.get(DA.identK)),
+            value: await get_constant(value, _attribute === DA.dbSymbolMap.get(DA.identK) ? MODE_VALUE : null),
             timestamp: await get_constant(timestamp),
             revoked: await get_constant(revoked)
         };
@@ -468,6 +479,7 @@ export async function runQuery( db, q, ...ins )
         const cardinalityOne = search_attribute !== null ? T.equals( search_attribute.cardinality, DA.cardinalityOne ) : false;
 
         // bindings keeps track of the names of variables, and the field they refer to
+        console.log("IQ", in_query);
         return {
             bindings: bindings,
             results: await DB.find( db, in_query/*, cardinalityOne   TODO CARDINAILTY NEEDS SOME ATTENTION */ )
@@ -647,14 +659,6 @@ export async function runQuery( db, q, ...ins )
 
         function innerPair(running, start, ...prev) {
             const results = [];
-            console.log("I AM GOING TO CALL GET NOW AND NOTHING ELSE")
-            if(mappedVariablesByConstraint.get(start) === undefined){
-                console.log("UNDEFINED: DUMPING");
-                console.log(mappedVariablesByConstraint.toString());
-                console.log("WHAT WE SEARCHING FOR", start, "TOS", start.toString());
-                console.log(JSON.stringify(mappedVariablesByConstraint));
-                console.log("2739::", mappedVariablesByConstraint.backingMap.map['2739']);
-            }
             for( const n of mappedVariablesByConstraint.get(start) )
             {
                 let keys = n.clone();
