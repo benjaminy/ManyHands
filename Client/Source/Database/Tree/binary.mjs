@@ -99,16 +99,19 @@ export function wrapTree( root )
         }
         // return await queryTree( db, matcher );
         const res = await queryTree( db, matcher );
-        console.log("RES", cardinalityOne, search, res);
         if( cardinalityOne === true && res.length > 1){
-            const chosen = res.shift();
-            console.log("item chosen", chosen, res);
+            const cardFiltered = T.map();
             for( let item of res ){
-                if( item[ TIMESTAMP ] > chosen[ TIMESTAMP ] ){
-                    chosen = item;
+                const current = cardFiltered.get( item[ ENTITY ] );
+                if( current === undefined ){
+                    cardFiltered.set( item[ ENTITY ], item );
+                } else {
+                    if( item[ TIMESTAMP ] > current[ TIMESTAMP ] ){
+                        cardFiltered.set( item[ ENTITY ], item );
+                    }
                 }
             }
-            return [ chosen ];
+            return [ ...cardFiltered.values() ];
         }
         return res;
     };

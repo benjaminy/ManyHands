@@ -438,6 +438,7 @@ export async function runQuery( db, q, ...ins )
         const MODE_VALUE = K.key("value");
         const MODE_ATTRIBUTE = K.key("attribute");
 
+        // TODO this needs attention and cleanup
         const get_constant = async function(field, mode=null){
             if(constant_tags.has(field.tag)){
                 if( T.equals( field.tag, type_keyword_tag ) ){
@@ -449,9 +450,7 @@ export async function runQuery( db, q, ...ins )
                 return field.val;
             } else if( T.equals( field.tag, variable_tag ) && inParams.has( field.name ) ){
                 const val = inParams.get( field.name );
-                console.log("is keyword:", val, T.isKeyword(val));
                 if( T.equals( mode, MODE_ATTRIBUTE ) ){
-                    console.log("ya");
                     search_attribute = await TX.getAttribute(db, val);
                     return search_attribute.id; // TODO this affects the query, probably
                     
@@ -475,14 +474,12 @@ export async function runQuery( db, q, ...ins )
             timestamp: await get_constant(timestamp),
             revoked: await get_constant(revoked)
         };
-        // TODO cardinality needs to be entity-specific
-        const cardinalityOne = search_attribute !== null ? T.equals( search_attribute.cardinality, DA.cardinalityOne ) : false;
+        const cardinalityOne = search_attribute !== null && T.equals( search_attribute.cardinality, DA.cardinalityOne )
 
         // bindings keeps track of the names of variables, and the field they refer to
-        console.log("IQ", in_query);
         return {
             bindings: bindings,
-            results: await DB.find( db, in_query/*, cardinalityOne   TODO CARDINAILTY NEEDS SOME ATTENTION */ )
+            results: await DB.find( db, in_query, cardinalityOne )
         };
     }
 
