@@ -356,7 +356,7 @@ export async function runQuery( db, q, ...ins )
         {
             for( const elem of q.find.elems )
             {
-                if( T.equals(elem.tag, variable_tag) )
+                if( T.equals( elem.tag, variable_tag ) )
                 {
                     vars.push( elem.name );
                 }
@@ -372,7 +372,7 @@ export async function runQuery( db, q, ...ins )
         }
         return vars;
     }
-    const vars = identifyOutputVariables(q.find);
+    const vars = identifyOutputVariables( q.find );
 
 
     function bindInParameters(q_ins, ...ins){
@@ -435,17 +435,27 @@ export async function runQuery( db, q, ...ins )
 
         let search_attribute = null;
 
-        const get_constant = async function(field, is_value=false){
+        const MODE_VALUE = K.key("value");
+        const MODE_ATTRIBUTE = K.key("attribute");
+
+        // TODO this needs attention and cleanup
+        const get_constant = async function(field, mode=null){
             if(constant_tags.has(field.tag)){
                 if( T.equals( field.tag, type_keyword_tag ) ){
                     //console.log("tag sub", field.val, (await TX.getAttribute(db, field.val)).id);
-                    if(is_value) return field.val;
+                    if(T.equals(mode, MODE_VALUE)) return field.val;
                     search_attribute = await TX.getAttribute(db, field.val);
                     return search_attribute.id; // TODO this affects the query, probably
                 } // TODO reaching into the transaction file from query? I'd love for this to be much more agnostic
                 return field.val;
             } else if( T.equals( field.tag, variable_tag ) && inParams.has( field.name ) ){
-                return inParams.get( field.name );
+                const val = inParams.get( field.name );
+                if( T.equals( mode, MODE_ATTRIBUTE ) ){
+                    search_attribute = await TX.getAttribute(db, val);
+                    return search_attribute.id; // TODO this affects the query, probably
+                    
+                }
+                return val
             }
             return undefined;
         };
@@ -454,23 +464,22 @@ export async function runQuery( db, q, ...ins )
         // for example, if you search [1 :is ?hello], this will be {entity: 1, attribute: :is}
         // and a search will be done on the specified fields.
 
-        const _attribute = await get_constant(attribute);
+        const _attribute = await get_constant(attribute, MODE_ATTRIBUTE);
 
         const in_query = {
             entity: await get_constant(entity),
             attribute: _attribute,
             // if ident, this may be an unsubstituted K.key.
-            value: await get_constant(value, _attribute === DA.dbSymbolMap.get(DA.identK)),
+            value: await get_constant(value, _attribute === DA.dbSymbolMap.get(DA.identK) ? MODE_VALUE : null),
             timestamp: await get_constant(timestamp),
             revoked: await get_constant(revoked)
         };
-        // TODO cardinality needs to be entity-specific
-        const cardinalityOne = search_attribute !== null ? T.equals( search_attribute.cardinality, DA.cardinalityOne ) : false;
+        const cardinalityOne = search_attribute !== null && T.equals( search_attribute.cardinality, DA.cardinalityOne )
 
         // bindings keeps track of the names of variables, and the field they refer to
         return {
             bindings: bindings,
-            results: await DB.find( db, in_query/*, cardinalityOne   TODO CARDINAILTY NEEDS SOME ATTENTION */ )
+            results: await DB.find( db, in_query, cardinalityOne )
         };
     }
 
@@ -634,7 +643,7 @@ export async function runQuery( db, q, ...ins )
      * TODO more thorough documentation and graph explanation
      */
     function pair(mappedVariablesByConstraint){
-
+        console.log("THIS IS ONE PAIR");
         const resultSet = T.set();
 
         for(let [k, v] of mappedVariablesByConstraint){
@@ -649,8 +658,9 @@ export async function runQuery( db, q, ...ins )
             const results = [];
             for( const n of mappedVariablesByConstraint.get(start) )
             {
-                const keys = n.clone();
-                for (let [k, v] of mappedVariablesByConstraint) {
+                let keys = n.clone();
+                for( let [k, v] of mappedVariablesByConstraint)
+                {
                     //console.log("F03", mappedVariablesByConstraint._entries);
                     for( const o of v )
                     {
@@ -658,13 +668,16 @@ export async function runQuery( db, q, ...ins )
                             continue;
                         }
                         if( compatible( running, k, true ) ) {
-                            const pairings = innerPair(
-                                T.map( [ ...k, ...running ].flat() ), k, start, ...prev );
+                            const new_running = running.clone();
+                            UT.mapAssignNoOverwrite( new_running, k );
+                            const pairings = innerPair( new_running, k, start, ...prev );
                             for( const pairing of pairings )
                             {
+                                keys = keys.clone();
                                 UT.mapAssign( keys, pairing );
                             }
-                            running = T.map( [ ...o, ...running ].flat() );
+                            running = running.clone();
+                            UT.mapAssignNoOverwrite( running, o );
                         }
                     }
                 }
@@ -677,13 +690,13 @@ export async function runQuery( db, q, ...ins )
             const visited = T.set();
 
             for (let i = 0; i < results.length; i++) {
-                let running_res = T.map( [ ...results[ i ] ].flat() );
+                let running_res = results[ i ].clone();
                 if (visited.has(results[i])) {
                     continue;
                 }
                 for (let j = 0; j < results.length; j++) {
                     if (compatible(results[i], results[j], false)) {
-                        running_res = T.map([...running_res, ...results[j]].flat());
+                        UT.mapAssign( running_res, results[ j ] );
                     }
                 }
                 visited.add( results[ i ] );

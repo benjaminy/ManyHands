@@ -108,7 +108,7 @@ export function makeAttribute(
     attr.noHistory   = false;
 
     /* TODO: check that ident doesn't break any naming rules */
-    console.log(valueType);
+    console.log(ident_, id_, valueType, valueType_);
     if( !types.has( valueType ) )
         throw new Error( "Invalid attribute valueType: " + valueType.toString() );
     attr.valueType = valueType;

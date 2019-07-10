@@ -39,3 +39,17 @@ export function mapAssign( m1, ...maps )
     }
     return m1;
 }
+
+export function mapAssignNoOverwrite( m1, ...maps )
+{
+    for( const m2 of maps )
+    {
+        for( const [ key, value ] of m2 )
+        {
+            if( m1.get( key ) === undefined )
+            {
+                m1.set( key, value );
+            }
+        }
+    }
+}

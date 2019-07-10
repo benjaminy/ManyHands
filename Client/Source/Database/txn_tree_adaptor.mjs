@@ -3,7 +3,7 @@
 import assert  from "../Utilities/assert.mjs";
 import * as ST from "../Storage/tree.mjs";
 import * as SC from "../Storage/common.mjs";
-import * as TR from "./Tree/binary.mjs";
+import * as TR from "./Tree/tree.mjs";
 import T from "transit-js";
 
 
