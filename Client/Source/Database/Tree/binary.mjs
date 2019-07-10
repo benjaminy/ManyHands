@@ -4,6 +4,11 @@ import * as K from "../../Utilities/keyword.mjs";
 import * as TREE from "./tree.mjs"
 
 import T from "transit-js";
+
+const kLeftChild = K.key( "left_child" );
+const kRightChild = K.key("right_child" );
+const kValue = K.key( "value" );
+
 /**
  * root: the tree
  * is_match: function compare_match(value), checks if value is within
@@ -22,31 +27,31 @@ export async function query( root, compare_match )
         return [];
     }
     const comp = compare_match( root_value );
-    if( comp === kCompatible || comp === kGreater || comp === kUnknown )
+    if( T.equals(comp, TREE.kCompatible) || T.equals(comp, TREE.kGreater) || T.equals(comp, TREE.kUnknown) )
     {
         try {
             const left_child = await ST.getChild( root, kLeftChild );
             running.push( ...( await query( left_child, compare_match ) ) );
         } catch ( ex )
         {
-            if(ex.type != "FileNotFoundError")
+            if(ex.type !== "FileNotFoundError")
             {
                 throw ex;
             }
         }
     }
-    if( comp === kCompatible )
+    if( comp === TREE.kCompatible )
     {
         running.push( root_value );
     }
-    if( comp === kCompatible || comp === kLesser || comp === kUnknown )
+    if( comp === TREE.kCompatible || comp === TREE.kLesser || comp === TREE.kUnknown )
     {
         try {
             const right_child = await ST.getChild( root, kRightChild );
             running.push( ...( await query( right_child, compare_match ) ) );
         } catch ( ex )
         {
-            if(ex.type != "FileNotFoundError")
+            if(ex.type !== "FileNotFoundError")
             {
                 throw ex;
             }
@@ -74,7 +79,7 @@ export async function construct( data, ...sorts )
 
 async function insertIntoNode( node, new_node, sorts )
 {
-    const comp = compare( node, new_node, ...sorts );
+    const comp = TREE.compare( node, new_node, ...sorts );
     let left_child;
     if( comp < 0 )
     {

@@ -15,10 +15,7 @@ const kEAVT = K.key("eavt");
 const kAEVT = K.key("aevt");
 const kVAET = K.key("vaet");
 
-const kLeftChild = K.key( "left_child" );
-const kRightChild = K.key("right_child" );
 const kValue = K.key( "value" );
-
 
 const STORAGE = BIN;
 
@@ -26,13 +23,13 @@ export async function buildTree( data )
 {
     const root = ST.newNode();
 
-    const avet = await constructBinaryTree(data,
+    const avet = await STORAGE.construct(data,
         ATTRIBUTE, VALUE, ENTITY, TIMESTAMP);
-    const eavt = await constructBinaryTree(data,
+    const eavt = await STORAGE.construct(data,
         ENTITY, ATTRIBUTE, VALUE, TIMESTAMP);
-    const aevt = await constructBinaryTree(data,
+    const aevt = await STORAGE.construct(data,
         ATTRIBUTE, ENTITY, VALUE, TIMESTAMP);
-    const vaet = await constructBinaryTree(data,
+    const vaet = await STORAGE.construct(data,
         VALUE, ATTRIBUTE, ENTITY, TIMESTAMP);
 
     ST.setChild(root, kAVET, avet);
@@ -101,7 +98,7 @@ export function wrapTree( root )
             db = await ST.getChild( root, kEAVT );
         }
         // return await queryTree( db, matcher );
-        const res = await STRATEGY.query( db, matcher );
+        const res = await STORAGE.query( db, matcher );
         if( cardinalityOne === true && res.length > 1){
             const cardFiltered = T.map();
             for( let item of res ){
@@ -126,7 +123,7 @@ export function wrapTree( root )
 
     tree.add = async function(...datoms)
     {
-        return STRAGEGY.construct(
+        return STORAGE.construct(
             [
                 ...tree.query(), 
                 ...datoms
