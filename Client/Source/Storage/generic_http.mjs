@@ -93,6 +93,12 @@ export async function atomicUpdate( headers, link, options, upload )
     return [ response, meta ];
 }
 
+export async function watch(link,options,coreWatch)
+{
+  const path = link.get("path");
+  return coreWatch(path,options);
+}
+
 export async function upload( link, value, options, coreUpload )
 {
     L.debug( "\u21b3 generic_http.upload", link.toString(), options.toString() );

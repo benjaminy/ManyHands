@@ -13,8 +13,8 @@ import * as LG  from "./simple_longpoll.mjs";
 
 async function main()
 {
-    const s = SC( "alice", { TLS:true } );
     const s = SC( "alice" );
+    //const s = SC( "alice" );
     await SUD.just_upload( s );
     await SUD.up_down( s );
     await AU.test1( s );

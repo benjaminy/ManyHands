@@ -13,8 +13,8 @@ const notTimeout = "10x"
 export async function longPollTests(s){
   const etag = await longpollSetup(s);
   await longPollTimeoutTest(s, etag);
-  await longPollInvalidPathTest(s, etag);
   await longPollInvalidTimeoutTest(s, etag);
+  await longPollInvalidPathTest(s, etag);
   await longPollSuccessfulNotificationTest(s, etag);
 }
 
@@ -26,6 +26,7 @@ async function longPollTimeoutTest( s, etag ){
     timeoutLength: `${timeout}`
   }
   const watchMeta = await s.watch(link,options);
+  console.log(watchMeta);
   assert(watchMeta === "timeout");
 }
 
