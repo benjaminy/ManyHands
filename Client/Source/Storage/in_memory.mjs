@@ -74,6 +74,7 @@ export default function init( options_init )
     mstorage.files         = T.map();
     mstorage.upload        = upload;
     mstorage.download      = download;
+    mstorage.watch         = watch;
     mstorage.deleteFile    = deleteFile;
     mstorage.dehydrateLink = dehydrateLink;
     mstorage.rehydrateLink = rehydrateLink;

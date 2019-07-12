@@ -188,13 +188,12 @@ export function watch(filesMap)
   return async function watch(path){
     L.debug( "\u21b3 local_sim.watch", path );
     let watchResponseMeta;
-
     const file = await tryGet( filesMap, path);
     if (file)
     {
       var resolve, reject;
       const watch_promise = new Promise( ( s, j ) => { resolve = s, reject = j } );
-      setTimeout( () => reject( new TimeoutError() ), TIMEOUT * 1000 );
+      setTimeout( () => reject( new Error() ), TIMEOUT * 1000 );
 
       const reqs = watch_requests.has(path) ? watch_requests.get(path): T.set();
       watch_requests.set(path, reqs);
