@@ -10,7 +10,7 @@ import * as K  from "../Utilities/keyword.mjs";
 import * as S  from "../Utilities/set.mjs";
 import * as DA from "./attribute.mjs";
 import * as TX from "./transaction.mjs";
-import * as D  from "./Tree/binary.mjs";
+import * as D  from "./Tree/tree.mjs";
 import * as DB from "./simple_txn_chain.mjs";
 
 import T       from "transit-js";
@@ -569,7 +569,6 @@ export async function runQuery( db, q, ...ins )
     function filterIncompleteResults(constructedRows){
         const queryResults = [];
         // finally, filter out any results that did not match ALL of the where criterion.
-        console.log("const rows", constructedRows.toString());
         for( const obj of constructedRows )
         {
             const result = [];
@@ -643,7 +642,6 @@ export async function runQuery( db, q, ...ins )
      * TODO more thorough documentation and graph explanation
      */
     function pair(mappedVariablesByConstraint){
-        console.log("THIS IS ONE PAIR");
         const resultSet = T.set();
 
         for(let [k, v] of mappedVariablesByConstraint){
