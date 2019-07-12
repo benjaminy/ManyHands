@@ -1,7 +1,8 @@
 #!/usr/bin/env node --experimental-modules
 import T       from "transit-js";
 import assert  from "assert";
-import SM      from "../../Source/Storage/in_memory.mjs";
+import IM      from "../../Source/Storage/in_memory.mjs";
+import LD      from "../../Source/Storage/leveldb_sim.mjs";
 import * as SC from "../../Source/Storage/common.mjs";
 import * as UT from "../../Source/Utilities/transit.mjs";
 
@@ -9,12 +10,20 @@ const setupPath = "t12";
 const notSetupPath = "t13";
 const timeout = "10";
 
-async function main(){
-  const s = SM();
+export async function main(){
+  let options = {};
+
+  const s = IM(options);
   await longpollSetup(s);
   await timeoutTest(s);
   await successfulNotificationTest(s);
   await wrongPathTest(s);
+
+  const d = LD(options);
+  await longpollSetup(d);
+  await timeoutTest(d);
+  await successfulNotificationTest(d);
+  await wrongPathTest(d);
 }
 
 async function timeoutTest(s){

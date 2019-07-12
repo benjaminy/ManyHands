@@ -46,6 +46,12 @@ export default function init( options_init )
         return GH.download( link, options, LS.download( mapWrapper ) );
     }
 
+    function watch (link, options)
+    {
+      //eventually this should be abstracted to GH
+      return GH.watch(link, options, LS.watch(mapWrapper));
+    }
+
     function deleteFile( link, options )
     {
         return GH.deleteFile( link, options, LS.deleteFile( mapWrapper ) );
@@ -61,14 +67,15 @@ export default function init( options_init )
         return GH.rehydrateLink( link, options );
     }
 
-    const db_dir = options_init.has( "DB_DIR" ) ? options_init.get( "DB_DIR" )
+    const db_dir = !(options_init.DB_DIR===undefined) ? options_init.DB_DIR
           : DEFAULT_DB_DIR;
-    const db_name = options_init.has( "DB_NAME" ) ? options_init.get( "DB_NAME" )
+    const db_name = !(options_init.DB_NAME===undefined) ? options_init.DB_NAME
           : DEFAULT_DB_NAME;
 
     mstorage.files         = LDB( P.join( ...db_dir.concat( db_name ) ) );
     mstorage.upload        = upload;
     mstorage.download      = download;
+    mstorage.watch         = watch;
     mstorage.deleteFile    = deleteFile;
     mstorage.dehydrateLink = dehydrateLink;
     mstorage.rehydrateLink = rehydrateLink;
