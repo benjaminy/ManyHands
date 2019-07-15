@@ -48,20 +48,20 @@ const kLeaf = T.keyword("leaf");
  */
 export async function query( root, compare_match )
 {
-    const running = [];
     const indices = ST.getValue( root, kIndex );
-    if( root_value === undefined )
+    if( indices.length === 0 )
     {
-        // current node, probably root,
-        // does not have a value
+        // the node we're looking at
+        // does not contain any interesting
+        // children.
         return [];
     }
 
-    // walk in from the outsides, until you have bounds for the left and
-    // right side
+    // walk in from the outsides, until you have 
+    // bounds for the left and right side
 
-    let left_bound = null;
-    let right_bound = null;
+    let left_bound = -1;
+    let right_bound = indices.length;
 
     for( let i = 0; i < indices.length; i++ ){
         const comp = compare_match( indices[ i ] );
@@ -70,29 +70,29 @@ export async function query( root, compare_match )
         }
         if( T.equals( comp, TREE.kCompatible )
              || T.equals( comp, TREE.kUnknown ) ){
-            left_bound = indices[ i ];
+            left_bound = i;
             break; // moving over any further is not useful
         }
         // else kLesser
-        left_bound = idices[ i ];
+        left_bound = i;
         // this might be it, but we keep iterating just in case
         // there is a tighter left boundary.
     }
 
     // repeat for right side
 
-    for( let i = indices.length; i >= 0; i-- ){
+    for( let i = indices.length - 1; i >= 0; i-- ){
         const comp = compare_match( indices[ i ] );
         if( T.equals( comp, TREE.kLesser ) ){
             break; // we went too far!
         }
         if( T.equals( comp, TREE.kCompatible )
              || T.equals( comp, TREE.kUnknown ) ){
-            right_bound = indices[ i ];
+            right_bound = i;
             break; // moving over any further is not useful
         }
         // else kGreater
-        right_bound = idices[ i ];
+        right_bound = i;
         // this might be it, but we keep iterating just in case
         // there is a tighter right boundary.
     }
@@ -101,37 +101,17 @@ export async function query( root, compare_match )
     // the only child we need to check is the item on the left
     // or right edge (respectively).
 
-    for( const idx of indices ){
-    const comp = compare_match( root_value );
-    if( T.equals(comp, TREE.kCompatible) || T.equals(comp, TREE.kGreater) || T.equals(comp, TREE.kUnknown) )
+    const running = [];
+    for( let i = left_bound; i < right_bound; i++ )
     {
-        try {
-            const left_child = await ST.getChild( root, kLeftChild );
-            running.push( ...( await query( left_child, compare_match ) ) );
-        } catch ( ex )
-        {
-            if(ex.type !== "FileNotFoundError")
-            {
-                throw ex;
-            }
-        }
-    }
-    if( comp === TREE.kCompatible )
-    {
-        running.push( root_value );
-    }
-    if( comp === TREE.kCompatible || comp === TREE.kLesser || comp === TREE.kUnknown )
-    {
-        try {
-            const right_child = await ST.getChild( root, kRightChild );
-            running.push( ...( await query( right_child, compare_match ) ) );
-        } catch ( ex )
-        {
-            if(ex.type !== "FileNotFoundError")
-            {
-                throw ex;
-            }
-        }
+        const fetch = T.map();
+        fetch.set( kPointer, lastIdx + 1 );
+        // TODO parallelization could be
+        // really nice here (to utilize the time
+        // it takes to download a file for something
+        // useful)
+        const look = await ST.getChild( root, fetch );
+        running.push( query( look, compare_match ) );
     }
     return running;
 }
@@ -143,12 +123,26 @@ export async function construct( data, ...sorts )
     {
         return root; /// ??? ok
     }
-    root = ST.setValue(root, kValue, data[0]);
-    for( let i = 1; i < data.length; i++ )
+    for( let datom of data )
     {
-        const new_node = ST.newNode();
-        ST.setValue( new_node, kValue, data[i] );
-        await insertIntoNode( root, new_node, sorts );
+        const nodes = await insertIntoNode( root, datom, sorts ); 
+        assert( nodes.length > 0 );
+        if( nodes.length === 1 ){
+            root = nodes[ 0 ];
+        } else {
+            // deal with the case where
+            // our root may have split!
+            root = ST.newNode();
+            const indices = ST.getValue( root, kIndex );
+            const splitVal = ST.getValue( nodes[ 1 ], kIndex )[ 0 ]
+            ST.setValue( root, kIndex, [ splitVal ] );
+            const zeroth = T.map();
+            zeroth.set( kPointer, 0 );
+            ST.setChild( root, zeroth, nodes[ 0 ] );
+            const first = T.map();
+            first.set( kPointer, 1 );
+            ST.setChild( root, first, nodes[1] );
+        }
     }
     return root;
 }
@@ -190,4 +184,5 @@ async function insertIntoNode( node, new_node, sorts )
         throw err;
     }
 }
+
 
