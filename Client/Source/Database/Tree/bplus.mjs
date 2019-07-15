@@ -127,9 +127,12 @@ export async function construct( data, ...sorts )
     {
         const nodes = await insertIntoNode( root, datom, sorts ); 
         assert( nodes.length > 0 );
-        if( nodes.length === 1 ){
+        if( nodes.length === 1 )
+        {
             root = nodes[ 0 ];
-        } else {
+        }
+        else
+        {
             // deal with the case where
             // our root may have split!
             root = ST.newNode();
@@ -147,42 +150,50 @@ export async function construct( data, ...sorts )
     return root;
 }
 
-async function insertIntoNode( node, new_node, sorts )
+async function insertIntoNode( node, datom, sorts )
 {
-    const comp = TREE.compare( node, new_node, ...sorts );
-    let left_child;
-    if( comp < 0 )
+    const indices = ST.getValue( node, kIndex );
+    if( indices.length < ( WIDTH - 1 ) )
     {
-        try {
-            left_child = await ST.getChild( node, kLeftChild );
-            await insertIntoNode( left_child, new_node, sorts );
-            return;
-        }
-        catch( err )
+        for( let idx = 0; i < indices.length; i++ )
         {
-            if( err.type === "FileNotFoundError" )
-            {
-                ST.setChild( node, kLeftChild, new_node );
-                return;
-            }
-            throw err;
+            
         }
-    } // else, right side
-    let right_child;
-    try {
-        right_child = await ST.getChild( node, kRightChild );
-        await insertIntoNode( right_child, new_node, sorts );
-        return;
     }
-    catch( err )
-    {
-        if( err.type === "FileNotFoundError" )
-        {
-            ST.setChild( node, kRightChild, new_node );
-            return;
-        }
-        throw err;
-    }
+//    const comp = TREE.compare( node, new_node, ...sorts );
+//    let left_child;
+//    if( comp < 0 )
+//    {
+//        try {
+//            left_child = await ST.getChild( node, kLeftChild );
+//            await insertIntoNode( left_child, new_node, sorts );
+//            return;
+//        }
+//        catch( err )
+//        {
+//            if( err.type === "FileNotFoundError" )
+//            {
+//                ST.setChild( node, kLeftChild, new_node );
+//                return;
+//            }
+//            throw err;
+//        }
+//    } // else, right side
+//    let right_child;
+//    try {
+//        right_child = await ST.getChild( node, kRightChild );
+//        await insertIntoNode( right_child, new_node, sorts );
+//        return;
+//    }
+//    catch( err )
+//    {
+//        if( err.type === "FileNotFoundError" )
+//        {
+//            ST.setChild( node, kRightChild, new_node );
+//            return;
+//        }
+//        throw err;
+//    }
 }
 
 

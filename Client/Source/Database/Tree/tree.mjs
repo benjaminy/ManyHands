@@ -15,8 +15,6 @@ const kEAVT = K.key("eavt");
 const kAEVT = K.key("aevt");
 const kVAET = K.key("vaet");
 
-const kValue = K.key( "value" );
-
 const STORAGE = BIN;
 
 export async function buildTree( data )
@@ -198,10 +196,8 @@ function compare_match_wrapper( criterion, ...sorts )
  * @param sorts
  * @returns {number}
  */
-export function compare( node1, node2, ...sorts )
+export function compare( o1, o2, ...sorts )
 {
-    const o1 = ST.getValue( node1, kValue );
-    const o2 = ST.getValue( node2, kValue );
     for( let sort of sorts )
     {
         if( T.equals( o1[ sort ], o2[ sort ] ) )

@@ -79,7 +79,9 @@ export async function construct( data, ...sorts )
 
 async function insertIntoNode( node, new_node, sorts )
 {
-    const comp = TREE.compare( node, new_node, ...sorts );
+    const v1 = ST.getValue( node, kValue );
+    const v2 = ST.getValue( new_node, kValue );
+    const comp = TREE.compare( v1, v2, ...sorts );
     let left_child;
     if( comp < 0 )
     {
