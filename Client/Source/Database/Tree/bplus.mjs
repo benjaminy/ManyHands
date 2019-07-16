@@ -157,8 +157,24 @@ async function insertIntoNode( node, datom, sorts )
     {
         for( let idx = 0; i < indices.length; i++ )
         {
-            
+            const curIdx = indices[ idx ];
+            const comp = TREE.compare( curIdx, datom, ...sorts );
+            if( comp === 0 ){
+                return node; // we don't have anything
+                // to do if we're inserting a duplicate
+                // node (duplicate even in timestamp
+                // and revoked status)
+            } else if( comp > 0 ){
+                continue; // keep going
+            } else { // comp < 0
+                // we passed what we were looking for
+                
+            }
         }
+    }
+    else // this node is full and must split
+    {
+        
     }
 //    const comp = TREE.compare( node, new_node, ...sorts );
 //    let left_child;
