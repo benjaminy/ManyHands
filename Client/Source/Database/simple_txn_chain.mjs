@@ -36,30 +36,33 @@ export async function commitTxn( db, stmts )
 {
     const current_node = db.node;
     const [ datoms, entity_id_info ] = await DT.processTxn( db, stmts );
-    let wrap;
+    let storage;
     try {
-        const storage = await ST.getChild( current_node, kStorage );
-        wrap = TR.wrapTree( storage );
+        storage = await ST.getChild( current_node, kStorage );
     } catch( ex )
     {
         if( ex.type !== "FileNotFoundError" ){
             throw ex;
         } else {
-            wrap = await TW.buildTree();
+            storage = await TR.buildTree();
+            // or return [] from query
+            // to empty db
         }
     }
-    const new_storage = await wrap.add( ...datoms );
+    const wrap = TR.wrapTree( storage );
+    const new_wrap = await wrap.add( ...datoms );
     const db_node = ST.newNode();
     ST.setValue( db_node, kStmts,        stmts );
     ST.setValue( db_node, kDatoms,       datoms );
     ST.setValue( db_node, kNextEntityId, entity_id_info );
     ST.setChild( db_node, kPrev,         current_node );
-    ST.setChild( db_node, kStorage,      new_storage.node );
+    ST.setChild( db_node, kStorage,      new_wrap.node );
     return wrapDB(db_node);
 }
 
 export async function find( db, ...options )
 {
+    console.log(db);
     const current_node = db.node;
     let storage;
     try {
@@ -69,13 +72,13 @@ export async function find( db, ...options )
         if( ex.type !== "FileNotFoundError" ){
             throw ex;
         } else {
-            storage = await TW.buildTree();
+            storage = await TR.buildTree();
             // or return [] from query
             // to empty db
         }
     }
-    const wrap = TW.wrapTree( storage );
-    return wrap.find( ...options );
+    const wrap = TR.wrapTree( storage );
+    return wrap.query( ...options );
 }
 // ,
 // uploadCommittedTxns : async function uploadCommittedTxns( db )

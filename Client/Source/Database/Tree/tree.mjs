@@ -2,6 +2,7 @@ import * as ST from "../../Storage/tree.mjs";
 import * as UM from "../../Utilities/misc.mjs";
 import * as K from "../../Utilities/keyword.mjs";
 import * as BIN from "./binary.mjs";
+import assert from "../../Utilities/assert.mjs";
 import T from "transit-js";
 
 export const ENTITY = 0;
@@ -61,6 +62,7 @@ export function wrapTree( root )
             // return all records
             matcher = () => kCompatible;
             // who cares which one
+            console.log("root is", root.toString());
             db = await ST.getChild( root, kEAVT );
         }
         else if( entity === undefined
@@ -86,6 +88,7 @@ export function wrapTree( root )
             // AVET or VAET
             matcher = compare_match_wrapper( search, 
                 ATTRIBUTE, VALUE, ENTITY, TIMESTAMP );
+            console.log("root i im I'n goona throw ups", root.toString());
             db = await ST.getChild( root, kAVET );
         }
         else if( entity !== undefined )
@@ -133,11 +136,14 @@ export function wrapTree( root )
             ];
             t_datoms.push(t_datom);
         }
-        return STORAGE.construct(
-            [
-                ...tree.query(), 
-                ...t_datoms
-            ]
+        return wrapTree(
+            await buildTree(
+                [
+                    // TODO changes coming soon!
+                    ...(await tree.query()), 
+                    ...t_datoms
+                ]
+            )
         );
     };
     return tree;

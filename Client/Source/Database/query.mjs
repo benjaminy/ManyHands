@@ -475,7 +475,6 @@ export async function runQuery( db, q, ...ins )
             revoked: await get_constant(revoked)
         };
         const cardinalityOne = search_attribute !== null && T.equals( search_attribute.cardinality, DA.cardinalityOne )
-
         // bindings keeps track of the names of variables, and the field they refer to
         return {
             bindings: bindings,
