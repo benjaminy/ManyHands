@@ -27,8 +27,10 @@ export async function query( root, compare_match )
         return [];
     }
     const comp = compare_match( root_value );
-    if( T.equals(comp, TREE.kCompatible) || T.equals(comp, TREE.kGreater) || T.equals(comp, TREE.kUnknown) )
-    {
+    if( T.equals( comp, TREE.kCompatible )
+        || T.equals( comp, TREE.kGreater )
+        || T.equals( comp, TREE.kUnknown )
+    ) {
         try {
             const left_child = await ST.getChild( root, kLeftChild );
             running.push( ...( await query( left_child, compare_match ) ) );
@@ -60,18 +62,25 @@ export async function query( root, compare_match )
     return running;
 }
 
-export async function construct( data, ...sorts )
+export async function construct( root, data, ...sorts )
 {
-    let root = ST.newNode();
-    if( data.length === 0 )
-    {
-        return root; /// ??? ok
+    data = [...data]; // make a copy
+    if( root === null ){
+        root = ST.newNode();
+
+        if( data.length === 0 )
+        {
+            return root; /// ??? ok
+        }
     }
-    root = ST.setValue(root, kValue, data[0]);
-    for( let i = 1; i < data.length; i++ )
+    if( ST.getValue( root, kValue ) === undefined ){
+        root = ST.setValue( root, kValue, data.shift() );
+    }
+    for( let datom of data )
     {
-        const new_node = ST.newNode();
-        ST.setValue( new_node, kValue, data[i] );
+        let new_node = ST.newNode();
+        new_node = ST.setValue( new_node, kValue, datom );
+        console.log("the fuck", root.toString(), "\n", new_node.toString());
         await insertIntoNode( root, new_node, sorts );
     }
     return root;
@@ -79,6 +88,7 @@ export async function construct( data, ...sorts )
 
 async function insertIntoNode( node, new_node, sorts )
 {
+    console.log("inserting in \n", node.toString(), "\n", new_node.toString());
     const v1 = ST.getValue( node, kValue );
     const v2 = ST.getValue( new_node, kValue );
     const comp = TREE.compare( v1, v2, ...sorts );

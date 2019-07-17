@@ -18,23 +18,47 @@ const kVAET = K.key("vaet");
 
 const STORAGE = BIN;
 
-export async function buildTree( data=[] )
+export async function buildTree( data=[], prev=null )
 {
     const root = ST.newNode();
 
-    const avet = await STORAGE.construct(data,
-        ATTRIBUTE, VALUE, ENTITY, TIMESTAMP);
-    const eavt = await STORAGE.construct(data,
-        ENTITY, ATTRIBUTE, VALUE, TIMESTAMP);
-    const aevt = await STORAGE.construct(data,
-        ATTRIBUTE, ENTITY, VALUE, TIMESTAMP);
-    const vaet = await STORAGE.construct(data,
-        VALUE, ATTRIBUTE, ENTITY, TIMESTAMP);
+    let avet, eavt, aevt, vaet;
+
+    if( prev === null )
+    {
+        avet = await STORAGE.construct( null, data,
+            ATTRIBUTE, VALUE, ENTITY, TIMESTAMP);
+        eavt = await STORAGE.construct( null, data,
+            ENTITY, ATTRIBUTE, VALUE, TIMESTAMP);
+        aevt = await STORAGE.construct( null, data,
+            ATTRIBUTE, ENTITY, VALUE, TIMESTAMP);
+        vaet = await STORAGE.construct( null, data,
+            VALUE, ATTRIBUTE, ENTITY, TIMESTAMP);
+    } else {
+        const node = prev.node;
+        avet = await STORAGE.construct(
+            await ST.getChild( node, kAVET ),
+            data,
+            ATTRIBUTE, VALUE, ENTITY, TIMESTAMP );
+        eavt = await STORAGE.construct(
+            await ST.getChild( node, kEAVT ),
+            data,
+            ENTITY, ATTRIBUTE, VALUE, TIMESTAMP);
+        aevt = await STORAGE.construct(
+            await ST.getChild( node, kAEVT ),
+            data,
+            ATTRIBUTE, ENTITY, VALUE, TIMESTAMP);
+        vaet = await STORAGE.construct(
+            await ST.getChild( node, kVAET ),
+            data,
+            VALUE, ATTRIBUTE, ENTITY, TIMESTAMP);
+    }
 
     ST.setChild(root, kAVET, avet);
     ST.setChild(root, kEAVT, eavt);
     ST.setChild(root, kAEVT, aevt);
     ST.setChild(root, kVAET, vaet);
+    console.log( "i built root", root.toString() );
     return root;
 }
 
@@ -138,11 +162,7 @@ export function wrapTree( root )
         }
         return wrapTree(
             await buildTree(
-                [
-                    // TODO changes coming soon!
-                    ...(await tree.query()), 
-                    ...t_datoms
-                ]
+                [ ...t_datoms ], tree
             )
         );
     };
