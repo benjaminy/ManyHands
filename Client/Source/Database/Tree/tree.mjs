@@ -17,7 +17,7 @@ const kVAET = K.key("vaet");
 
 const STORAGE = BIN;
 
-export async function buildTree( data )
+export async function buildTree( data=[] )
 {
     const root = ST.newNode();
 
@@ -114,17 +114,29 @@ export function wrapTree( root )
         return res;
     };
 
-    tree.node = function()
-    {
-        return root;
-    };
+    tree.node = root;
 
     tree.add = async function(...datoms)
     {
+        const t_datoms = [];
+        for (let i = 0; i < datoms.length; i++) {
+            const datom = datoms[i];
+            assert('entity' in datom
+                && 'attribute' in datom
+                && 'value' in datom);
+            const t_datom = [
+                datom["entity"],
+                datom["attribute"],
+                datom["value"],
+                (new Date).getTime(),
+                false
+            ];
+            t_datoms.push(t_datom);
+        }
         return STORAGE.construct(
             [
                 ...tree.query(), 
-                ...datoms
+                ...t_datoms
             ]
         );
     };

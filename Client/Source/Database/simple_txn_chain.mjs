@@ -15,7 +15,7 @@ import * as DC from "./common.mjs";
 import * as DT from "./transaction.mjs";
 import * as DA from "./attribute.mjs";
 import * as ST from "../Storage/tree.mjs";
-import * as TW from "./txn_tree_adaptor.mjs";
+import * as TR from "./Tree/tree.mjs";
 
 const kPrev =         T.keyword("prev");
 const kStmts =        T.keyword("stmts");
@@ -39,13 +39,13 @@ export async function commitTxn( db, stmts )
     let wrap;
     try {
         const storage = await ST.getChild( current_node, kStorage );
-        wrap = TW.tree_adaptor( storage );
+        wrap = TR.wrapTree( storage );
     } catch( ex )
     {
         if( ex.type !== "FileNotFoundError" ){
             throw ex;
         } else {
-            wrap = await TW.initialize_tree_adaptor();
+            wrap = await TW.buildTree();
         }
     }
     const new_storage = await wrap.add( ...datoms );
@@ -61,18 +61,20 @@ export async function commitTxn( db, stmts )
 export async function find( db, ...options )
 {
     const current_node = db.node;
-    let wrap;
+    let storage;
     try {
-        const storage = await ST.getChild( current_node, kStorage );
-        wrap = TW.tree_adaptor( storage );
+        storage = await ST.getChild( current_node, kStorage );
     } catch( ex )
     {
         if( ex.type !== "FileNotFoundError" ){
             throw ex;
         } else {
-            wrap = await TW.initialize_tree_adaptor();
+            storage = await TW.buildTree();
+            // or return [] from query
+            // to empty db
         }
     }
+    const wrap = TW.wrapTree( storage );
     return wrap.find( ...options );
 }
 // ,
