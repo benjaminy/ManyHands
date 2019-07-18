@@ -65,7 +65,8 @@ export async function query( root, compare_match )
 export async function construct( root, data, ...sorts )
 {
     data = [...data]; // make a copy
-    if( root === null ){
+    if( root === null )
+    {
         root = ST.newNode();
 
         if( data.length === 0 )
@@ -73,22 +74,21 @@ export async function construct( root, data, ...sorts )
             return root; /// ??? ok
         }
     }
-    if( ST.getValue( root, kValue ) === undefined ){
+    if( ST.getValue( root, kValue ) === undefined )
+    {
         root = ST.setValue( root, kValue, data.shift() );
     }
     for( let datom of data )
     {
         let new_node = ST.newNode();
         new_node = ST.setValue( new_node, kValue, datom );
-        console.log("the fuck", root.toString(), "\n", new_node.toString());
-        await insertIntoNode( root, new_node, sorts );
+        root = await insertIntoNode( root, new_node, sorts );
     }
     return root;
 }
 
 async function insertIntoNode( node, new_node, sorts )
 {
-    console.log("inserting in \n", node.toString(), "\n", new_node.toString());
     const v1 = ST.getValue( node, kValue );
     const v2 = ST.getValue( new_node, kValue );
     const comp = TREE.compare( v1, v2, ...sorts );
@@ -97,15 +97,16 @@ async function insertIntoNode( node, new_node, sorts )
     {
         try {
             left_child = await ST.getChild( node, kLeftChild );
-            await insertIntoNode( left_child, new_node, sorts );
-            return;
+            left_child = await insertIntoNode( left_child, new_node, sorts );
+            node = ST.setChild( node, kLeftChild, left_child );
+            return node;
         }
         catch( err )
         {
             if( err.type === "FileNotFoundError" )
             {
-                ST.setChild( node, kLeftChild, new_node );
-                return;
+                node = ST.setChild( node, kLeftChild, new_node );
+                return node;
             }
             throw err;
         }
@@ -113,15 +114,16 @@ async function insertIntoNode( node, new_node, sorts )
     let right_child;
     try {
         right_child = await ST.getChild( node, kRightChild );
-        await insertIntoNode( right_child, new_node, sorts );
-        return;
+        right_child = await insertIntoNode( right_child, new_node, sorts );
+        node = ST.setChild( node, kRightChild, right_child );
+        return node;
     }
     catch( err )
     {
         if( err.type === "FileNotFoundError" )
         {
-            ST.setChild( node, kRightChild, new_node );
-            return;
+            node = ST.setChild( node, kRightChild, new_node );
+            return node;
         }
         throw err;
     }

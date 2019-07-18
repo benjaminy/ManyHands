@@ -38,6 +38,7 @@ export async function commitTxn( db, stmts )
     const [ datoms, entity_id_info ] = await DT.processTxn( db, stmts );
     let storage;
     try {
+        console.log("retrieving storage");
         storage = await ST.getChild( current_node, kStorage );
     } catch( ex )
     {
@@ -62,7 +63,6 @@ export async function commitTxn( db, stmts )
 
 export async function find( db, ...options )
 {
-    console.log(db);
     const current_node = db.node;
     let storage;
     try {

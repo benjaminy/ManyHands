@@ -20,6 +20,7 @@ const STORAGE = BIN;
 
 export async function buildTree( data=[], prev=null )
 {
+    console.log("\n\nBUILDING TREE\n\n", data, prev);
     const root = ST.newNode();
 
     let avet, eavt, aevt, vaet;
@@ -58,7 +59,6 @@ export async function buildTree( data=[], prev=null )
     ST.setChild(root, kEAVT, eavt);
     ST.setChild(root, kAEVT, aevt);
     ST.setChild(root, kVAET, vaet);
-    console.log( "i built root", root.toString() );
     return root;
 }
 
@@ -86,7 +86,6 @@ export function wrapTree( root )
             // return all records
             matcher = () => kCompatible;
             // who cares which one
-            console.log("root is", root.toString());
             db = await ST.getChild( root, kEAVT );
         }
         else if( entity === undefined
@@ -112,7 +111,6 @@ export function wrapTree( root )
             // AVET or VAET
             matcher = compare_match_wrapper( search, 
                 ATTRIBUTE, VALUE, ENTITY, TIMESTAMP );
-            console.log("root i im I'n goona throw ups", root.toString());
             db = await ST.getChild( root, kAVET );
         }
         else if( entity !== undefined )

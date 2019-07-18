@@ -100,7 +100,7 @@ async function setup(){
 async function test_02_get_attribute(){
     let [ db, retrieve_root ] = await setup();
     const statement = [ DT.addK, "bob", K.key( ":name" ), "Bobethy" ];
-    db = await DB.commitTxn(db, [statement]);
+    db = await DB.commitTxn( db, [ statement ] );
 
     const checkQuery = Q.parseQuery(
         [ Q.findK, "?a", "?name",
@@ -110,7 +110,11 @@ async function test_02_get_attribute(){
     const r = await Q.runQuery( db, checkQuery );
     console.log( "r03", r );
 
-    assert( r.length === 1 && r[0][1] === "Bobethy", "Attribute was not filled in correctly." );
+    assert( 
+        r.length === 1 
+            && r[0][1] === "Bobethy", 
+        "Attribute was not filled in correctly or record could not be retrieved"
+    );
     console.log("test_03_get_attribute completed successfully");
 }
 

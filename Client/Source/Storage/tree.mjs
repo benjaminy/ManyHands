@@ -316,10 +316,10 @@ export function deleteChild( parent, key )
         parent = touchNode( parent );
         /* TODO: much re: caching */
         parent[        mem_cache_tag ].delete( key );
-        parent[      local_cache_tag ].delete( key );
+        // parent[      local_cache_tag ].delete( key ); // has no delete
         parent[            links_tag ].delete( key );
-        parent[            dirty_tag ].delete( key );
-        parent[ blank_timestamps_tag ].delete( key );
+        //parent[            dirty_tag ].delete( key );
+        //parent[ blank_timestamps_tag ].delete( key );
         const link = parent[ links_tag ].get( key );
         parent[ to_delete_tag ].add( link );
         return parent;
