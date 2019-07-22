@@ -1,7 +1,6 @@
 import * as ST from "../../Storage/tree.mjs";
 import * as UM from "../../Utilities/misc.mjs";
 import * as K from "../../Utilities/keyword.mjs";
-import * as BIN from "./binary.mjs";
 import assert from "../../Utilities/assert.mjs";
 import T from "transit-js";
 
@@ -16,11 +15,14 @@ const kEAVT = K.key("eavt");
 const kAEVT = K.key("aevt");
 const kVAET = K.key("vaet");
 
-const STORAGE = BIN;
+import * as BIN   from "./binary.mjs";
+import * as BPLUS from "./bplus.mjs";
+// TODO there's gotta be a better
+// way to swap out these modules...
+const STORAGE = BPLUS;
 
 export async function buildTree( data=[], prev=null )
 {
-    console.log("\n\nBUILDING TREE\n\n", data, prev);
     const root = ST.newNode();
 
     let avet, eavt, aevt, vaet;

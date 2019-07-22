@@ -111,17 +111,21 @@ export async function query( root, compare_match )
         // it takes to download a file for something
         // useful)
         const look = await ST.getChild( root, fetch );
-        running.push( query( look, compare_match ) );
+        running.push( await query( look, compare_match ) );
     }
     return running;
 }
 
-export async function construct( data, ...sorts )
+export async function construct( root, data, ...sorts )
 {
-    let root = ST.newNode();
-    if( data.length === 0 )
+    if( root === null )
     {
-        return root; /// ??? ok
+        let root = ST.newNode();
+
+        if( data.length === 0 )
+        {
+            return root; /// ??? ok
+        }
     }
     for( let datom of data )
     {
@@ -134,9 +138,9 @@ export async function construct( data, ...sorts )
         else
         {
             // deal with the case where
-            // our root may have split!
+            // our root has split
             root = ST.newNode();
-            const indices = ST.getValue( root, kIndex );
+            const indices = ST.getValue( nodes[ 0 ], kIndex );
             const splitVal = ST.getValue( nodes[ 1 ], kIndex )[ 0 ]
             ST.setValue( root, kIndex, [ splitVal ] );
             const zeroth = T.map();
