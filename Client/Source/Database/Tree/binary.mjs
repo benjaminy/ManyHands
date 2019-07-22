@@ -62,6 +62,18 @@ export async function query( root, compare_match )
     return running;
 }
 
+/**
+ * Construct a new Binary Search Tree
+ * given a previous root (or null for
+ * a brand new tree)
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
 export async function construct( root, data, ...sorts )
 {
     data = [...data]; // make a copy
