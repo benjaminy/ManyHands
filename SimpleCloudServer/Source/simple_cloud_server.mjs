@@ -107,7 +107,7 @@ async function respondToLongPoll( db, long_poll_requests, request, file, respons
 {
     const req_etag = request.headers[ "if-none-match" ];
     // TODO: etag parsing
-    if( !( ( req_etag === "*" ) || ( req_etag === file.get( "etag" ) ) ) )
+    if( !( ( req_etag === "*" ) || ( req_etag === file.etag ) ) )
     {
         return true;
     }
@@ -127,7 +127,7 @@ async function respondToLongPoll( db, long_poll_requests, request, file, respons
     const client_timeout_pref = parseInt( preferences.wait );
     const path = request.url;
     const timeout = Math.max(
-        LONGPOLL_TIMEOUT_MIN, Math.min( LONGPOLL_TIMEOUT_MAX, client_timeout_pref ) );
+        LONGPOLL_MIN_TIMEOUT, Math.min( LONGPOLL_MAX_TIMEOUT, client_timeout_pref ) );
 
     var resolve, reject;
     const long_poll_promise = new Promise( ( s, j ) => { resolve = s, reject = j } );

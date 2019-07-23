@@ -50,6 +50,12 @@ export default function init( options_init )
         return GH.download( link, options, LS.download( mapWrapper ) );
     }
 
+    function watch (link, options)
+    {
+      //eventually this should be abstracted to GH
+      return GH.watch(link, options, LS.watch(mapWrapper));
+    }
+
     function deleteFile( link, options )
     {
         return GH.deleteFile( link, options, LS.deleteFile( mapWrapper ) );
@@ -68,6 +74,7 @@ export default function init( options_init )
     mstorage.files         = T.map();
     mstorage.upload        = upload;
     mstorage.download      = download;
+    mstorage.watch         = watch;
     mstorage.deleteFile    = deleteFile;
     mstorage.dehydrateLink = dehydrateLink;
     mstorage.rehydrateLink = rehydrateLink;

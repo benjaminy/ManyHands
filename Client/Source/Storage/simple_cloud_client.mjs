@@ -95,10 +95,13 @@ export default function init( user, options_init )
         return GH.deleteFile( link, options, coreDeleteFile );
     }
 
-    async function watch( link, options )
+    async function watch(link, options )
     {
-        //const path = processPath(link.get("path"));
-        const path = link.get("path");
+      return GH.watch(link,options, coreWatch)
+    }
+
+    async function coreWatch(path,options)
+    {
         const p = dest+"/"+ user + "/" + path;
         const etag = options.etag;
         const timeoutLength = options.timeoutLength;

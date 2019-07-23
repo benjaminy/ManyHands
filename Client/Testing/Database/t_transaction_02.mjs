@@ -10,7 +10,6 @@ import SM       from "../../Source/Storage/in_memory.mjs";
 import * as SC from "../../Source/Storage/common.mjs";
 import * as ST from "../../Source/Storage/tree.mjs";
 
-import * as TW from "../../Source/Database/txn_tree_adaptor.mjs";
 import * as Q from "../../Source/Database/query.mjs";
 import * as DB from "../../Source/Database/simple_txn_chain.mjs";
 

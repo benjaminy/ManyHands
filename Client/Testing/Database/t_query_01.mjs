@@ -20,7 +20,6 @@ known issues:
  - cardinality might be restricting returns when the
    entity is not specified. (cardinality breaks
    some queries unexpectedly)
- - mysterious transit error in test_10 ???
 */
 
 async function test_14_in_params()
@@ -161,7 +160,7 @@ async function test_11_visualization(){
 
     const r = await Q.runQuery(db, q);
 
-    console.log(r);
+    console.log( r );
 
     assert(r.length === 2 && r[0].length === 3 && r[1].length === 3,
         `Result set has incorrect length (expecting 2x3, found ${r.length}x${r[0].length})`);
