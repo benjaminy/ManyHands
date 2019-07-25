@@ -1,6 +1,7 @@
 import * as ST from "../../Storage/tree.mjs";
 import * as UM from "../../Utilities/misc.mjs";
 import * as K from "../../Utilities/keyword.mjs";
+import assert from "../../Utilities/assert.mjs";
 import * as TREE from "./tree.mjs"
 
 import T from "transit-js";
@@ -121,6 +122,8 @@ export async function construct( root, data, ...sorts )
     if( root === null )
     {
         let root = ST.newNode();
+        root = ST.setValue( root, kIndex, [] );
+        root = ST.setValue( root, kLeaf, true );
 
         if( data.length === 0 )
         {
@@ -140,6 +143,7 @@ export async function construct( root, data, ...sorts )
             // deal with the case where
             // our root has split
             root = ST.newNode();
+            root = ST.setValue( root, kLeaf, false );
             const indices = ST.getValue( nodes[ 0 ], kIndex );
             const splitVal = ST.getValue( nodes[ 1 ], kIndex )[ 0 ]
             ST.setValue( root, kIndex, [ splitVal ] );
@@ -156,32 +160,74 @@ export async function construct( root, data, ...sorts )
 
 async function insertIntoNode( node, datom, sorts )
 {
+    let leaf = ST.getValue( node, kLeaf );
     const indices = ST.getValue( node, kIndex );
-    if( indices.length < ( WIDTH - 1 ) )
+    let idx = 0;
+    for( ; idx < indices.length; idx++ )
     {
-        for( let idx = 0; i < indices.length; i++ )
-        {
-            const curIdx = indices[ idx ];
-            const comp = TREE.compare( curIdx, datom, ...sorts );
-            if( comp === 0 ){
-                return node; // we don't have anything
-                // to do if we're inserting a duplicate
-                // node (duplicate even in timestamp
-                // and revoked status)
-            } else if( comp > 0 ){
-                continue; // keep going
-            } else { // comp < 0
-                // we passed what we were looking for
-                
-            }
+        const curIdx = indices[ idx ];
+        const comp = TREE.compare( curIdx, datom, ...sorts );
+        if( comp === 0 ){
+            return [ node ]; // we don't have anything
+            // to do if we're inserting a duplicate
+            // node (duplicate even in timestamp
+            // and revoked status)
+        } else if( comp > 0 ){
+            continue; // keep going
+        } else { // comp < 0
+            // we passed what we were looking for
+            idx--;
+            break;
         }
     }
-    else // this node is full and must split
-    {
-        
+    for( ; idx < indices.length; idx++ ){
+
     }
+    
+    // we inserted fine-- but now check if the node is full, and split if necessary
+    if( indices.length >= WIDTH )
+    {
+        const half = Math.floor( WIDTH / 2 );
+        let left = ST.newNode();
+        left = ST.setValue(
+            left,
+            kIndex,
+            indices.slice( 0, half )
+        );
+        for( let i = 0; i < half; i++ )
+        {
+            const ident = T.map();
+            ident.set( kPointer, i );
+            left = ST.setValue(
+                left, 
+                ident, 
+                await ST.getChild( node, ident )
+            );
+        }
+        let right = ST.newNode();
+        right = ST.setValue(
+            right,
+            kIndex,
+            indices.slice( half )
+        );
+        for( let i = half; i < indices.length; i++ )
+        {
+            const initial_ident = T.map();
+            initial_ident.set( kPointer, i);
+            const right_ident = T.map();
+            right_ident.set( kPointer, i - half );
+            right = ST.setValue(
+                right,
+                right_ident,
+                await ST.getChild( node, initial_ident )
+            );
+        }
+        return [ left, right ];
+    }
+    return [ node ];
+}
 //    const comp = TREE.compare( node, new_node, ...sorts );
-//    let left_child;
+//    let left_child
 //    if( comp < 0 )
 //    {
 //        try {
@@ -214,6 +260,5 @@ async function insertIntoNode( node, datom, sorts )
 //        }
 //        throw err;
 //    }
-}
 
 

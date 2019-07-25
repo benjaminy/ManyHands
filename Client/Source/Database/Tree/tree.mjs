@@ -19,6 +19,7 @@ import * as BIN   from "./binary.mjs";
 import * as BPLUS from "./bplus.mjs";
 // TODO there's gotta be a better
 // way to swap out these modules...
+// const STORAGE = BIN;
 const STORAGE = BPLUS;
 
 export async function buildTree( data=[], prev=null )
