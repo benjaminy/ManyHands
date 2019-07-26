@@ -180,8 +180,55 @@ async function insertIntoNode( node, datom, sorts )
             break;
         }
     }
+    let pop;
+    if( leaf )
+    {
+        pop = datom;
+    }
+    else
+    {
+        let ident = T.map();
+        ident.set( kPointer, idx );
+        const insert = await ST.getChild( node, ident );
+        const nodes = insertIntoNode( insert, datom, sorts );
+        if( nodes.length === 1 )
+        {
+            ST.setChild( node, ident, nodes[ 0 ] );
+            return;
+        }
+        else
+        {
+            throw new Error("Unimplemented");
+            // the node split-- update the indices and
+            // make more room in the parent. If we return
+            // two nodes from this function, it means
+            // OUR parent also needs to deal with our splitting,
+            // and this may propagate all the way up to the root.
+        }
+    }
+    const new_indices = indices.splice( 0, idx );
     for( ; idx < indices.length; idx++ ){
-
+        let ident = T.map();
+        ident.set( kPointer, idx );
+        // TODO value/child changes based on leaf status
+        let pop2 = ST.getValue( node, ident );
+        // try {
+        //     let pop2 = ST.getValue( node, ident );
+        // }
+        // catch( ex )
+        // {
+        //     if( ex.type !== "FileNotFoundError" )
+        //     {
+        //         throw ex;
+        //     }
+        //     assert( idx === ( indices.length - 1 ) );
+        // }
+        new_indices.push( /* node's largest child? or smallest child? */ );
+        ST.setValue( node, ident, pop );
+        pop = pop2;
+        // all of these items need to be shifted over
+        // so that we may insert the new item where
+        // it belongs.
     }
     
     // we inserted fine-- but now check if the node is full, and split if necessary
