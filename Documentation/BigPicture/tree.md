@@ -62,3 +62,10 @@ Dehydration needs to be explicit.
 
 /* is there any reason for nodes to "know" their own location? */
 
+## Deletion
+
+As the database becomes larger, the functional style dictates that we keep historical data, to the extent that we need it. However, looking at historical versions of the database is only necessary for a certain amount of transactions (based on consensus, we should never have to revert certain transactions).
+
+This means we have the option to purge specific nodes from the database. It is trivial to traverse into historical versions of the database and delete the base nodes, but when certain sections of the database are shared between several historical versions, we need some sort of solution to ensure we keep nodes that still have the potential to be used (and have a path back to the root), and we need to garbage-collect any orphaned nodes.
+
+Our first measure to prevent clutter and garbage in the tree is to introduce *reference counting*. Each time a node is added as a child of another node, the child node's reference count is increased.
