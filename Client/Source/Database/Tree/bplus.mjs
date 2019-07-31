@@ -6,7 +6,7 @@ import * as TREE from "./tree.mjs"
 
 import T from "transit-js";
 
-const WIDTH = 468;
+const WIDTH = 4; // 468;
 
 const kIndex = T.keyword( "index" );
 const kPointer = T.keyword( "pointer" );
@@ -160,6 +160,7 @@ export async function construct( root, data, ...sorts )
     for( let datom of data )
     {
         const nodes = await insertIntoNode( root, datom, sorts ); 
+        console.log("NODESSSS", nodes);
         assert( nodes.length > 0 );
         if( nodes.length === 1 )
         {
@@ -171,18 +172,35 @@ export async function construct( root, data, ...sorts )
             // our root has split
             root = ST.newNode();
             root = ST.setValue( root, kLeaf, false );
-            const indices = ST.getValue( nodes[ 0 ], kIndex );
-            const splitVal = ST.getValue( nodes[ 1 ], kIndex )[ 0 ]
-            ST.setValue( root, kIndex, [ splitVal ] );
+            let [left, right] = nodes;
+            const indices = [ await getMinimum( right ) ];
+            ST.setValue( root, kIndex, indices );
             const zeroth = T.map();
             zeroth.set( kPointer, 0 );
-            ST.setChild( root, zeroth, nodes[ 0 ] );
+            ST.setChild( root, zeroth, left );
             const first = T.map();
             first.set( kPointer, 1 );
-            ST.setChild( root, first, nodes[1] );
+            ST.setChild( root, first, right );
         }
     }
     return root;
+}
+
+async function getMinimum( node )
+{
+    const leaf = ST.getValue( node, kLeaf );
+    if( leaf )
+    {
+        const vals = ST.getValue( node, kDatoms );
+        return vals[ 0 ];
+    }
+    else
+    {
+        let ident = T.map();
+        ident.set( kPointer, 0 );
+        const child = await ST.getChild( node, ident );
+        return getMinimum( child );
+    }
 }
 
 async function insertIntoLeaf( node, datom, sorts )
@@ -212,7 +230,22 @@ async function insertIntoLeaf( node, datom, sorts )
         }
     }
     const newDatoms = [...datoms.slice( 0, idx ), datom, ...datoms.slice( idx )];
-    // TODO split
+    if( newDatoms.length >= WIDTH )
+    {
+        // time to split!
+        let left = ST.newNode();
+        left = ST.setValue( left, kLeaf, true );
+        let right = ST.newNode();
+        right = ST.setValue( right, kLeaf, true );
+        const half = Math.floor( newDatoms.length / 2 );
+        left = ST.setValue(
+            left, kDatoms, newDatoms.slice( 0, half )
+        );
+        right = ST.setValue(
+            right, kDatoms, newDatoms.slice( half )
+        );
+        return [ left, right ];
+    }
     return [ ST.setValue( node, kDatoms, newDatoms ) ];
 }
 
@@ -225,17 +258,21 @@ async function insertIntoNode( node, datom, sorts )
         return insertIntoLeaf( node, datom, sorts );
         // returns a promise
     }
-    console.log("PRINTING NODE");
-    console.log("IS LEAF:", ST.getValue( node, kLeaf ));
+    console.log("PRINTING NODE (NOT A LEAF)");
     console.log("INDICES:", ST.getValue( node, kIndex ));
     console.log("ALL THE CHILDREN:");
     for( let i = 0; true; i++ ){
         let ident = T.map();
         ident.set( kPointer, i );
-        try{
-        const child = await ST.getChild( node, ident );
-        } catch(ex){ break; }
-        console.log( child );
+        try
+        {
+            const child = await ST.getChild( node, ident );
+            console.log( child );
+        }
+        catch(ex)
+        {
+            break;
+        }
     }
     // the saved indices of the node
     const indices = ST.getValue( node, kIndex );
@@ -245,6 +282,7 @@ async function insertIntoNode( node, datom, sorts )
         // locate an appropriate position
         // for the datom we're inserting
         const curIdx = indices[ idx ];
+        console.log("asdFSDAFA", curIdx, datom);
         const comp = TREE.compare( curIdx, datom, ...sorts );
         if( comp === 0 ){
             return [ node ]; // we don't have anything
@@ -260,31 +298,26 @@ async function insertIntoNode( node, datom, sorts )
         }
     }
     let pop;
-    if( leaf )
+    let ident = T.map();
+    ident.set( kPointer, idx );
+    const insert = await ST.getChild( node, ident );
+    const nodes = await insertIntoNode( insert, datom, sorts );
+    if( nodes.length === 1 )
     {
-        pop = datom;
+        ST.setChild( node, ident, nodes[ 0 ] );
+        return [ node ];
     }
     else
     {
-        let ident = T.map();
-        ident.set( kPointer, idx );
-        const insert = await ST.getChild( node, ident );
-        const nodes = insertIntoNode( insert, datom, sorts );
-        if( nodes.length === 1 )
-        {
-            ST.setChild( node, ident, nodes[ 0 ] );
-            return;
-        }
-        else
-        {
-            throw new Error("Unimplemented");
-            // the node split-- update the indices and
-            // make more room in the parent. If we return
-            // two nodes from this function, it means
-            // OUR parent also needs to deal with our splitting,
-            // and this may propagate all the way up to the root.
-        }
+        console.log("consolidate nodes", nodes);
+        throw new Error("unimplmented splitting (not root)");
+        // the node split-- update the indices and
+        // make more room in the parent. If we return
+        // two nodes from this function, it means
+        // OUR parent also needs to deal with our splitting,
+        // and this may propagate all the way up to the root.
     }
+    // TODO dead code???
     const new_indices = indices.splice( 0, idx );
     for( ; idx < indices.length; idx++ )
     {
