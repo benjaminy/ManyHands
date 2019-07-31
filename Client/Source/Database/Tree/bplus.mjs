@@ -8,9 +8,10 @@ import T from "transit-js";
 
 const WIDTH = 468;
 
-const kIndex = T.keyword("index");
-const kPointer = T.keyword("pointer");
-const kLeaf = T.keyword("leaf");
+const kIndex = T.keyword( "index" );
+const kPointer = T.keyword( "pointer" );
+const kLeaf = T.keyword( "leaf" );
+const kDatoms = T.keyword( "datoms" );
 // access at a pointer: 
 // const access = T.map();
 // access.set(kPointer, 10);
@@ -26,7 +27,29 @@ const kLeaf = T.keyword("leaf");
 //  {kPointer: 3} => c3.
 //  kLeaf => false
 // }
+// OR
+// {kLeaf => true,
+//  kDatoms => [d0, d1, d2, ...]   
+// }
 // TODO: pointers between siblings!
+
+
+
+async function queryLeaf( root, compare_match )
+{
+    const results = [];
+    const datoms = ST.getValue( root, kDatoms );
+    // TODO UM.binarySearch( datoms, compare_match );
+    // or some other efficiency on top of this
+    for( let i = 0; i < datoms.length; i++ )
+    {
+        if( compare_match( datoms[ i ] ) === TREE.kCompatible )
+        {
+            results.push( datoms[ i ] );
+        }
+    }
+    return results;
+}
 
 /**
  * root: the tree
@@ -49,6 +72,10 @@ const kLeaf = T.keyword("leaf");
  */
 export async function query( root, compare_match )
 {
+    if( ST.getValue( root, kLeaf ) )
+    {
+        return queryLeaf( root, compare_match );
+    }
     const indices = ST.getValue( root, kIndex );
     if( indices.length === 0 )
     {
@@ -127,7 +154,7 @@ export async function construct( root, data, ...sorts )
 
         if( data.length === 0 )
         {
-            return root; /// ??? ok
+            return root; // ??? ok
         }
     }
     for( let datom of data )
@@ -158,13 +185,65 @@ export async function construct( root, data, ...sorts )
     return root;
 }
 
+async function insertIntoLeaf( node, datom, sorts )
+{
+    console.log( "PRINTING LEAF" );
+    let datoms = ST.getValue( node, kDatoms );
+    if( datoms === undefined )
+    {
+        datoms = [];
+    }
+    console.log( "DATOMS:", datoms );
+    let idx;
+    for( idx = 0; idx < datoms.length; idx++ )
+    {
+        const comp = TREE.compare( datoms[ idx ], datom, ...sorts );
+        if( comp === 0 ){
+            return [ node ]; // we don't have anything
+            // to do if we're inserting a duplicate
+            // node (duplicate even in timestamp
+            // and revoked status)
+        } else if( comp > 0 ){
+            continue; // keep going
+        } else { // comp < 0
+            // we passed what we were looking for
+            idx--;
+            break;
+        }
+    }
+    const newDatoms = [...datoms.slice( 0, idx ), datom, ...datoms.slice( idx )];
+    // TODO split
+    return [ ST.setValue( node, kDatoms, newDatoms ) ];
+}
+
+
 async function insertIntoNode( node, datom, sorts )
 {
+    // if it is a leaf
     let leaf = ST.getValue( node, kLeaf );
+    if( leaf ){
+        return insertIntoLeaf( node, datom, sorts );
+        // returns a promise
+    }
+    console.log("PRINTING NODE");
+    console.log("IS LEAF:", ST.getValue( node, kLeaf ));
+    console.log("INDICES:", ST.getValue( node, kIndex ));
+    console.log("ALL THE CHILDREN:");
+    for( let i = 0; true; i++ ){
+        let ident = T.map();
+        ident.set( kPointer, i );
+        try{
+        const child = await ST.getChild( node, ident );
+        } catch(ex){ break; }
+        console.log( child );
+    }
+    // the saved indices of the node
     const indices = ST.getValue( node, kIndex );
-    let idx = 0;
+    let idx = 0; // init outside for scope
     for( ; idx < indices.length; idx++ )
     {
+        // locate an appropriate position
+        // for the datom we're inserting
         const curIdx = indices[ idx ];
         const comp = TREE.compare( curIdx, datom, ...sorts );
         if( comp === 0 ){
@@ -207,7 +286,8 @@ async function insertIntoNode( node, datom, sorts )
         }
     }
     const new_indices = indices.splice( 0, idx );
-    for( ; idx < indices.length; idx++ ){
+    for( ; idx < indices.length; idx++ )
+    {
         let ident = T.map();
         ident.set( kPointer, idx );
         // TODO value/child changes based on leaf status
