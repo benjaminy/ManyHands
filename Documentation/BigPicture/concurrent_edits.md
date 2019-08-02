@@ -29,6 +29,12 @@ Two users could attempt to concurrently reserve the same room for the same time.
 One common idea is to resolve such conflicts in an arbitrary way (for example, users with longer names "win").
 However, some applications might have more specific rules like priority levels for different events.
 
+Consider asynchronous games like correspondence chess, diplomacy, etc.
+If there were such a game that was not strictly turn-based it might be possible for multiple players to make conflicting moves concurrently.
+
+Consider a political advocacy group that was sending volunteers out to talk with people at their homes.
+Perhaps the volunteers could use smartphones to record which homes they visited, and before knocking on a door a user wants to be fairly sure that no other volunteer has visited that home before.
+
 
 For example, consider a resource reservation system; two teammates should not be able to reserve the same resource for overlapping times.
 
