@@ -2,20 +2,20 @@
 
 /* Top Matter */
 
-import assert from "../../Source/Utilities/assert.mjs";
-import * as K from "../../Source/Utilities/keyword.mjs";
-import * as A from "../../Source/Database/attribute.mjs";
+import assert  from "../../Source/Utilities/assert.mjs";
+import * as K  from "../../Source/Utilities/keyword.mjs";
+import * as A  from "../../Source/Database/attribute.mjs";
 import * as DT from "../../Source/Database/transaction.mjs";
-import SM       from "../../Source/Storage/in_memory.mjs";
+import SM      from "../../Source/Storage/in_memory.mjs";
 import * as SC from "../../Source/Storage/common.mjs";
 import * as ST from "../../Source/Storage/tree.mjs";
 
-import * as Q from "../../Source/Database/query.mjs";
+import * as Q  from "../../Source/Database/query.mjs";
 import * as DB from "../../Source/Database/simple_txn_chain.mjs";
 
 import * as TU from "./utils.mjs";
 
-import T from "transit-js";
+import T       from "transit-js";
 
 async function main()
 {
@@ -25,7 +25,14 @@ async function main()
 async function test_01_rewind()
 {
     let [ db, retrieve_root ] = await TU.setup();
-    let db2 = await DB.commitTxn( db, [ [ DT.addK, "chad", K.key(":name"), "Chadictionary" ] ] );
+    let db2 = await DB.commitTxn(
+        db, 
+        [
+            [
+                DT.addK, "chad", K.key(":name"), "Chadictionary"
+            ]
+        ]
+    );
     const q = Q.parseQuery(
         [
             Q.findK, "?name",
@@ -38,6 +45,7 @@ async function test_01_rewind()
     );
     const res = await Q.runQuery( db2, q );
     assert( res.length === 1 );
+    // rewind one transaction
     let db3 = await DB.traverseHistory( db2, 1 );
     const res2 = await Q.runQuery( db3, q );
     assert( res2.length === 0);
@@ -68,8 +76,8 @@ async function test_02_udf()
     let [ db, retrieve_root ] = await TU.setup();
     let db2 = await DB.commitTxn( db,
         [
-            [ DT.addK, "newfunc", A.identK,              subtractK       ],
-            [ DT.addK, "newfunc", A.functionK,           subtract        ],
+            [ DT.addK, "newfunc", A.identK,          subtractK       ],
+            [ DT.addK, "newfunc", A.functionK,       subtract        ],
             [ DT.addK, "layla",   K.key( ":money" ), 50              ],
             [ DT.addK, "layla",   K.key( ":name" ),  "Laytictioscopy"]
         ]
