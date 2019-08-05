@@ -7,6 +7,7 @@
 import RL   from "readline";
 import Peer from "simple-peer";
 import wrtc from "wrtc";
+import Stopwatch from "statman-stopwatch";
 
 function promiseRR()
 {
@@ -47,6 +48,7 @@ async function connect( peer_obj )
 
 async function main()
 {
+    let stopwatch = new Stopwatch();
     console.log( process.argv );
     const am_initiator = process.argv[ 2 ] === "initiator";
 
@@ -57,15 +59,17 @@ async function main()
     );
 
     p.on( "data", async data => {
-        console.log( "data:" + data );
-        const s = await question( "Say something:" );
-        if( s === "quit" )
-        {
-            p.destroy();
+        data = data.toString();
+        if (data === "Ping"){
+          p.send("Pong")
         }
-        else
-        {
-            p.send( s );
+        else if (data=== "Pong"){
+          let time = stopwatch.stop();
+          console.log("It took ",time," milliseconds for wrtc ping pong");
+
+        }
+        else{
+          console.log("error");
         }
     } );
 
@@ -80,7 +84,8 @@ async function main()
         const acceptor_sdp = await question( "Acceptor SDP? " );
         p.signal( JSON.parse( acceptor_sdp ) );
         await connect( p );
-        p.send( await question( "Say something:" ) );
+        stopwatch.start();
+        p.send( "Ping" );
     }
     else
     {
