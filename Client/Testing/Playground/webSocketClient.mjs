@@ -27,6 +27,7 @@ function startup(){
         const am_initiator = process.argv[ 2 ] === "initiator";
         if (am_initiator){
           ws.on('message', function incoming(data) {
+            console.log(message, "  ", counter);
             parseInitiatorMessage(data,ws);
           });
         }
@@ -63,11 +64,11 @@ function printTime(){
 function parseInitiatorMessage(message,ws){
   let pos = message.indexOf("new:");
   if (!(pos===-1)){
-    console.log("entered  ",counter);
     theirAlias = message.slice(4);
     watch.start();
     ws.send(`${theirAlias}:PING-${myAlias}`);
     ws.on('message', function incoming(data) {
+      console.log(message, "  ", counter);
       pos = message.indexOf("PONG")
       if(!(pos===-1)){
         let msTime = watch.stop();
