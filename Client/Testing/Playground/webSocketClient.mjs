@@ -48,7 +48,6 @@ function resetTime(counter){
     watch.reset();
     watch.start();
     ws.send(`${alias}:PING-${myAlias}`);
-    return counter++;
   }
   else{
     printTime()
@@ -73,7 +72,8 @@ function parseInitiatorMessage(message,ws){
       if(!(pos===-1)){
         let msTime = watch.stop();
         timeArr[counter] = msTime;
-        counter = resetTime(counter)
+        counter = counter+1;
+        resetTime(counter)
       }
       else {
         console.log("something went wrong with Pong message  ",counter);
