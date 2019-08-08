@@ -68,7 +68,8 @@ function parseInitiatorMessage(message,ws){
     ws.send(`${theirAlias}:PING-${myAlias}`);
     ws.on('message', function incoming(data) {
       console.log(message, "  ", counter);
-      pos = message.indexOf("PONG")
+      let newPos = message.indexOf("PONG")
+      console.log(newPos,"this is pos")
       if(!(pos===-1)){
         let msTime = watch.stop();
         timeArr[counter] = msTime;
