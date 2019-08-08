@@ -16,15 +16,19 @@
         "googleapis": "^39.2.0",
         "hi-base32": "^0.3.0",
         "isomorphic-fetch": "^2.2.1",
+        "level": "^5.0.1",
         "multiparty": "^4.2.1",
         "node-getopt": "^0.3.2",
         "node-webcrypto-ossl": "^1.0.45",
         "path-browserify": "^1.0.0",
         "serve-static": "^1.14.1",
+        "simple-peer": "^9.4.0",
         "sqlite3": "^4.0.8",
+        "statman-stopwatch": "^2.8.2",
         "text-encoder": "0.0.3",
         "text-encoding": "^0.6.4",
-        "transit-js": "^0.8.861"
+        "transit-js": "^0.8.861",
+        "wrtc": "^0.4.1"
     },
     "devDependencies": {
         "eslint": "^4.19.1"
