@@ -47,7 +47,7 @@ function resetTime(counter){
   if(counter<100){
     watch.reset();
     watch.start();
-    ws.send(`${alias}:PING-${myAlias}`);
+    ws.send(`${theirAlias}:PING-${myAlias}`);
   }
   else{
     printTime()
