@@ -63,7 +63,7 @@ function printTime(){
 function parseInitiatorMessage(message,ws){
   let pos = message.indexOf("new:");
   if (!(pos===-1)){
-    console.log("entered");
+    console.log("entered  ",counter);
     theirAlias = message.slice(4);
     watch.start();
     ws.send(`${theirAlias}:PING-${myAlias}`);
@@ -75,12 +75,12 @@ function parseInitiatorMessage(message,ws){
         counter = resetTime(counter)
       }
       else {
-        console.log("something went wrong with Pong message");
+        console.log("something went wrong with Pong message  ",counter);
       }
     });
   }
   else{
-    console.log("something went wrong with new: message");
+    console.log("something went wrong with new: message  ",counter);
   }
 }
 
