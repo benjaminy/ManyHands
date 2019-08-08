@@ -44,14 +44,22 @@ async function main(){
   }
   const meta = s.watch(theirFileLink,watchOptions);//watch set
   const sw = new Stopwatch();
+  var timeArr = new Array(100);
   if (am_initiator){
-    sw.start();
-    await s.upload(myFileLink, data, options)//if the initiator, upload to your file so that it triggers the timing
-    const watchMeta = await meta;
-    let time = sw.stop();
-    console.log(watchMeta);
-    if( am_initiator &&watchMeta === "file-changed" ){
-      console.log("Longpoll watching ping pong took ",time," milliseconds to complete");
+    for (var i = 0; i<100; i++)
+    {
+      sw.reset();
+      sw.start();
+      await s.upload(myFileLink, data, options)//if the initiator, upload to your file so that it triggers the timing
+      const watchMeta = await meta;
+      let time = sw.stop();
+      console.log(watchMeta);
+      if( am_initiator &&watchMeta === "file-changed" ){
+        timeArr[i] = time;
+      }
+    }
+    for (var j = 0; j<100;j++){
+      console.log(timeArr[j], "     ", j+1);
     }
   }
   if (!(am_initiator)){
