@@ -31,7 +31,7 @@ function startup(){
           });
         }
         if(!(am_initiator)){
-          ws.on('message', function incoming(data)){
+          ws.on('message', function incoming(data){
               parseNonInitMessage(data,ws)
           });
         }
