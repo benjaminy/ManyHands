@@ -79,7 +79,7 @@ function parseInitiatorMessage(message,ws){
     });
   }
   else{
-    Console.log("something went wrong with new: message");
+    console.log("something went wrong with new: message");
   }
 }
 
