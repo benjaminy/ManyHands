@@ -63,6 +63,7 @@ function printTime(){
 function parseInitiatorMessage(message,ws){
   let pos = message.indexOf("new:");
   if (!(pos===-1)){
+    console.log("entered");
     theirAlias = message.slice(4);
     watch.start();
     ws.send(`${theirAlias}:PING-${myAlias}`);
