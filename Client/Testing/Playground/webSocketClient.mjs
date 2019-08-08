@@ -27,7 +27,7 @@ function startup(){
         const am_initiator = process.argv[ 2 ] === "initiator";
         if (am_initiator){
           ws.on('message', function incoming(data) {
-            console.log(message, "  ", counter);
+            console.log(data, "  ", counter);
             parseInitiatorMessage(data,ws);
           });
         }
