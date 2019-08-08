@@ -78,8 +78,7 @@ function parseInitiatorMessage(message,ws){
         console.log("something went wrong with Pong message  ",counter);
       }
     });
-  }
-  else{
+  } else{
     console.log("something went wrong with new: message  ",counter);
   }
 }
