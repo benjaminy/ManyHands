@@ -86,7 +86,7 @@ function parseInitiatorMessage(message,ws){
 
 
 function parseNonInitMessage(message,ws){
-  pos = message.indexOf("PING-");
+  let pos = message.indexOf("PING-");
   if (!(pos===-1)){
     let returnAlias = message.slice(pos+5);
     ws.send(`${returnAlias}:PONG`);
