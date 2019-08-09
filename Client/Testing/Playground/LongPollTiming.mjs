@@ -1,7 +1,7 @@
 import * as SC from "../../Source/Storage/common.mjs";
 import * as UT from "../../Source/Utilities/transit.mjs";
 import SimpleC      from "../../Source/Storage/simple_cloud_client.mjs";
-import Stopwatch from "statman-stopwatch";
+import Stopwatch from "./Stopwatch.mjs";
 import RL   from "readline";
 import T from "transit-js";
 
@@ -20,7 +20,6 @@ async function main(){
   data.set( "a", "42" );
   data.set( "b", 42 );
 
-  console.log( process.argv );
   const am_initiator = process.argv[ 3 ] === "initiator";
 
   let myFileLink;
@@ -53,13 +52,12 @@ async function main(){
       await s.upload(myFileLink, data, options)//if the initiator, upload to your file so that it triggers the timing
       const watchMeta = await meta;
       let time = sw.stop();
-      console.log(watchMeta);
       if( am_initiator &&watchMeta === "file-changed" ){
         timeArr[i] = time;
       }
     }
     for (var j = 0; j<100;j++){
-      console.log(timeArr[j], "     ", j+1);
+      console.log(timeArr[j]);
     }
   }
   if (!(am_initiator)){

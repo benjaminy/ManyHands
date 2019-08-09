@@ -1,6 +1,13 @@
 import WebSocket from "ws";
 import readline from "readline";
-import Stopwatch from "statman-stopwatch";
+import Stopwatch from "./Stopwatch.mjs";
+
+//[to, from, message, type]
+const TO = 0;
+const FROM = 1;
+const MESS = 2;
+const TYPE = 3;
+
 let rl;
 let ws;
 let myAlias;
@@ -8,6 +15,8 @@ let theirAlias;
 const watch = new Stopwatch();
 let timeArr = new Array(100);
 let counter = 0;
+
+
 
 function startup(){
   rl = readline.createInterface({
@@ -21,21 +30,27 @@ function startup(){
       rl.question('What is your alias name!\n', (answer) => {
         myAlias = answer;
         ws = new WebSocket(`ws://${dest}`);
+
         ws.on('open', function open() {
-          ws.send(`${myAlias}:`);
+          var msg = JSON.stringify([undefined,myAlias,undefined,"start"])
+          ws.send(msg);
         });
         const am_initiator = process.argv[ 2 ] === "initiator";
         if (am_initiator){
-          ws.on('message', function incoming(data) {
-            console.log(data, "  ", counter);
-            parseInitiatorMessage(data,ws);
+          ws.on("message",function incoming(data) {
+            let message = JSON.parse(data);
+            parseInitiatorMessage(message,ws);
           });
         }
         if(!(am_initiator)){
           ws.on('message', function incoming(data){
-              parseNonInitMessage(data,ws)
+            let message = JSON.parse(data);
+            parseNonInitMessage(message,ws)
           });
         }
+        ws.on('close', function close() {
+          console.log('disconnected');
+        });
       });
     });
   }
@@ -43,14 +58,40 @@ function startup(){
   }
 }
 
-function resetTime(counter){
-  if(counter<100){
-    watch.reset();
-    watch.start();
-    ws.send(`${theirAlias}:PING-${myAlias}`);
+function parseInitiatorMessage(message,ws){
+  if(counter<100)
+  {
+    let mess = message[MESS];
+    let type = message[TYPE];
+    if(type === "new"){
+      theirAlias = mess;
+      let newMess = JSON.stringify([theirAlias,myAlias,"PING","norm"]);
+      watch.start();
+      ws.send(newMess);
+    }
+    if (type === "norm" && mess === "PONG"){
+      let time = watch.stop();
+      timeArr[counter] = time;
+      watch.reset();
+      counter = counter+1;
+      let newMess = JSON.stringify([theirAlias,myAlias,"PING","norm"]);
+      watch.start();
+      ws.send(newMess);
+    }
   }
   else{
-    printTime()
+    printTime();
+  }
+}
+
+function parseNonInitMessage(message,ws){
+  let type = message[TYPE];
+  theirAlias = message[FROM];
+  let mess = message[MESS];
+
+  if(type === "norm" && mess === "PING"){
+    let newMessage = JSON.stringify([theirAlias, myAlias,"PONG","norm"]);
+    ws.send(newMessage);
   }
 }
 
@@ -60,42 +101,4 @@ function printTime(){
   }
 }
 
-function parseInitiatorMessage(message,ws){
-  let pos = message.indexOf("new:");
-  if (!(pos===-1)){
-    theirAlias = message.slice(4);
-    watch.start();
-    ws.send(`${theirAlias}:PING-${myAlias}`);
-    ws.on('message', function incoming(data) {
-      console.log(message, "  ", counter);
-      let newPos = message.indexOf("PONG")
-      console.log(newPos,"this is pos")
-      if(!(pos===-1)){
-        let msTime = watch.stop();
-        timeArr[counter] = msTime;
-        counter = counter+1;
-        resetTime(counter)
-      }
-      else {
-        console.log("something went wrong with Pong message  ",counter);
-      }
-    });
-  } else{
-    console.log("something went wrong with new: message  ",counter);
-  }
-}
-
-
-
-function parseNonInitMessage(message,ws){
-  let pos = message.indexOf("PING-");
-  if (!(pos===-1)){
-    let returnAlias = message.slice(pos+5);
-    ws.send(`${returnAlias}:PONG`);
-  }
-  if (pos===-1)
-  {
-    console.log("Error",message);
-  }
-}
 startup();

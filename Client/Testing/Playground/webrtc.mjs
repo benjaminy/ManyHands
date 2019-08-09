@@ -7,7 +7,7 @@
 import RL   from "readline";
 import Peer from "simple-peer";
 import wrtc from "wrtc";
-import Stopwatch from "statman-stopwatch";
+import Stopwatch from "./Stopwatch.mjs";
 
 function promiseRR()
 {
@@ -46,8 +46,16 @@ async function connect( peer_obj )
     return await p;
 }
 
+function printTime(timeArr){
+  for(var l = 0; l<100;l++){
+    console.log(timeArr[l]);
+  }
+}
+
 async function main()
 {
+    let timeArr = new Array(100);
+    let counter = 0;
     let stopwatch = new Stopwatch();
     console.log( process.argv );
     const am_initiator = process.argv[ 2 ] === "initiator";
@@ -64,9 +72,18 @@ async function main()
           p.send("Pong")
         }
         else if (data=== "Pong"){
-          let time = stopwatch.stop();
-          console.log("It took ",time," milliseconds for wrtc ping pong");
-
+          if(counter<100)
+          {
+            let time = stopwatch.stop();
+            timeArr[counter] = time;
+            counter = counter+1;
+            stopwatch.reset();
+            stopwatch.start();
+            p.send("Ping");
+          }
+          else{
+            printTime(timeArr);
+          }
         }
         else{
           console.log("error");
