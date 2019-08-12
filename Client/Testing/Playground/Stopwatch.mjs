@@ -12,8 +12,9 @@ export default function init(){
   }
 
   function stop(){
-    endTime = process.hrtime();
-    return (endTime[0]+endTime[1]/1000000) - (startTime[0]+startTime[1]/1000000);
+    endTime = process.hrtime.bigint();
+    return endTime-startTime;
+    //(endTime[0]+endTime[1]/1000000) - (startTime[0]+startTime[1]/1000000);
   }
 
   function start(){
@@ -21,7 +22,7 @@ export default function init(){
       throw Error("Cant start an already started watch");
     }
     else if(!isStarted){
-      startTime = process.hrtime();
+      startTime = process.hrtime.bigint();
     }
   }
 
