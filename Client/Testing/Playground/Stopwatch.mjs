@@ -2,10 +2,10 @@
 
 export default function init(){
 
-  let startTime = [NaN,NaN];
+  let startTime = null;
   let isStarted = false;
 
-  let endTime = [NaN,NaN];
+  let endTime = null;
 
   function print(){
     console.log(isStarted,"  ",startTime[0]+startTime[1]/1000000,"  ",endTime[0]+endTime[1]/1000000)
@@ -26,12 +26,13 @@ export default function init(){
   }
 
   function reset(){
-    startTime = [NaN,NaN];
+    startTime = null;
     isStarted = false;
-    endTime = [NaN,NaN];
+    endTime = null;
   }
 
   return {
+    print:print,
     reset: reset,
     start: start,
     stop: stop
