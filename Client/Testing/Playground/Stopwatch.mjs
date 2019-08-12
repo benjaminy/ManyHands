@@ -7,6 +7,10 @@ export default function init(){
 
   let endTime = [NaN,NaN];
 
+  function print(){
+    console.log(isStarted,"  ",startTime[0]+startTime[1]/1000000,"  ",endTime[0]+endTime[1]/1000000)
+  }
+
   function stop(){
     endTime = process.hrtime();
     return (endTime[0]+endTime[1]/1000000) - (startTime[0]+startTime[1]/1000000);
