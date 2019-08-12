@@ -41,18 +41,19 @@ async function main(){
     etag: `${etag}`,
     timeoutLength: 20
   }
-  const meta = s.watch(theirFileLink,watchOptions);//watch set
+
   const sw = new Stopwatch();
   var timeArr = new Array(100);
   if (am_initiator){
     for (var i = 0; i<100; i++)
     {
+      const meta = s.watch(theirFileLink,watchOptions);//watch set
       sw.reset();
       sw.start();
       await s.upload(myFileLink, data, options)//if the initiator, upload to your file so that it triggers the timing
       const watchMeta = await meta;
       let time = sw.stop();
-      if( am_initiator &&watchMeta === "file-changed" ){
+      if(watchMeta === "file-changed" ){
         timeArr[i] = time;
       }
     }
@@ -61,9 +62,15 @@ async function main(){
     }
   }
   if (!(am_initiator)){
-    const watchMeta = await meta;
-    if (watchMeta === "file-changed"){
-      await s.upload(myFileLink, data, options)
+    let wCounter = 0;
+    while(wCounter<100)
+    {
+      const meta = s.watch(theirFileLink,watchOptions);//watch set
+      const watchMeta = await meta;
+      if (watchMeta === "file-changed"){
+        wCounter ++;
+        await s.upload(myFileLink, data, options)
+      }
     }
   }
 }
