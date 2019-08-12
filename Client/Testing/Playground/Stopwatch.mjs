@@ -8,12 +8,13 @@ export default function init(){
   let endTime = null;
 
   function print(){
-    console.log(isStarted,"  ",startTime[0]+startTime[1]/1000000,"  ",endTime[0]+endTime[1]/1000000)
+    console.log(isStarted,"  ",startTime,"  ",endTime);
   }
 
   function stop(){
     endTime = process.hrtime.bigint();
-    return endTime-startTime;
+    let diff = endTime-startTime;
+    return Number(diff/1000n)/1000;
     //(endTime[0]+endTime[1]/1000000) - (startTime[0]+startTime[1]/1000000);
   }
 
