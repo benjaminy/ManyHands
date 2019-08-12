@@ -1,6 +1,6 @@
-import * as SC from "../../Source/Storage/common.mjs";
-import * as UT from "../../Source/Utilities/transit.mjs";
-import SimpleC      from "../../Source/Storage/simple_cloud_client.mjs";
+import * as SC from "../Client/Source/Storage/common.mjs";
+import * as UT from "../Client/Source/Utilities/transit.mjs";
+import SimpleC      from "../Client/Source/Storage/simple_cloud_client.mjs";
 import Stopwatch from "./Stopwatch.mjs";
 import RL   from "readline";
 import T from "transit-js";
@@ -57,9 +57,7 @@ async function main(){
         timeArr[i] = time;
       }
     }
-    for (var j = 0; j<100;j++){
-      console.log(timeArr[j]);
-    }
+    printTime(timeArr);
   }
   if (!(am_initiator)){
     let wCounter = 0;
@@ -72,6 +70,12 @@ async function main(){
         await s.upload(myFileLink, data, options)
       }
     }
+  }
+}
+
+function printTime(timeArr){
+  for (var j = 0; j<100;j++){
+    console.log(timeArr[j]);
   }
 }
 

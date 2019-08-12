@@ -71,7 +71,6 @@ function parseInitiatorMessage(message,ws){
     }
     if (type === "norm" && mess === "PONG"){
       let time = watch.stop();
-      watch.print();
       timeArr[counter] = time;
       watch.reset();
       counter = counter+1;
