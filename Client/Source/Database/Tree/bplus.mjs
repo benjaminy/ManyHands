@@ -159,31 +159,37 @@ export async function construct( root, data, ...sorts )
     }
     for( let datom of data )
     {
-        const nodes = await insertIntoNode( root, datom, sorts ); 
-        console.log("NODESSSS", nodes);
-        assert( nodes.length > 0 );
-        if( nodes.length === 1 )
-        {
-            root = nodes[ 0 ];
-        }
-        else
-        {
-            // deal with the case where
-            // our root has split
-            root = ST.newNode();
-            root = ST.setValue( root, kLeaf, false );
-            let [left, right] = nodes;
-            const indices = [ await getMinimum( right ) ];
-            ST.setValue( root, kIndex, indices );
-            const zeroth = T.map();
-            zeroth.set( kPointer, 0 );
-            ST.setChild( root, zeroth, left );
-            const first = T.map();
-            first.set( kPointer, 1 );
-            ST.setChild( root, first, right );
-        }
+        root = insertIntoRoot( root, datom, sorts );
     }
     return root;
+}
+
+async function insertIntoRoot( root, datom, sorts )
+{
+    const nodes = await insertIntoNode( root, datom, sorts ); 
+    assert( nodes.length > 0 );
+    if( nodes.length === 1 )
+    {
+        root = nodes[ 0 ];
+    }
+    else
+    {
+        // deal with the case where
+        // our root has split
+        root = ST.newNode();
+        root = ST.setValue( root, kLeaf, false );
+        let [left, right] = nodes;
+        const indices = [ await getMinimum( right ) ];
+        ST.setValue( root, kIndex, indices );
+        const zeroth = T.map();
+        zeroth.set( kPointer, 0 );
+        ST.setChild( root, zeroth, left );
+        const first = T.map();
+        first.set( kPointer, 1 );
+        ST.setChild( root, first, right );
+    }
+    return root;
+
 }
 
 async function getMinimum( node )
@@ -229,7 +235,11 @@ async function insertIntoLeaf( node, datom, sorts )
             break;
         }
     }
-    const newDatoms = [...datoms.slice( 0, idx ), datom, ...datoms.slice( idx )];
+    const newDatoms = [
+        ...datoms.slice( 0, idx ),
+        datom,
+        ...datoms.slice( idx )
+    ];
     if( newDatoms.length >= WIDTH )
     {
         // time to split!
@@ -252,16 +262,20 @@ async function insertIntoLeaf( node, datom, sorts )
 
 async function insertIntoNode( node, datom, sorts )
 {
+    console.log("INSERT INTO NODE:", node.toString(), datom);
     // if it is a leaf
     let leaf = ST.getValue( node, kLeaf );
     if( leaf ){
         return insertIntoLeaf( node, datom, sorts );
         // returns a promise
     }
+
+    // DEBUG
     console.log("PRINTING NODE (NOT A LEAF)");
     console.log("INDICES:", ST.getValue( node, kIndex ));
     console.log("ALL THE CHILDREN:");
-    for( let i = 0; true; i++ ){
+    for( let i = 0; true; i++ )
+    {
         let ident = T.map();
         ident.set( kPointer, i );
         try
@@ -274,10 +288,12 @@ async function insertIntoNode( node, datom, sorts )
             break;
         }
     }
+    // END DEBUG
+
     // the saved indices of the node
     const indices = ST.getValue( node, kIndex );
-    let idx = 0; // init outside for scope
-    for( ; idx < indices.length; idx++ )
+    let idx; // declare outside for scope
+    for( idx = 0; idx < indices.length; idx++ )
     {
         // locate an appropriate position
         // for the datom we're inserting
@@ -300,11 +316,18 @@ async function insertIntoNode( node, datom, sorts )
     let pop;
     let ident = T.map();
     ident.set( kPointer, idx );
+    console.log("node ts", node.toString(), idx);
     const insert = await ST.getChild( node, ident );
     const nodes = await insertIntoNode( insert, datom, sorts );
     if( nodes.length === 1 )
     {
-        ST.setChild( node, ident, nodes[ 0 ] );
+        node = ST.setChild( node, ident, nodes[ 0 ] );
+        // update indices
+        const min = await getMinimum( nodes[ 0 ] );
+        const newIndices = [ ...indices ];
+        newIndices.splice( idx, 1, min );
+        console.log( "created indices", newIndices, indices );
+        node = ST.setValue( node, kIndex, newIndices );
         return [ node ];
     }
     else

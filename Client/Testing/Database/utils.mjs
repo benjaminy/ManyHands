@@ -56,7 +56,7 @@ export async function setup(){
     db = await DB.commitTxn( db, [ ...name_insert, ...money_insert, ...likes_insert ] );
 
     ST.setChild( root, "the database", db.node );
-    const r2 = await ST.writeTree( root );    
+    const r2 = await ST.writeTree( root );
     const r3 = await retrieve_root();
     const retrieved_raw = await ST.getChild( r3, "the database" );
     const retrieved_db = DB.wrapDB( retrieved_raw );

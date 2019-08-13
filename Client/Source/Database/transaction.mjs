@@ -81,7 +81,7 @@ export async function processTxn( db, stmts )
      */
     function normalizeValue( attribute, value )
     {
-        if( attribute.builtin === true ){
+        if( attribute.builtin ){
             if( T.equals( attribute.ident, A.functionK ) ){
                 if( typeof( value ) === "function" ){
                     return value.toString();
