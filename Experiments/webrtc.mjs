@@ -8,6 +8,7 @@ import RL   from "readline";
 import Peer from "simple-peer";
 import wrtc from "wrtc";
 import Stopwatch from "./Stopwatch.mjs";
+import fs from "file-system";
 
 function promiseRR()
 {
@@ -47,14 +48,14 @@ async function connect( peer_obj )
 }
 
 function printTime(timeArr){
-  for(var l = 0; l<100;l++){
-    console.log(timeArr[l]);
-  }
+  let JSONarr = JSON.stringify(timeArr);
+  fs.writeFileSync(`./Data/webrtcTiming[Enter].json`, JSONarr);
+
 }
 
 async function main()
 {
-    let timeArr = new Array(100);
+    let timeArr = new Array(1000);
     let counter = 0;
     let stopwatch = new Stopwatch();
     console.log( process.argv );
@@ -72,7 +73,7 @@ async function main()
           p.send("Pong")
         }
         else if (data=== "Pong"){
-          if(counter<100)
+          if(counter<1000)
           {
             let time = stopwatch.stop();
             timeArr[counter] = time;

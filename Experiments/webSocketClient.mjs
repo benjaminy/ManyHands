@@ -1,6 +1,10 @@
+#!/usr/bin/env node --experimental-modules
+
+
 import WebSocket from "ws";
 import readline from "readline";
 import Stopwatch from "./Stopwatch.mjs";
+import fs from "file-system";
 
 //[to, from, message, type]
 const TO = 0;
@@ -13,8 +17,9 @@ let ws;
 let myAlias;
 let theirAlias;
 const watch = new Stopwatch();
-let timeArr = new Array(100);
+let timeArr = new Array(1000);
 let counter = 0;
+let host;
 
 
 
@@ -23,34 +28,34 @@ function startup(){
     input: process.stdin,
     output: process.stdout
   });
-  let dest;
-  try{
-    rl.question('What is the ip and port of your server in ip:port format\n', (answer) => {
-      dest = answer;
-      rl.question('What is your alias name!\n', (answer) => {
-        myAlias = answer;
-        ws = new WebSocket(`ws://${dest}`);
 
-        ws.on('open', function open() {
-          var msg = JSON.stringify([undefined,myAlias,undefined,"start"])
-          ws.send(msg);
+  host = process.argv[2];
+  let port = process.argv[3];
+  let dest = host+":"+port
+  try{
+    rl.question('What is your alias name!\n', (answer) => {
+      myAlias = answer;
+      ws = new WebSocket(`ws://${dest}`);
+
+      ws.on('open', function open() {
+        var msg = JSON.stringify([undefined,myAlias,undefined,"start"])
+        ws.send(msg);
+      });
+      const am_initiator = process.argv[4] === "initiator";
+      if (am_initiator){
+        ws.on("message",function incoming(data) {
+          let message = JSON.parse(data);
+          parseInitiatorMessage(message,ws);
         });
-        const am_initiator = process.argv[ 2 ] === "initiator";
-        if (am_initiator){
-          ws.on("message",function incoming(data) {
-            let message = JSON.parse(data);
-            parseInitiatorMessage(message,ws);
-          });
-        }
-        if(!(am_initiator)){
-          ws.on('message', function incoming(data){
-            let message = JSON.parse(data);
-            parseNonInitMessage(message,ws)
-          });
-        }
-        ws.on('close', function close() {
-          console.log('disconnected');
+      }
+      if(!(am_initiator)){
+        ws.on('message', function incoming(data){
+          let message = JSON.parse(data);
+          parseNonInitMessage(message,ws)
         });
+      }
+      ws.on('close', function close() {
+        console.log('disconnected');
       });
     });
   }
@@ -59,7 +64,7 @@ function startup(){
 }
 
 function parseInitiatorMessage(message,ws){
-  if(counter<100)
+  if(counter<1000)
   {
     let mess = message[MESS];
     let type = message[TYPE];
@@ -96,8 +101,14 @@ function parseNonInitMessage(message,ws){
 }
 
 function printTime(){
-  for(var l = 0; l<100;l++){
-    console.log(timeArr[l]);
+  let JSONarr = JSON.stringify(timeArr);
+  let local = host==="localhost";
+  if (local)
+  {
+    fs.writeFileSync(`./Data/webSocketLocal.json`, JSONarr);
+  }
+  else {
+    fs.writeFileSync("./Data/webSocketGlobal.json",JSONarr)
   }
 }
 

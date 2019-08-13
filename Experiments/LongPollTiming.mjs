@@ -1,15 +1,24 @@
+#!/usr/bin/env node --experimental-modules
+
+
 import * as SC from "../Client/Source/Storage/common.mjs";
 import * as UT from "../Client/Source/Utilities/transit.mjs";
 import SimpleC      from "../Client/Source/Storage/simple_cloud_client.mjs";
 import Stopwatch from "./Stopwatch.mjs";
 import RL   from "readline";
 import T from "transit-js";
+import fs from "file-system";
+
 
 let initiatorPath = "t12";
 let nonInitPath = "t13";
+let local = false;
 
 async function main(){
   const hostname = process.argv[ 2 ]
+  if (hostname === "localhost"){
+    local = true;
+  }
   let options_init = {
     host: `${hostname}`
   }
@@ -43,9 +52,9 @@ async function main(){
   }
 
   const sw = new Stopwatch();
-  var timeArr = new Array(100);
+  let timeArr = new Array(1000);
   if (am_initiator){
-    for (var i = 0; i<100; i++)
+    for (var i = 0; i<1000; i++)
     {
       const meta = s.watch(theirFileLink,watchOptions);//watch set
       sw.reset();
@@ -55,13 +64,15 @@ async function main(){
       let time = sw.stop();
       if(watchMeta === "file-changed" ){
         timeArr[i] = time;
+        console.log("Saved time ", i);
       }
     }
+    console.log("finished");
     printTime(timeArr);
   }
   if (!(am_initiator)){
     let wCounter = 0;
-    while(wCounter<100)
+    while(wCounter<1000)
     {
       const meta = s.watch(theirFileLink,watchOptions);//watch set
       const watchMeta = await meta;
@@ -74,9 +85,16 @@ async function main(){
 }
 
 function printTime(timeArr){
-  for (var j = 0; j<100;j++){
-    console.log(timeArr[j]);
+  let JSONarr = JSON.stringify(timeArr);
+
+  if (local)
+  {
+    fs.writeFileSync(`./Data/longPollTimingLocal.json`, JSONarr);
   }
+  else {
+    fs.writeFileSync("./Data/longPollTimingGLobal.json",JSONarr)
+  }
+
 }
 
 function promiseRR()
