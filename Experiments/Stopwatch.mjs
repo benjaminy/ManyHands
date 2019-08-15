@@ -14,6 +14,7 @@ export default function init(){
   function stop(){
     endTime = process.hrtime.bigint();
     let diff = endTime-startTime;
+    isStarted = false;
     return Number(diff/1000n)/1000;
     //(endTime[0]+endTime[1]/1000000) - (startTime[0]+startTime[1]/1000000);
   }
@@ -24,6 +25,7 @@ export default function init(){
     }
     else if(!isStarted){
       startTime = process.hrtime.bigint();
+      isStarted= true;
     }
   }
 

@@ -105,10 +105,10 @@ function printTime(){
   let local = host==="localhost";
   if (local)
   {
-    fs.writeFileSync(`./Data/webSocketLocal.json`, JSONarr);
+    fs.writeFileSync(`./Experiments/Data/webSocketLocal.json`, JSONarr);
   }
   else {
-    fs.writeFileSync("./Data/webSocketGlobal.json",JSONarr)
+    fs.writeFileSync("./Experiments/Data/webSocketGlobal.json",JSONarr)
   }
 }
 

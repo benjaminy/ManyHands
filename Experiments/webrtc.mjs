@@ -49,8 +49,8 @@ async function connect( peer_obj )
 
 function printTime(timeArr){
   let JSONarr = JSON.stringify(timeArr);
-  fs.writeFileSync(`./Data/webrtcTiming[Enter].json`, JSONarr);
-
+  fs.writeFileSync(`./Experiments/Data/webrtcTiming[Enter].json`, JSONarr);
+  console.log("done");
 }
 
 async function main()

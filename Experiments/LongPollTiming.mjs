@@ -56,11 +56,14 @@ async function main(){
   if (am_initiator){
     for (var i = 0; i<1000; i++)
     {
+      console.log('setting watch and starting stopwtach');
       const meta = s.watch(theirFileLink,watchOptions);//watch set
       sw.reset();
       sw.start();
       await s.upload(myFileLink, data, options)//if the initiator, upload to your file so that it triggers the timing
+      console.log("finished uploading");
       const watchMeta = await meta;
+      console.log("got back watch info!  ",watchMeta ," and stopping stopwatch");
       let time = sw.stop();
       if(watchMeta === "file-changed" ){
         timeArr[i] = time;
@@ -71,14 +74,16 @@ async function main(){
     printTime(timeArr);
   }
   if (!(am_initiator)){
-    let wCounter = 0;
-    while(wCounter<1000)
+    let watchMeta = await s.watch(theirFileLink,watchOptions);
+    for(let j = 0;j<1000;j++)
     {
-      const meta = s.watch(theirFileLink,watchOptions);//watch set
-      const watchMeta = await meta;
+      console.log("setting watch");
+      let meta = s.watch(theirFileLink,watchOptions);//watch setA
+      console.log("got back watch!, ",watchMeta);
       if (watchMeta === "file-changed"){
-        wCounter ++;
         await s.upload(myFileLink, data, options)
+        watchMeta= await meta;
+        console.log("finished uploading");
       }
     }
   }
@@ -86,13 +91,13 @@ async function main(){
 
 function printTime(timeArr){
   let JSONarr = JSON.stringify(timeArr);
-
+  console.log("arrived");
   if (local)
   {
-    fs.writeFileSync(`./Data/longPollTimingLocal.json`, JSONarr);
+    fs.writeFileSync(`./Experiments/Data/longPollTimingLocal.json`, JSONarr);
   }
   else {
-    fs.writeFileSync("./Data/longPollTimingGLobal.json",JSONarr)
+    fs.writeFileSync("./Experiments/Data/longPollTimingGLobal.json",JSONarr)
   }
 
 }
